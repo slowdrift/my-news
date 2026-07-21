@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マイニュース</title>
+<style>
+  :root {
+    --bg:#f3f4f6; --card:#fff; --ink:#111827; --sub:#6b7280;
+    --line:#e5e7eb; --accent:#2563eb; --cat:#2563eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    line-height: 1.5; -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 14px 48px; }
+  header { padding: 20px 4px 6px; }
+  header h1 { font-size: 21px; margin: 0; letter-spacing: .02em; }
+  header .meta-head { color: var(--sub); font-size: 12px; margin-top: 4px; }
+
+  /* カテゴリ（大見出し・折りたたみ）。--cat はカテゴリ色。 */
+  details.cat { margin: 22px 0 4px; }
+  details.cat > summary {
+    font-size: 12px; font-weight: 800; letter-spacing: .08em; color: var(--cat);
+    cursor: pointer; list-style: none; padding: 4px 2px 8px;
+    display: flex; align-items: center; gap: 6px;
+    border-bottom: 2px solid var(--cat);
+  }
+  details.cat > summary::-webkit-details-marker { display: none; }
+  details.cat > summary::before { content: "▾"; font-size: 11px; }
+  details.cat:not([open]) > summary::before { content: "▸"; }
+  details.cat > summary .catcount {
+    margin-left: auto; font-weight: 700; color: var(--cat);
+    font-size: 11px; letter-spacing: 0;
+  }
+  details.cat > .body { padding-top: 6px; }
+
+  /* テーマ（中見出し） */
+  .group { margin: 16px 0 10px; }
+  .ghead { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; }
+  .ghead .gname {
+    font-size: 16px; font-weight: 700;
+    border-left: 3px solid var(--cat); padding-left: 8px;
+  }
+  .ghead .gcount { font-size: 11px; color: var(--sub); }
+
+  /* 記事カード */
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 7px;
+  }
+  .card a.title {
+    color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 600;
+    display: block; letter-spacing: .01em;
+  }
+  .card a.title:active { color: var(--accent); }
+  .card .summary { color: #4b5563; font-size: 12.5px; margin-top: 6px; line-height: 1.55; }
+
+  /* リード（各テーマ先頭の大きめカード）。羅列感を崩す主役。 */
+  .card.lead {
+    border-left: 3px solid var(--cat); padding: 13px 15px;
+  }
+  .card.lead a.title { font-size: 16.5px; line-height: 1.45; }
+
+  /* メタ行：発信元チップ＋相対時刻 */
+  .card .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip {
+    font-size: 10.5px; color: #374151; background: #eef0f3;
+    border-radius: 5px; padding: 1px 6px; font-weight: 600; white-space: nowrap;
+  }
+  .card .time { font-size: 11px; color: var(--sub); }
+
+  .empty { color: var(--sub); font-size: 13px; padding: 8px 2px; }
+
+  /* 動画カード（YouTube） */
+  .card.video { padding: 0; overflow: hidden; }
+  .card.video a.thumb { position: relative; display: block; }
+  .card.video a.thumb img { width: 100%; display: block; aspect-ratio: 16/9; object-fit: cover; }
+  .card.video a.thumb .play {
+    position: absolute; left: 8px; bottom: 8px; width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.6); color:#fff; font-size: 11px; border-radius: 999px;
+  }
+  .card.video .vbody { padding: 9px 12px 11px; }
+  .card.video .vbody .meta { margin-top: 5px; }
+  .card.video a.title { font-size: 13.5px; }
+
+  /* skim：初期は隠しておく余剰カード。もっと見るで展開 */
+  .gitems:not(.expanded) > .card.extra { display: none; }
+  .more-btn {
+    display: block; width: 100%; margin: 3px 0 4px; padding: 8px;
+    background: transparent; border: 1px dashed var(--line); border-radius: 10px;
+    color: var(--cat); font-size: 12.5px; font-weight: 700; cursor: pointer;
+  }
+  .more-btn:active { background: #eef0f3; }
+
+  footer { margin-top: 36px; border-top: 1px solid var(--line); padding-top: 14px; }
+  footer details.diag > summary { cursor: pointer; font-size: 12px; color: var(--sub); }
+  footer table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  footer td { padding: 4px 6px; border-bottom: 1px dashed var(--line); color: var(--sub); }
+  footer td.st-ok { color:#15803d; }
+  footer td.st-ng { color:#b45309; }
+  .loaderr { padding: 24px 14px; color:#b91c1c; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header><h1>📰 マイニュース</h1><div class="meta-head">読み込み中…</div></header>
+</div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
