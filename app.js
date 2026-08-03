@@ -14,6 +14,9 @@ const INITIAL_VISIBLE = { article: 4, video: 2 };
 // カテゴリごとのアクセント色（見出し・リード・件数に薄く効かせる）
 const CAT_COLORS = ["#7c3aed", "#2563eb", "#059669", "#ea580c", "#ca8a04", "#db2777"];
 
+// URL に ?debug を付けたときだけ診断情報を画面に出す（通常は非表示・コンソールのみ）
+const DEBUG = /[?&]debug\b/.test(location.search);
+
 // HTMLエスケープ（属性値も安全になるよう引用符も変換）
 function esc(s) {
   return (s == null ? "" : String(s)).replace(/[&<>"']/g, (c) => ({
@@ -65,16 +68,18 @@ function renderCard(a, hidden, lead) {
     + (hidden ? " extra" : "");
 
   if (a.kind === "video") {
+    // サムネイルとタイトルを1つのリンクに統合（タブ移動1回・重複リンクを解消）。
+    // 画像は装飾なので alt="" にしてタイトルの二重読み上げを避ける。
     let h = `<div class="${cls}">`;
+    h += `<a class="vlink" href="${link}" target="_blank" rel="noopener">`;
     if (a.thumb) {
-      h += `<a class="thumb" href="${link}" target="_blank" rel="noopener">`
-        + `<img loading="lazy" src="${esc(a.thumb)}" alt="${title}">`
-        + `<span class="play">▶</span></a>`;
+      h += `<span class="thumb"><img loading="lazy" src="${esc(a.thumb)}" alt="">`
+        + `<span class="play">▶</span></span>`;
     }
-    h += '<div class="vbody">'
-      + `<a class="title" href="${link}" target="_blank" rel="noopener">${title}</a>`
-      + metaRow(a) + "</div></div>";
-    return h;
+    h += `<span class="title">${title}</span></a>`;
+    const mr = metaRow(a);
+    if (mr) h += `<div class="vfoot">${mr}</div>`;
+    return h + "</div>";
   }
 
   let h = `<div class="${cls}">`
@@ -93,9 +98,10 @@ function renderGroup(g) {
   const n = INITIAL_VISIBLE[kind];
   const hiddenCount = Math.max(0, items.length - n);
 
+  // テーマ名は h3（カテゴリの h2 の下位）。見出しジャンプで構造をたどれるようにする。
   let h = '<section class="group">';
-  h += `<div class="ghead"><span class="gname">${esc(g.name)}</span>`
-    + `<span class="gcount">${items.length}</span></div>`;
+  h += `<h3 class="ghead"><span class="gname">${esc(g.name)}</span>`
+    + `<span class="gcount">${items.length}件</span></h3>`;
   h += '<div class="gitems">';
   items.forEach((a, i) => {
     // 記事テーマは先頭をリードに。動画はサムネで十分目立つのでリード化しない。
@@ -111,17 +117,32 @@ function renderGroup(g) {
   return h;
 }
 
+// 「更新: 7/21 11:11（3日前）」のように、データの鮮度が一目で分かるようにする
+function headUpdated(generatedAt) {
+  if (!generatedAt) return "";
+  // "YYYY-MM-DD HH:MM"（ローカル時刻）を Date に。パースできなければそのまま出す。
+  const m = String(generatedAt).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if (!m) return `更新: ${esc(generatedAt)}`;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  let note = "";
+  if (days >= 1) note = `（${days}日前）`;
+  const stale = days >= 2 ? " stale" : "";
+  return `更新: ${esc(generatedAt)}<span class="age${stale}">${note}</span>`;
+}
+
 function render(data) {
   const parts = [];
   parts.push(`<header><h1>📰 マイニュース</h1>`
-    + `<div class="meta-head">更新: ${esc(data.generated_at)}</div></header>`);
+    + `<div class="meta-head">${headUpdated(data.generated_at)}</div></header>`);
 
   (data.categories || []).forEach((cat, ci) => {
     const groups = cat.groups || [];
     const count = groups.reduce((s, g) => s + (g.items ? g.items.length : 0), 0);
     const color = CAT_COLORS[ci % CAT_COLORS.length];
+    // カテゴリ名は h2。<summary> の中に置くことで、見出しジャンプでも開閉でも辿れる。
     parts.push(`<details class="cat" open style="--cat:${color}">`);
-    parts.push(`<summary>${esc(cat.name)}<span class="catcount">${count}</span></summary>`);
+    parts.push(`<summary><h2>${esc(cat.name)}<span class="catcount">${count}件</span></h2></summary>`);
     parts.push('<div class="body">');
     if (count === 0) {
       parts.push('<div class="empty">この時間は取得できた記事がありませんでした。</div>');
@@ -131,14 +152,22 @@ function render(data) {
     parts.push("</div></details>");
   });
 
-  // 診断情報（取得サマリー）：既定で閉じておき、普段の閲覧では邪魔にしない
-  parts.push('<footer><details class="diag"><summary>診断情報（取得サマリー）</summary><table>');
-  for (const s of (data.sources || [])) {
-    const ok = (s.status || "").startsWith("OK");
-    parts.push(`<tr><td>${esc(s.name)}</td>`
-      + `<td class="${ok ? "st-ok" : "st-ng"}">${esc(s.status)}</td></tr>`);
+  // 取得サマリーは内部情報なので、本番ページには出さずコンソールへ。
+  // URL に ?debug を付けたときだけ画面下部にも表示する（保守用）。
+  if (window.console && console.table) {
+    console.groupCollapsed("マイニュース 取得サマリー");
+    console.table(data.sources || []);
+    console.groupEnd();
   }
-  parts.push("</table></details></footer>");
+  if (DEBUG) {
+    parts.push('<footer><details class="diag" open><summary>診断情報（取得サマリー）</summary><table>');
+    for (const s of (data.sources || [])) {
+      const ok = (s.status || "").startsWith("OK");
+      parts.push(`<tr><td>${esc(s.name)}</td>`
+        + `<td class="${ok ? "st-ok" : "st-ng"}">${esc(s.status)}</td></tr>`);
+    }
+    parts.push("</table></details></footer>");
+  }
 
   APP.innerHTML = parts.join("\n");
 }

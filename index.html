@@ -19,18 +19,23 @@
   header { padding: 20px 4px 6px; }
   header h1 { font-size: 21px; margin: 0; letter-spacing: .02em; }
   header .meta-head { color: var(--sub); font-size: 12px; margin-top: 4px; }
+  header .age { margin-left: 4px; }
+  header .age.stale { color: #b45309; font-weight: 600; }
 
   /* カテゴリ（大見出し・折りたたみ）。--cat はカテゴリ色。 */
   details.cat { margin: 22px 0 4px; }
   details.cat > summary {
-    font-size: 12px; font-weight: 800; letter-spacing: .08em; color: var(--cat);
     cursor: pointer; list-style: none; padding: 4px 2px 8px;
-    display: flex; align-items: center; gap: 6px;
     border-bottom: 2px solid var(--cat);
   }
   details.cat > summary::-webkit-details-marker { display: none; }
-  details.cat > summary::before { content: "▾"; font-size: 11px; }
-  details.cat:not([open]) > summary::before { content: "▸"; }
+  /* 見出し h2 は summary の中。マーカーは h2 側に付けて縦位置を揃える */
+  details.cat > summary h2 {
+    margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .08em;
+    color: var(--cat); display: flex; align-items: center; gap: 6px;
+  }
+  details.cat > summary h2::before { content: "▾"; font-size: 11px; }
+  details.cat:not([open]) > summary h2::before { content: "▸"; }
   details.cat > summary .catcount {
     margin-left: auto; font-weight: 700; color: var(--cat);
     font-size: 11px; letter-spacing: 0;
@@ -39,12 +44,15 @@
 
   /* テーマ（中見出し） */
   .group { margin: 16px 0 10px; }
-  .ghead { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; }
-  .ghead .gname {
+  /* h3 見出し。既定の余白・文字サイズを打ち消して従来の見た目を保つ */
+  h3.ghead {
+    display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px;
     font-size: 16px; font-weight: 700;
+  }
+  .ghead .gname {
     border-left: 3px solid var(--cat); padding-left: 8px;
   }
-  .ghead .gcount { font-size: 11px; color: var(--sub); }
+  .ghead .gcount { font-size: 11px; color: var(--sub); font-weight: 400; }
 
   /* 記事カード */
   .card {
@@ -74,18 +82,22 @@
 
   .empty { color: var(--sub); font-size: 13px; padding: 8px 2px; }
 
-  /* 動画カード（YouTube） */
+  /* 動画カード（YouTube）：サムネ＋タイトルで1つのリンク（a.vlink） */
   .card.video { padding: 0; overflow: hidden; }
-  .card.video a.thumb { position: relative; display: block; }
-  .card.video a.thumb img { width: 100%; display: block; aspect-ratio: 16/9; object-fit: cover; }
-  .card.video a.thumb .play {
+  .card.video a.vlink { display: block; text-decoration: none; color: var(--ink); }
+  .card.video a.vlink:active { color: var(--accent); }
+  .card.video .thumb { position: relative; display: block; }
+  .card.video .thumb img { width: 100%; display: block; aspect-ratio: 16/9; object-fit: cover; }
+  .card.video .thumb .play {
     position: absolute; left: 8px; bottom: 8px; width: 26px; height: 26px;
     display: flex; align-items: center; justify-content: center;
     background: rgba(0,0,0,.6); color:#fff; font-size: 11px; border-radius: 999px;
   }
-  .card.video .vbody { padding: 9px 12px 11px; }
-  .card.video .vbody .meta { margin-top: 5px; }
-  .card.video a.title { font-size: 13.5px; }
+  .card.video .title {
+    display: block; padding: 9px 12px 0; font-size: 13.5px; font-weight: 600;
+  }
+  .card.video .vfoot { padding: 0 12px 11px; }
+  .card.video .vfoot .meta { margin-top: 5px; }
 
   /* skim：初期は隠しておく余剰カード。もっと見るで展開 */
   .gitems:not(.expanded) > .card.extra { display: none; }
