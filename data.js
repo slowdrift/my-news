@@ -1,5 +1,5 @@
 window.NEWS_DATA = {
-  "generated_at": "2026-08-03 21:27",
+  "generated_at": "2026-08-03 21:53",
   "categories": [
     {
       "name": "趣味",
@@ -14,6 +14,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "信濃毎日新聞デジタル",
+              "paywall": "partial",
               "dt": "2026-08-03T01:51:00+00:00"
             },
             {
@@ -23,6 +24,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "go2senkyo.com",
+              "paywall": "",
               "dt": "2026-07-30T15:27:07+00:00"
             },
             {
@@ -32,6 +34,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "AERA DIGITAL",
+              "paywall": "partial",
               "dt": "2026-07-29T06:32:45+00:00"
             },
             {
@@ -41,6 +44,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "kushironews.jp",
+              "paywall": "",
               "dt": "2026-07-25T19:00:31+00:00"
             },
             {
@@ -50,6 +54,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "北海道新聞デジタル",
+              "paywall": "partial",
               "dt": "2026-07-25T12:37:12+00:00"
             },
             {
@@ -59,15 +64,17 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "switch-pub.co.jp",
+              "paywall": "",
               "dt": "2026-07-15T07:00:00+00:00"
             },
             {
-              "title": "書評＞心残り回収の旅 旅情かき立てる技巧に円熟味 『途上の王国』沢木耕太郎著（写真・画像 1/1）",
-              "link": "https://news.google.com/rss/articles/CBMiogFBVV95cUxNa0FILWdNMFdJMXRTbjVWRWZ3aFVGRFlMRkgzOHVHUlhJY0RBeGZRTVFWTjRnVjczSkVrc3ZHRHNCMzhRUzdFcGl1Y3g0ZXVxS3F3M2RKX3UyMkJoVlpQOHNpTEdyYUVvd1B4Y1RwVGhvZXFPRnIwUkN0dG0xOWYwdlhoakJfN2lvdE5hSWZCMUl0UlA5b21xYVNqNXZMSXF6Y1E?oc=5",
-              "summary": "書評＞心残り回収の旅 旅情かき立てる技巧に円熟味 『途上の王国』沢木耕太郎著（写真・画像 1/1） 産経ニュース",
+              "title": "＜書評＞心残り回収の旅 旅情かき立てる技巧に円熟味 『途上の王国』沢木耕太郎著",
+              "link": "https://news.google.com/rss/articles/CBMidkFVX3lxTE1qa0dzdnRTZmg3emtzNWR5SDNGVzgwMEttN1pzdm5pdUVvNHYzYlVOWm83ek5aU1RlUXRBUnRXR1Q3Q3pQc0Q2enFySlVUX251LTl2TlUzMDVxbWJ2U0d0RDJORFRwNGxmYUR0dHA5OFN4dmFNT2c?oc=5",
+              "summary": "＜書評＞心残り回収の旅 旅情かき立てる技巧に円熟味 『途上の王国』沢木耕太郎著 産経ニュース",
               "thumb": "",
               "kind": "article",
               "via": "産経ニュース",
+              "paywall": "partial",
               "dt": "2026-07-12T07:00:00+00:00"
             },
             {
@@ -77,6 +84,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2025-12-24T15:03:50+00:00"
             }
           ]
@@ -85,12 +93,23 @@ window.NEWS_DATA = {
           "name": "アーミル・カーン",
           "items": [
             {
+              "title": "Farhan Akhtar Exits Aamir Khan and Ashutosh Gowariker's Lalkaara | Filmfare.com",
+              "link": "https://news.google.com/rss/articles/CBMitAFBVV95cUxOUThyNGstVjNhSDNMZ1BCLTBUZXFpRGdfNzluNjVUZHZRdkJtdUhyUFNiRllIRS1tNjVRemVLR1k4bjY5bjFvVFRUNnc4eE1ZTG90OTFhV2czWDhFQVRHUFhtSEhVZm5ab0dmb09WRzdrdTdoUlFHVUJEWlpKaUZMTElMLU1iMUJQNXRzckM2bF9sSEIwbGkwaE8xRjZBTE9XVmt0Rmh2MWk5OTBseXdYdmlUeHfSAbMBQVVfeXFMTWI5UkJFUXRlZ2JzU2xKUGZ4SW5BTm9HcnFrTTRla1djRExVaEpFRWhEOXYyY1hNRUJLdmluSG1CclN1VDhkUHBSYnFEM1dpMXFUd1pDbEVEMU9NWGlKblNvU0FWODhNdWhTOUlMbmtlLVc4dGdXbGZfTG9IS1VRd1h2dVlmTDA5MlFEU3hWUFJfZFFOTzdES3laUXU5WHF5b1NMTWg0QV9BVWk3X01jTEpvcjg?oc=5",
+              "summary": "Farhan Akhtar Exits Aamir Khan and Ashutosh Gowariker's Lalkaara | Filmfare.com Filmfare",
+              "thumb": "",
+              "kind": "article",
+              "via": "Filmfare",
+              "paywall": "",
+              "dt": "2026-08-03T12:25:21+00:00"
+            },
+            {
               "title": "Farhan Akhtar Walks Out Of Lalkaara Due To Scheduling Clash, Sidhant Gupta Replaces Him | Report",
               "link": "https://news.google.com/rss/articles/CBMi5wFBVV95cUxOUVBuQ3FtbU43R2piYUItSV9DTEhrRk9oTnJTakk4SmFMYXQ4Y25FeTA1NFVyRWdVeG0takMtR0lvbXBCWkNRT3VDUUpjZFQ0bk5keHdacC1OVkEwU0RkSVg5QVZGN3NZRlByWjJhWWktQjlDTUdNMlZ4VjViRWxqMndjR0ZiOFZEM3A2UXpFUWhrd3FGOUxQU0FVUTNJS2ZLMFVCdjV3R01vUGotODE0YWwtWkVnNTM1NDFyWnZ3dFBUenY0bnk3d1Y1QURpMHUwb1JWX1Nhdk5UVWhQUGZQNXVER2Y4eUXSAewBQVVfeXFMT3JWVGdSd0VyVTBDeFZQVE5ORmQzWUVmcFF5cVhzTmtkaVU4Mm5fbmZZX0sxQVRxTzhyZ0otbzl5Vnl1WVQxTlNwdkVGTXBINy1KWEhLajd5SS01cXlERHV0el8yQ3lJNjZNWXk0cDN0cGhKYzU4eTdaYTRJbk8wNWVJNkNVYTJyUlp2RzFpMDU3b2RuOXJtODJ6Nk55aU5acDV1MVhIMWxlaDNpaURJcmdtSzliUzBheGtBTEttbDdNZFlsTjBmMjNqSThGR1VycEVYNy0xVVNMeVNHc0M4ZFhZb0RfYTUxZkw4N1o?oc=5",
               "summary": "Farhan Akhtar Walks Out Of Lalkaara Due To Scheduling Clash, Sidhant Gupta Replaces Him | Report News18",
               "thumb": "",
               "kind": "article",
               "via": "News18",
+              "paywall": "",
               "dt": "2026-08-03T09:21:22+00:00"
             },
             {
@@ -100,6 +119,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "Republic World",
+              "paywall": "",
               "dt": "2026-08-03T09:11:03+00:00"
             },
             {
@@ -109,6 +129,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "NewsBytes",
+              "paywall": "",
               "dt": "2026-08-03T08:30:26+00:00"
             },
             {
@@ -118,6 +139,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "BizAsiaLive",
+              "paywall": "",
               "dt": "2026-08-03T08:25:59+00:00"
             },
             {
@@ -127,6 +149,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "The Times of India",
+              "paywall": "",
               "dt": "2026-08-03T06:28:00+00:00"
             },
             {
@@ -136,6 +159,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "NewsBytes",
+              "paywall": "",
               "dt": "2026-08-03T06:25:16+00:00"
             },
             {
@@ -145,16 +169,8 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "MensXP",
+              "paywall": "",
               "dt": "2026-08-03T05:50:10+00:00"
-            },
-            {
-              "title": "SCOOP: Vikrant Massey approached for a key role in Aamir Khan’s Lalkaara",
-              "link": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxQS3hTenNRc1AzRjg5OUZQdWVmNERTbWR3XzE2eml6UDdGcmd6bWJPeHpkZG5OSmlodjYxS1dEenRNb3BLRTdOQ1lLUXZ5Zmh2SDlTT0R0NEdVSU5RSUVRUE9aaE54LWstOF80NTZkbmJVMkFvZXQzM0pTVmFZYVpOTnpWc3FrVlNDanVEMlVZSGtGSFBISmNIVDFHcXVpT0tYMXFnRUlEQklsNE9CWXJIQjdiRzNEM1MxNi1Z0gHAAUFVX3lxTE40aUVKUG9XdkFXXy1ZYlV1TGJGNExNNk9PXzNFWHdoampYQ0FFVFpneXUxNTFvNDV4MzBuWVctN2lidXVaOTV2aGlnNHM5QXNLMjNBME5xcWJ6TUdNXzhVWkNZNUh2dGFQbFFONEMzZjBnLWQxeXhjMkdnUXNGZ09ad3hFZTJOQTNqMVNBNVBoeTg2aUExNmlrVEM2V3ZXN3ZJUXR5bzNJazBnSTNmV1J2NlVHcjZUb3otOGdkOVpIZw?oc=5",
-              "summary": "SCOOP: Vikrant Massey approached for a key role in Aamir Khan’s Lalkaara Bollywood Hungama",
-              "thumb": "",
-              "kind": "article",
-              "via": "Bollywood Hungama",
-              "dt": "2026-08-03T04:42:28+00:00"
             },
             {
               "title": "シークレット・スーパースター／サブ1 | あなたが観たい",
@@ -163,6 +179,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "banger.jp",
+              "paywall": "",
               "dt": "2026-07-29T12:51:23+00:00"
             }
           ]
@@ -177,6 +194,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T15:48:54+00:00"
             },
             {
@@ -186,6 +204,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "tv-tokyo.co.jp",
+              "paywall": "",
               "dt": "2026-08-01T16:07:43+00:00"
             },
             {
@@ -195,6 +214,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "よみうりタウンニュース",
+              "paywall": "",
               "dt": "2026-07-25T19:06:34+00:00"
             },
             {
@@ -204,6 +224,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "Yahoo!ニュース",
+              "paywall": "",
               "dt": "2026-07-24T04:23:58+00:00"
             },
             {
@@ -213,6 +234,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "Yahoo!ニュース",
+              "paywall": "",
               "dt": "2026-07-20T12:46:07+00:00"
             },
             {
@@ -222,6 +244,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "水戸経済新聞",
+              "paywall": "",
               "dt": "2026-07-20T07:00:00+00:00"
             },
             {
@@ -231,6 +254,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "walkerplus.com",
+              "paywall": "",
               "dt": "2026-07-17T05:28:46+00:00"
             }
           ]
@@ -250,6 +274,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "thinkit.co.jp",
+              "paywall": "",
               "dt": "2026-08-03T07:09:06+00:00"
             },
             {
@@ -259,6 +284,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "SHIFT AI",
+              "paywall": "",
               "dt": "2026-08-03T06:58:12+00:00"
             },
             {
@@ -268,15 +294,17 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "ニュースメディアVOIX",
+              "paywall": "",
               "dt": "2026-08-03T04:43:03+00:00"
             },
             {
               "title": "Codex Skillsの使い方とは？SKILL.mdの書き方からおすすめスキル・Claude Code Skillsとの違いまで解説",
               "link": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE9kUzJPemYya3h5eERiV1duZmF3bF9mY1NwaVBVZ3dhUEdVVlhmTEx3UC1hWElHck5BRVpKYk9kZkJ6U0VNcDVwOHV1REdtbjFqa2dXRUxRMU16Njg?oc=5",
-              "summary": "Codex Skillsの使い方とは？SKILL.mdの書き方からおすすめスキル・Claude Code Skillsとの違いまで解説 AIsmiley",
+              "summary": "Codex Skillsの使い方とは？SKILL.mdの書き方からおすすめスキル・Claude Code Skillsとの違いまで解説 aismiley.co.jp",
               "thumb": "",
               "kind": "article",
-              "via": "AIsmiley",
+              "via": "aismiley.co.jp",
+              "paywall": "",
               "dt": "2026-08-03T04:23:33+00:00"
             },
             {
@@ -286,6 +314,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "@DIME アットダイム",
+              "paywall": "",
               "dt": "2026-08-02T22:03:57+00:00"
             },
             {
@@ -295,16 +324,8 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T15:30:22+00:00"
-            },
-            {
-              "title": "マーケの本命「Claude」スキル構築の極意 SWOT分析もわずか15分 - 日経クロストレンド",
-              "link": "https://xtrend.nikkei.com/atcl/contents/18/01433/00001/",
-              "summary": "Claude Codeは「ターミナル」と呼ばれるエンジニア向けの画面でコマンド入力を要求されるため、非エンジニアにとっては操作の難易度が高く、心理的なハードルが ...",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "dt": "2026-08-02T15:08:56+00:00"
             },
             {
               "title": "「Claude Codeの教科書」を販売します！ - イケハヤラジオ - LISTEN",
@@ -313,6 +334,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T10:13:17+00:00"
             },
             {
@@ -322,6 +344,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T07:35:09+00:00"
             },
             {
@@ -331,6 +354,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "Mshale",
+              "paywall": "",
               "dt": "2026-08-01T16:28:36+00:00"
             },
             {
@@ -340,6 +364,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "shiritomo",
+              "paywall": "",
               "dt": "2026-08-01T03:22:59+00:00"
             },
             {
@@ -349,7 +374,18 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "BigGo ファイナンス",
+              "paywall": "",
               "dt": "2026-08-01T00:05:00+00:00"
+            },
+            {
+              "title": "マーケの本命「Claude」スキル構築の極意 SWOT分析もわずか15分 - 日経クロストレンド",
+              "link": "https://xtrend.nikkei.com/atcl/contents/18/01433/00001/",
+              "summary": "Claude Codeは「ターミナル」と呼ばれるエンジニア向けの画面でコマンド入力を要求されるため、非エンジニアにとっては操作の難易度が高く、心理的なハードルが ...",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "paid",
+              "dt": "2026-08-02T15:08:56+00:00"
             }
           ]
         },
@@ -363,6 +399,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T11:45:49+00:00"
             },
             {
@@ -372,6 +409,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T11:08:29+00:00"
             },
             {
@@ -381,6 +419,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T09:42:59+00:00"
             },
             {
@@ -390,16 +429,8 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T03:26:15+00:00"
-            },
-            {
-              "title": "富士通とNECは「AI需要」と「収益」をどう語った？ 2026年下半期の見通しを考察",
-              "link": "https://www.itmedia.co.jp/enterprise/articles/2608/03/news061.html",
-              "summary": "企業の業務に向けたAI需要はどのような動きなのか。AI需要の盛り上がりと、ITサービス企業の収益は直結するのか。富士通とNECのCFOによる直近決算会見での発言から考察する。",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "dt": "2026-08-03T03:00:00+00:00"
             },
             {
               "title": "「エンジニアの代替ではなく、できることを増やす」 Devin開発元が見据えるIT外注大国・日本の“伸びしろ”",
@@ -408,7 +439,18 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T01:57:26+00:00"
+            },
+            {
+              "title": "富士通とNECは「AI需要」と「収益」をどう語った？ 2026年下半期の見通しを考察",
+              "link": "https://www.itmedia.co.jp/enterprise/articles/2608/03/news061.html",
+              "summary": "企業の業務に向けたAI需要はどのような動きなのか。AI需要の盛り上がりと、ITサービス企業の収益は直結するのか。富士通とNECのCFOによる直近決算会見での発言から考察する。",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "paid",
+              "dt": "2026-08-03T03:00:00+00:00"
             },
             {
               "title": "【レベル14】生成AIを味方に、3D CADを使いこなそう！",
@@ -417,6 +459,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "paid",
               "dt": "2026-08-02T23:00:00+00:00"
             },
             {
@@ -426,6 +469,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "paid",
               "dt": "2026-08-02T22:00:00+00:00"
             }
           ]
@@ -445,6 +489,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T11:53:56+00:00"
             },
             {
@@ -454,6 +499,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T11:08:39+00:00"
             },
             {
@@ -463,6 +509,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T04:05:02+00:00"
             },
             {
@@ -472,6 +519,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T02:00:00+00:00"
             },
             {
@@ -481,6 +529,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T01:44:33+00:00"
             },
             {
@@ -490,6 +539,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T01:00:00+00:00"
             },
             {
@@ -499,6 +549,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T00:00:00+00:00"
             },
             {
@@ -508,6 +559,7 @@ window.NEWS_DATA = {
               "thumb": "",
               "kind": "article",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T23:00:00+00:00"
             }
           ]
@@ -527,6 +579,7 @@ window.NEWS_DATA = {
               "thumb": "https://i3.ytimg.com/vi/F6ClJFb039k/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T10:11:10+00:00"
             },
             {
@@ -536,6 +589,7 @@ window.NEWS_DATA = {
               "thumb": "https://i3.ytimg.com/vi/FzE-WD4onD0/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T08:00:34+00:00"
             },
             {
@@ -545,6 +599,7 @@ window.NEWS_DATA = {
               "thumb": "https://i3.ytimg.com/vi/bPw5QTd-3nQ/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T10:00:14+00:00"
             },
             {
@@ -554,6 +609,7 @@ window.NEWS_DATA = {
               "thumb": "https://i1.ytimg.com/vi/8tife26pE-s/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T08:00:21+00:00"
             },
             {
@@ -563,6 +619,7 @@ window.NEWS_DATA = {
               "thumb": "https://i3.ytimg.com/vi/VuK8KzjFq1w/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-01T10:20:04+00:00"
             },
             {
@@ -572,6 +629,7 @@ window.NEWS_DATA = {
               "thumb": "https://i2.ytimg.com/vi/im-copktrpQ/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-01T08:00:28+00:00"
             },
             {
@@ -581,6 +639,7 @@ window.NEWS_DATA = {
               "thumb": "https://i4.ytimg.com/vi/30trk-td70Q/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-07-31T10:22:41+00:00"
             },
             {
@@ -590,6 +649,7 @@ window.NEWS_DATA = {
               "thumb": "https://i1.ytimg.com/vi/X_9kv1OIpMs/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-07-31T08:00:09+00:00"
             }
           ]
@@ -609,6 +669,7 @@ window.NEWS_DATA = {
               "thumb": "https://i4.ytimg.com/vi/cSTYql7WwWU/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T23:50:56+00:00"
             },
             {
@@ -618,6 +679,7 @@ window.NEWS_DATA = {
               "thumb": "https://i4.ytimg.com/vi/K20SU5PHEI4/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T22:00:15+00:00"
             },
             {
@@ -627,6 +689,7 @@ window.NEWS_DATA = {
               "thumb": "https://i1.ytimg.com/vi/PFCRnxQGZdk/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-02T09:00:16+00:00"
             },
             {
@@ -636,6 +699,7 @@ window.NEWS_DATA = {
               "thumb": "https://i4.ytimg.com/vi/ce4EQHpLooM/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-01T23:54:20+00:00"
             },
             {
@@ -645,6 +709,7 @@ window.NEWS_DATA = {
               "thumb": "https://i2.ytimg.com/vi/YhP9heKiW0c/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-01T22:00:21+00:00"
             },
             {
@@ -654,6 +719,7 @@ window.NEWS_DATA = {
               "thumb": "https://i3.ytimg.com/vi/vICWOR5cZJU/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-01T09:00:07+00:00"
             },
             {
@@ -663,6 +729,7 @@ window.NEWS_DATA = {
               "thumb": "https://i2.ytimg.com/vi/ICKZAWGr7-0/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-01T00:03:27+00:00"
             },
             {
@@ -672,6 +739,7 @@ window.NEWS_DATA = {
               "thumb": "https://i2.ytimg.com/vi/YmL6hmCq8Y4/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-07-31T22:00:08+00:00"
             }
           ]
@@ -691,6 +759,7 @@ window.NEWS_DATA = {
               "thumb": "https://i4.ytimg.com/vi/CtqCyYRNvHg/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-03T10:48:53+00:00"
             },
             {
@@ -700,6 +769,7 @@ window.NEWS_DATA = {
               "thumb": "https://i2.ytimg.com/vi/y9cUr2nyzuA/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-01T12:10:08+00:00"
             },
             {
@@ -709,6 +779,7 @@ window.NEWS_DATA = {
               "thumb": "https://i3.ytimg.com/vi/vbAy_T5vKRE/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-08-01T12:10:03+00:00"
             },
             {
@@ -718,6 +789,7 @@ window.NEWS_DATA = {
               "thumb": "https://i3.ytimg.com/vi/NXguzUt-KHE/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-07-29T19:10:51+00:00"
             },
             {
@@ -727,6 +799,7 @@ window.NEWS_DATA = {
               "thumb": "https://i3.ytimg.com/vi/JZBoAlifCbc/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-07-29T10:19:04+00:00"
             },
             {
@@ -736,6 +809,7 @@ window.NEWS_DATA = {
               "thumb": "https://i1.ytimg.com/vi/0T-0L36Jggo/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-07-29T10:18:52+00:00"
             },
             {
@@ -745,6 +819,7 @@ window.NEWS_DATA = {
               "thumb": "https://i4.ytimg.com/vi/kZefRbrBWdU/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-07-27T08:23:57+00:00"
             },
             {
@@ -754,6 +829,7 @@ window.NEWS_DATA = {
               "thumb": "https://i2.ytimg.com/vi/MBcsBrob8f0/hqdefault.jpg",
               "kind": "video",
               "via": "",
+              "paywall": "",
               "dt": "2026-07-24T12:42:10+00:00"
             }
           ]

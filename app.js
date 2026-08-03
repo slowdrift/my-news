@@ -49,12 +49,20 @@ function relTime(iso) {
   return fmtDate(iso);
 }
 
-// 発信元チップ＋時刻のメタ行
+// 有料記事の印（開く前に分かるようにタイトル直下へ）
+function payBadge(a) {
+  if (a.paywall === "paid") return '<span class="pw paid">🔒 有料</span>';
+  if (a.paywall === "partial") return '<span class="pw partial">一部有料</span>';
+  return "";
+}
+
+// 有料バッジ＋発信元チップ＋時刻のメタ行
 function metaRow(a) {
+  const badge = payBadge(a);
   const chip = a.via ? `<span class="chip">${esc(a.via)}</span>` : "";
   const t = relTime(a.dt);
   const time = t ? `<span class="time">${esc(t)}</span>` : "";
-  const inner = chip + time;
+  const inner = badge + chip + time;
   return inner ? `<div class="meta">${inner}</div>` : "";
 }
 
