@@ -1,5 +1,5 @@
 window.NEWS_DATA = {
-  "generated_at": "2026-08-03 21:53",
+  "generated_at": "2026-09-04 07:20",
   "categories": [
     {
       "name": "趣味",
@@ -8,74 +8,54 @@ window.NEWS_DATA = {
           "name": "沢木耕太郎",
           "items": [
             {
-              "title": "【夏休みの一冊】ノンフィクションライターの石戸論さん 「深夜特急」（沢木耕太郎著）",
-              "link": "https://news.google.com/rss/articles/CBMicEFVX3lxTE85QU12YWhra3ZOOF9lNVJGYlFmM1hkUlRGN19MQm1RT3dCam9vUC1JajdncTg1Y0JFTU4wcklYaE9lai1xSWpVVUFoODR1U01PbWtRM2MxT2tFT25TcWwtekRUSWlYQld2dWp1ME15OVU?oc=5",
-              "summary": "【夏休みの一冊】ノンフィクションライターの石戸論さん 「深夜特急」（沢木耕太郎著） 信濃毎日新聞デジタル",
+              "title": "今も旅を続ける沢木耕太郎さん 「原点」と尽きない魅力とは リュックに必ずリンゴの理由は",
+              "link": "https://news.google.com/rss/articles/CBMid0FVX3lxTE5hQXdjSFllWG9uTzhRc002SVhUOTBrZVBhODRLeTFob3Zjb2lRNVNtbHdFa2RhXzhmeFE5UEc1N3hVT05mRnRlMDlXWGNYQnR0NDBLTl83M1lnOW5ueXoya1JWcjZyZzQ5WFR1QmQ3b1lxaklRZ3Uw?oc=5",
+              "summary": "今も旅を続ける沢木耕太郎さん 「原点」と尽きない魅力とは リュックに必ずリンゴの理由は 時事ドットコム",
               "thumb": "",
               "kind": "article",
-              "via": "信濃毎日新聞デジタル",
-              "paywall": "partial",
-              "dt": "2026-08-03T01:51:00+00:00"
-            },
-            {
-              "title": "【7月30日（木）】私の愛読書のひとつは沢木耕太郎先生の『深夜特急』でございます。",
-              "link": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE1WUng2VmRjQ0xmTXZ1WUJMRnZ6ZE5hVXpWMjA4aDhYOEM5OEdBT3lfcHhmaUwyVVhSN1lmS0xqNnNmbGRVLVFCMFdhTk9OZUNoME9RRzFlVEtjWU1kblpN?oc=5",
-              "summary": "【7月30日（木）】私の愛読書のひとつは沢木耕太郎先生の『深夜特急』でございます。 go2senkyo.com",
-              "thumb": "",
-              "kind": "article",
-              "via": "go2senkyo.com",
+              "via": "時事ドットコム",
               "paywall": "",
-              "dt": "2026-07-30T15:27:07+00:00"
+              "dt": "2026-09-03T08:59:06+00:00"
             },
             {
-              "title": "【巻頭随筆】 作家・沢木耕太郎さん、初の時代小説『暦のしずく』。本作のキーパーソン、芸者・お六の謎とは？ （一冊の本収録）",
-              "link": "https://news.google.com/rss/articles/CBMiXkFVX3lxTFBhVEZkM1VpOXhKTURUbjBmT01wTjVNWDdkaThGTHhNSkZCVWxxWFJzT1VrLVpyUE95Ry1wcmhQUW5EcFJWTzFMM2ZIcThKWnd5Q2lTNHhEVDEtMlhKVlE?oc=5",
-              "summary": "【巻頭随筆】 作家・沢木耕太郎さん、初の時代小説『暦のしずく』。本作のキーパーソン、芸者・お六の謎とは？ （一冊の本収録） AERA DIGITAL",
+              "title": "東野圭吾、吉田修一、そして沢木耕太郎、２０２６年夏の読書はとにかく熱かった！",
+              "link": "https://news.google.com/rss/articles/CBMif0FVX3lxTE4tQzBlcUVXT2JRUUJ5cGFqZmlKTllBQ0J6REp4dEd4R2hNWDZ0SzBYTVM3NFdoYWxTdXlQSS1jbjVTU09xZDBodlhBNjFmYm9YbUw3bHBQNk5oYVhBT3BmR0VnX0JBSjkwcUZaby0yOXJpRkFwbE1uWTFpVUdZdWc?oc=5",
+              "summary": "東野圭吾、吉田修一、そして沢木耕太郎、２０２６年夏の読書はとにかく熱かった！ hicbc.com",
               "thumb": "",
               "kind": "article",
-              "via": "AERA DIGITAL",
-              "paywall": "partial",
-              "dt": "2026-07-29T06:32:45+00:00"
-            },
-            {
-              "title": "「たまには一人旅を」 作家の沢木耕太郎氏講演 釧路新聞８０周年記念【釧路市】",
-              "link": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE5hdDM1N3FrN1VDMUxiTmJaTUJ2c3lxZEd3WFFDdEowUVRhdkxzWDh5RG1OVkoxdFkzWWtlcUhCN0R3QlI4Wi1haHZva0E3ZmRBUzNZ?oc=5",
-              "summary": "「たまには一人旅を」 作家の沢木耕太郎氏講演 釧路新聞８０周年記念【釧路市】 kushironews.jp",
-              "thumb": "",
-              "kind": "article",
-              "via": "kushironews.jp",
+              "via": "hicbc.com",
               "paywall": "",
-              "dt": "2026-07-25T19:00:31+00:00"
+              "dt": "2026-08-26T11:26:15+00:00"
             },
             {
-              "title": "「深夜特急」沢木さん釧路で講演 一人旅「人生の予行練習」",
-              "link": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE5Wc3Frdm5ZR05wWGZLMXdjQ2tPdklUVTV1M1lEdkJNZGd5Y3BaWGt1ajJVc0t2Wm51T0F4V1k1NjN2R2hyTUFUcDZtVkRzamtLM1BJa3d6RmRfZw?oc=5",
-              "summary": "「深夜特急」沢木さん釧路で講演 一人旅「人生の予行練習」 北海道新聞デジタル",
+              "title": "東野圭吾、吉田修一、そして沢木耕太郎、2026年夏の読書はとにかく熱かった！（CBCテレビ）",
+              "link": "https://news.google.com/rss/articles/CBMif0FVX3lxTE9XN2x0ZjFGNTdOYUppNFFwU09nLVVUa19ST0R1RGpndkFNSXRfOXpsVGJOS0U3azFfanJRdXZQd1ZSdnpjQkw3RXpQV2VxekctZjBGYTVvNGYzQ2JlQTFxQndPWmlVOFBBbXNxQ0FqelVqa2pVUWFaekVqSmtOcnM?oc=5",
+              "summary": "東野圭吾、吉田修一、そして沢木耕太郎、2026年夏の読書はとにかく熱かった！（CBCテレビ） Yahoo!ニュース",
               "thumb": "",
               "kind": "article",
-              "via": "北海道新聞デジタル",
-              "paywall": "partial",
-              "dt": "2026-07-25T12:37:12+00:00"
-            },
-            {
-              "title": "沢木耕太郎新刊『途上の王国 一号線を北上せよ モロッコ天涯編』より序章「終わりからの始まり」全文公開！",
-              "link": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE1aTkUzY3lhdGZ5YkNuU2RDa21yUkxXNmM5bDRYRmhvdnplcy1Hb0hsTHJDUjZ3QWtOaXhUNldoVElKTVlTdlBWNzR3YkZoLXJGMkhzT1IyRHY?oc=5",
-              "summary": "沢木耕太郎新刊『途上の王国 一号線を北上せよ モロッコ天涯編』より序章「終わりからの始まり」全文公開！ switch-pub.co.jp",
-              "thumb": "",
-              "kind": "article",
-              "via": "switch-pub.co.jp",
+              "via": "Yahoo!ニュース",
               "paywall": "",
-              "dt": "2026-07-15T07:00:00+00:00"
+              "dt": "2026-08-26T08:50:00+00:00"
             },
             {
-              "title": "＜書評＞心残り回収の旅 旅情かき立てる技巧に円熟味 『途上の王国』沢木耕太郎著",
-              "link": "https://news.google.com/rss/articles/CBMidkFVX3lxTE1qa0dzdnRTZmg3emtzNWR5SDNGVzgwMEttN1pzdm5pdUVvNHYzYlVOWm83ek5aU1RlUXRBUnRXR1Q3Q3pQc0Q2enFySlVUX251LTl2TlUzMDVxbWJ2U0d0RDJORFRwNGxmYUR0dHA5OFN4dmFNT2c?oc=5",
-              "summary": "＜書評＞心残り回収の旅 旅情かき立てる技巧に円熟味 『途上の王国』沢木耕太郎著 産経ニュース",
+              "title": "沢木耕太郎 著『途上の王国』より。途上を生きよ。 - 田舎教師ときどき都会教師",
+              "link": "https://www.countryteacher.tokyo/entry/2026/08/19/122529",
+              "summary": "すべてが偶然の連続であり、その偶然につき従った結果、ここでこうして美しい月を眺めながら眠ることができている。たとえ、この先にどんな不快なことが待っていようとも、この一晩を用意してくれた偶然には決して不満を申し立てないようにしよう、と私は思っ…",
               "thumb": "",
               "kind": "article",
-              "via": "産経ニュース",
-              "paywall": "partial",
-              "dt": "2026-07-12T07:00:00+00:00"
+              "via": "",
+              "paywall": "",
+              "dt": "2026-08-19T03:25:48+00:00"
+            },
+            {
+              "title": "沢木耕太郎氏 （作家） 講演詳報 ７月２５日、くしろ文化講演会【釧路市】",
+              "link": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE5Pb2c1OFVPTTRjMHZiZ1hvR1hiSzIxeEM3N2J2Z0htVV9nUWI0VXhkX0drV1NzdE9FMVdqdmsxekFhWkVLQUxwMjlLdzVCSHFxR3kw?oc=5",
+              "summary": "沢木耕太郎氏 （作家） 講演詳報 ７月２５日、くしろ文化講演会【釧路市】 釧路新聞電子版",
+              "thumb": "",
+              "kind": "article",
+              "via": "釧路新聞電子版",
+              "paywall": "",
+              "dt": "2026-08-15T07:00:00+00:00"
             },
             {
               "title": "沢木耕太郎が語る「すごーく驚くこと」とは…？ クリスマスイブ深夜に特番オンエア、今年で29年目 | J-WAVE NEWS",
@@ -86,6 +66,216 @@ window.NEWS_DATA = {
               "via": "",
               "paywall": "",
               "dt": "2025-12-24T15:03:50+00:00"
+            },
+            {
+              "title": "沢木耕太郎の本に救われた 「百年の孤独」黒木本店会長が貫く信念",
+              "link": "https://news.google.com/rss/articles/CBMiVkFVX3lxTFBmSHZiVlN1WlphQjF0RnZYRWtKWW5QLVJUcWZFY0hHSWhzak1uRzBYQ2FCdjBsUDVjNnJ6S0FjVnFEcVh3SzRVZU5wd0lFOWF2MWFCRkVR?oc=5",
+              "summary": "沢木耕太郎の本に救われた 「百年の孤独」黒木本店会長が貫く信念 JBpress",
+              "thumb": "",
+              "kind": "article",
+              "via": "JBpress",
+              "paywall": "paid",
+              "dt": "2026-08-20T07:00:00+00:00"
+            }
+          ]
+        },
+        {
+          "name": "吉村昭",
+          "items": [
+            {
+              "title": "吉村昭が好んだ長崎「福壽」の皿うどん 【作家が愛した名店】 | 作家が愛した名店 | 写真 | 5枚目",
+              "link": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE9BbEMtUlRaZE02ZE03TUs4dU1WczVUSXgyYThhVHEtZklpbDN4djdJbm5kYkZTblI3UUtQUy1Ta1RFUm5Ob29tVzltRmIxVTJsQUV1Qm4zTHoxQmhBNnc?oc=5",
+              "summary": "吉村昭が好んだ長崎「福壽」の皿うどん 【作家が愛した名店】 | 作家が愛した名店 | 写真 | 5枚目 CREA WEB",
+              "thumb": "",
+              "kind": "article",
+              "via": "CREA WEB",
+              "paywall": "",
+              "dt": "2026-08-28T04:00:00+00:00"
+            },
+            {
+              "title": "怖いのは憲兵か、憲兵化する市民か 戦時下の東京で吉村昭が見た光景",
+              "link": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBSalByS3B0VU1BS2pGSE16TkgzT0lWWWxCNGM0MW54UDRnU0FPT0R0QXo1YnlYYUMxb3A5Q0d2MWY2dWlWTnBLRXo5dElGUm9JZWg2Umx5V0tPakdWQnN5NEZxWnJPdDA?oc=5",
+              "summary": "怖いのは憲兵か、憲兵化する市民か 戦時下の東京で吉村昭が見た光景 朝日新聞",
+              "thumb": "",
+              "kind": "article",
+              "via": "朝日新聞",
+              "paywall": "partial",
+              "dt": "2026-08-19T07:00:00+00:00"
+            },
+            {
+              "title": "「戦争に負けてよかった」吉村昭さんが「戦艦武蔵」に込めた思い",
+              "link": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFBvWkNWRFFSUWFqZElqRkZ6cUk2dF9seC0tR2hramdrZzdxUGpVM005dE1jVHJHbjd3T1NaNXV6eEdtV2ZvTmtJMUVrTzZxTnBPV2t6YnFEWDdjVllYRnRLX0VoZGVENjBF?oc=5",
+              "summary": "「戦争に負けてよかった」吉村昭さんが「戦艦武蔵」に込めた思い 毎日新聞",
+              "thumb": "",
+              "kind": "article",
+              "via": "毎日新聞",
+              "paywall": "partial",
+              "dt": "2026-08-14T07:00:00+00:00"
+            },
+            {
+              "title": "吉村昭『歴史の街を歩く』河出文庫発売！没後20年、新発見の単行本未収録エッセイ・シリーズ第二弾。来年は生誕100年、吉村昭記念文学館や吉村昭書斎等で企画展が開催決定、『戦艦武蔵』も漫画連載開始！",
+              "link": "https://news.google.com/rss/articles/CBMickFVX3lxTE5Fb0Q4X0tST04wSmlPWWxJSmdISHBTOWxlNHRYQWpLaGY5U3JKc2xnOExtYk5GQUdKRTh1N1Ziam0weXFrRlpIZTc2dmtRd29hSXNHZmNKX3ptU1YxS3M0SkIyUXRrRE1DaXJwQ21BOTFmdw?oc=5",
+              "summary": "吉村昭『歴史の街を歩く』河出文庫発売！没後20年、新発見の単行本未収録エッセイ・シリーズ第二弾。来年は生誕100年、吉村昭記念文学館や吉村昭書斎等で企画展が開催決定、『戦艦武蔵』も漫画連載開始！ Infoseek",
+              "thumb": "",
+              "kind": "article",
+              "via": "Infoseek",
+              "paywall": "",
+              "dt": "2026-08-11T07:00:00+00:00"
+            },
+            {
+              "title": "【河出文庫8月の新刊】シェイクスピア著/石井美樹子訳『リア王』、細馬宏通『浅草十二階 塔とまなざしの近代』、吉村昭『歴史の街を歩く』、田中光顕『維新夜語 最後の志士は語る』豪華4点",
+              "link": "https://news.google.com/rss/articles/CBMiakFVX3lxTFA1ZFpDQS0tcUZQOGVDT2UzQ2NlcG94V3JzTXQ4bDU0aDRIXzRXZWJNRW8yNDR2X1hCMG5ZdEtyNWNid3FoaDBDVy1xb0pvRFYwZ1ZqLUx0N2R4d2w0TEhBSnhld3NaUlJXdFE?oc=5",
+              "summary": "【河出文庫8月の新刊】シェイクスピア著/石井美樹子訳『リア王』、細馬宏通『浅草十二階 塔とまなざしの近代』、吉村昭『歴史の街を歩く』、田中光顕『維新夜語 最後の志士は語る』豪華4点 PR TIMES",
+              "thumb": "",
+              "kind": "article",
+              "via": "PR TIMES",
+              "paywall": "",
+              "dt": "2026-08-06T07:00:00+00:00"
+            },
+            {
+              "title": "没後20年 第30回トピック展示「吉村昭の愛した越後湯沢～郷愁のある町～」",
+              "link": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE5yVTNJQm9OMWVyUXFPaHREUlAwN2Q5ODB1aVFXVFFfc2JNYzhuS19wdkE0N3I0WXJiVG81V0VlUWhVOHB3SVR5ajduRHlhRkxSd2JsTUlXTFZxU096WS1fWTQwaVdVWm50?oc=5",
+              "summary": "没後20年 第30回トピック展示「吉村昭の愛した越後湯沢～郷愁のある町～」 city.arakawa.tokyo.jp",
+              "thumb": "",
+              "kind": "article",
+              "via": "city.arakawa.tokyo.jp",
+              "paywall": "",
+              "dt": "2026-07-31T07:00:00+00:00"
+            },
+            {
+              "title": "吉村昭の机に近づける日、愛した「たのはたアイス」限定販売 三鷹 [東京都]",
+              "link": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBxUEp6U202cFZDUVphTnJVa1UwRXZjYTlMV2UzZkVsaldRcTEzQ0k3Q1dGMEJfQnpOa203YTdfUTZwYWFZRi1CWE9HcFZFWmVYSmJvWF84emttVzJod1dOcWt6eDdxUkU?oc=5",
+              "summary": "吉村昭の机に近づける日、愛した「たのはたアイス」限定販売 三鷹 [東京都] 朝日新聞",
+              "thumb": "",
+              "kind": "article",
+              "via": "朝日新聞",
+              "paywall": "partial",
+              "dt": "2026-07-30T07:00:00+00:00"
+            },
+            {
+              "title": "吉村昭の名作「高熱隧道」は危機迫る圧倒的な迫力と奥深い人間ドラマで読み応えが半端ないぞ！ - 暮らしの顛末（くまくまコアラ）",
+              "link": "https://www.smilejapan.jp/entry/2025/12/15/170000",
+              "summary": "いやぁ～さすが吉村昭の名作だ。 危機迫る圧倒的な迫力と奥深い人間ドラマで読み応えが半端ない。 「高熱隧道」は1967年（昭和42年）に「新潮」5月号で発表された長編作品で、黒部川第三発電所建設工事の過酷な現場を描いた記録文学。 事実を忠実に…",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "",
+              "dt": "2025-12-15T12:07:31+00:00"
+            }
+          ]
+        },
+        {
+          "name": "井上陽水",
+          "items": [
+            {
+              "title": "水曜『9の音粋』 イントロクイズと『ひとりじゃない、ふたりソング』＆井上陽水・安全地帯「夏の終りのハーモニー」へ向かっていく『音楽道』",
+              "link": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE9NMGwxYkI4a0lseUVzOWs3U3VqZk5LVjdqTHBZNVhuZDNVOHR4TEhEMGtQUkc1UEdZS0NOUDNxSTZkYUhFZnBRbHYxaERLVmZNQ3E0MVF0LWFsdHU0ZENJTlVuX3g?oc=5",
+              "summary": "水曜『9の音粋』 イントロクイズと『ひとりじゃない、ふたりソング』＆井上陽水・安全地帯「夏の終りのハーモニー」へ向かっていく『音楽道』 radiko news",
+              "thumb": "",
+              "kind": "article",
+              "via": "radiko news",
+              "paywall": "",
+              "dt": "2026-09-02T17:57:00+00:00"
+            },
+            {
+              "title": "少年時代/井上陽水 2026年8月23日（日）ひとよし森のホール 作詞：井上陽水 作曲：井上陽水・平井夏美 ピアノ演奏＆arrange：小原孝",
+              "link": "https://news.google.com/rss/articles/CBMiXEFVX3lxTE8yOGIxZ1VIaUgyMTF0YjFNWkctNUE2TEhrUHFUZVRMWHNoMXBDY1dkTkMzMlNpTllFaHpWb2IwSkh1NkZ3MWZuUjc2T0l2SUxhb1VuZE9yMVFiSmF1?oc=5",
+              "summary": "少年時代/井上陽水 2026年8月23日（日）ひとよし森のホール 作詞：井上陽水 作曲：井上陽水・平井夏美 ピアノ演奏＆arrange：小原孝 YouTube",
+              "thumb": "",
+              "kind": "article",
+              "via": "YouTube",
+              "paywall": "",
+              "dt": "2026-09-01T10:00:25+00:00"
+            },
+            {
+              "title": "[最新❕月エレ9月号] 夏の終りのハーモニー/井上陽水・安全地帯 Monfils (OqYv9re386)",
+              "link": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE81dlZLMmYzZW1idjE5UzJjUXZCU1U2OUUzb2Z0LXlNMTJ0LVpxeFZQN3lNM01SbXFfSV94aFIzN1FVbWxiQ2JVVnEybGtaSUVRem9YMEpjc1dSZHpjZ1JiVw?oc=5",
+              "summary": "[最新❕月エレ9月号] 夏の終りのハーモニー/井上陽水・安全地帯 Monfils (OqYv9re386) Mshale",
+              "thumb": "",
+              "kind": "article",
+              "via": "Mshale",
+              "paywall": "",
+              "dt": "2026-09-01T04:50:04+00:00"
+            },
+            {
+              "title": "井上陽水&安全地帯 神宮球場コンサート2（衛星放送生中継版) Prolific (CfFwotxhsw)",
+              "link": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFBaalpiR2VUUUZLR3IwNFM1UC1hb3plbWNLQmdyaEtMX3Nnb3JFNjNSX2FzQ3ZOMGp4XzZ1WHZOZ291NTNZaUl0WEpIblF3Y1lQUUNfT2s2eVFGUWs?oc=5",
+              "summary": "井上陽水&安全地帯 神宮球場コンサート2（衛星放送生中継版) Prolific (CfFwotxhsw) Mshale",
+              "thumb": "",
+              "kind": "article",
+              "via": "Mshale",
+              "paywall": "",
+              "dt": "2026-08-30T13:44:23+00:00"
+            },
+            {
+              "title": "小春おばさん 井上陽水 Cavaliers Vs Pistons (pJWYP4DMAj)",
+              "link": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFBfOEZBbjFqRnl0Ymk0SHZjTk9xM3hBaloyb2owQ2RNRm5MVTk4LUd3dG03TFlTSlNTOHFSRXp1ZGtFSHRfLWpvRURTOUxSS3ZWUDluZ1Q4bnhfRzg?oc=5",
+              "summary": "小春おばさん 井上陽水 Cavaliers Vs Pistons (pJWYP4DMAj) Mshale",
+              "thumb": "",
+              "kind": "article",
+              "via": "Mshale",
+              "paywall": "",
+              "dt": "2026-08-30T11:49:24+00:00"
+            },
+            {
+              "title": "井上陽水＆安全地帯 夏の終わりのハーモニー Rcb Vs Kkr (ijmMIZpBhU)",
+              "link": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE04dUJzazBlRE5XbFJiSEdUZkRkSlFpbVRWd0NOZ2o5NG9TbktmUHhBclRMeEVZU2YxREcwR2xaaUtDLU5FeDQyMTU3WkJkbU5Pb0dLbk9semJybms?oc=5",
+              "summary": "井上陽水＆安全地帯 夏の終わりのハーモニー Rcb Vs Kkr (ijmMIZpBhU) Mshale",
+              "thumb": "",
+              "kind": "article",
+              "via": "Mshale",
+              "paywall": "",
+              "dt": "2026-08-30T09:41:07+00:00"
+            },
+            {
+              "title": "井上陽水、財津和夫、五木ひろし、泉谷しげる、沢田研二……喜寿を超えた、1948年生まれのベテランたち (リアルサウンド)",
+              "link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNOFlQZkhNa0Z3dHl3ZndYM0R0SFhYMndaMTctMW50dUNrSmZiZkZxM3ZpQ3BfR3AtR2gtVHZYOVo2VW53YmJ1MzRfLWVNNzllX05yaTBaRl9FblRDajdkY29La2I4aDNsNUlkcHRQX1d0MU56LTZ2Mk1TbEhZdjhUb21UTWFuSWNObTlzcV9n?oc=5",
+              "summary": "井上陽水、財津和夫、五木ひろし、泉谷しげる、沢田研二……喜寿を超えた、1948年生まれのベテランたち (リアルサウンド) Yahoo!ニュース",
+              "thumb": "",
+              "kind": "article",
+              "via": "Yahoo!ニュース",
+              "paywall": "",
+              "dt": "2026-08-29T22:01:35+00:00"
+            },
+            {
+              "title": "いっそセレナーデ / 井上陽水 - 脇道を行く",
+              "link": "https://yakuroutan.hatenablog.com/entry/2026/06/14/154824",
+              "summary": "△ \"招待状のないショー\"ってLPがとにかく好きで、それ以外は聴く気になれないでいたんですね その後の \"何故か上海\" ってのがイマイチ入って行けなくて、しばらく距離が出来てた そのウチにコレが来て泣けましたっけ・・ \"リバーサイド・ホテル…",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "",
+              "dt": "2026-06-14T06:50:16+00:00"
+            },
+            {
+              "title": "井上陽水と麻生一族の痕跡をたどる福岡の旅 - 今夜はいやほい",
+              "link": "https://kikuchidesu.hatenablog.com/entry/2026/03/04/183952",
+              "summary": "牧のうどんで腹ごしらえし、炭鉱が生み出した人工の山、ボタ山へ向かう 飯塚市は麻生一族の本拠地であるらしい。ASOスーパーに行ってみる。 ボタ山には、黒い石がたくさん転がっていた。 小鳥の塚 井上陽水が育った町糸田で歌碑を見る 麻生太郎の選挙…",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "",
+              "dt": "2026-03-04T09:50:34+00:00"
+            },
+            {
+              "title": "【傘がない｜忌野清志郎】91年奇跡のコンサートで忌野清志郎氏が歌い、高中正義氏の泣きのギターで井上陽水氏の「傘がない」：是非、概要欄もご覧ください。",
+              "link": "https://www.youtube.com/watch?v=1vN6uuH12IA",
+              "summary": "#忌野清志郎 #井上陽水 #高中正義 #断絶 #星勝 0:00 演奏の解説パート 01:15 演奏パート 【YouTube Player for Education】 本動画は学習用途での視聴にも配慮した構成で公開しています（教育環境での視…",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "",
+              "dt": "2025-09-11T12:00:22+00:00"
+            },
+            {
+              "title": "「いや陽水が言ったんだよ…」断るつもりだった井上陽水が『NEWS23』の曲を書いた意外なワケ",
+              "link": "https://diamond.jp/articles/-/392775",
+              "summary": "報道番組のテーマソングを作ってほしい――。『筑紫哲也NEWS23』が白羽の矢を立てたのは、既存の報道のあり方に鋭い視線を向けてきた井上陽水だった。一見すると「水と油」にも思える組み合わせだが、そこにはニュース番組の常識を変えたいという筑紫哲…",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "paid",
+              "dt": "2026-06-25T12:10:41+00:00"
             }
           ]
         },
@@ -93,94 +283,84 @@ window.NEWS_DATA = {
           "name": "アーミル・カーン",
           "items": [
             {
-              "title": "Farhan Akhtar Exits Aamir Khan and Ashutosh Gowariker's Lalkaara | Filmfare.com",
-              "link": "https://news.google.com/rss/articles/CBMitAFBVV95cUxOUThyNGstVjNhSDNMZ1BCLTBUZXFpRGdfNzluNjVUZHZRdkJtdUhyUFNiRllIRS1tNjVRemVLR1k4bjY5bjFvVFRUNnc4eE1ZTG90OTFhV2czWDhFQVRHUFhtSEhVZm5ab0dmb09WRzdrdTdoUlFHVUJEWlpKaUZMTElMLU1iMUJQNXRzckM2bF9sSEIwbGkwaE8xRjZBTE9XVmt0Rmh2MWk5OTBseXdYdmlUeHfSAbMBQVVfeXFMTWI5UkJFUXRlZ2JzU2xKUGZ4SW5BTm9HcnFrTTRla1djRExVaEpFRWhEOXYyY1hNRUJLdmluSG1CclN1VDhkUHBSYnFEM1dpMXFUd1pDbEVEMU9NWGlKblNvU0FWODhNdWhTOUlMbmtlLVc4dGdXbGZfTG9IS1VRd1h2dVlmTDA5MlFEU3hWUFJfZFFOTzdES3laUXU5WHF5b1NMTWg0QV9BVWk3X01jTEpvcjg?oc=5",
-              "summary": "Farhan Akhtar Exits Aamir Khan and Ashutosh Gowariker's Lalkaara | Filmfare.com Filmfare",
+              "title": "\"He Killed It\": R Madhavan Auditioned For Shah Rukh Khan's Swades Role, Reveals Co-Writer",
+              "link": "https://news.google.com/rss/articles/CBMixwFBVV95cUxPenFBSG5TWHp0TzFXeEVDbnFTT0xYakFyYWZINXRoekV0YWxiVEt2UmwtX0dsOXl1UndQRGxTRzd4dldPak82bVg5N1ROb0ZiVmE2MnkwYkVteFJ5R0tyM05WWnItcnVsdGRWQWlBN053Ul9jWWhQanJPX3BDcW1Lb3hyNkk3VWppdk1JNFpvb1IxdmQyUmRLejBjNU1SN2w4cTVjdHdEV0ZkOVdKQ1dtMVRzVVdHU3dvZDJNMmdhZmtfZldiN3lj0gHPAUFVX3lxTFA3ZGg4NXNMQjBFRGNUbnc2N3dsMlRPcnlkMUxDQlItbTY5Q0hXUWpRTjUybnpSRFpESUNwMEx4dFl5SVRETE5UbGloWHhBOExXNnJZQUI0R2lFd3NNYkMtTHNfSlI2SHVnQlF0Wk5TRTdpel96VFJBQWRrYURQUGdleGtkRFpmbnktQTRvUUJtcjl5dFNJQkZwV1M3YzJRV2E3TnJNek0zR0ZNQ1hSSE91M2R3MEprN3ZDWTNYVkZLOU5GY0t1ZVZMYmREWHBoZw?oc=5",
+              "summary": "\"He Killed It\": R Madhavan Auditioned For Shah Rukh Khan's Swades Role, Reveals Co-Writer NDTV",
               "thumb": "",
               "kind": "article",
-              "via": "Filmfare",
+              "via": "NDTV",
               "paywall": "",
-              "dt": "2026-08-03T12:25:21+00:00"
+              "dt": "2026-09-03T14:11:36+00:00"
             },
             {
-              "title": "Farhan Akhtar Walks Out Of Lalkaara Due To Scheduling Clash, Sidhant Gupta Replaces Him | Report",
-              "link": "https://news.google.com/rss/articles/CBMi5wFBVV95cUxOUVBuQ3FtbU43R2piYUItSV9DTEhrRk9oTnJTakk4SmFMYXQ4Y25FeTA1NFVyRWdVeG0takMtR0lvbXBCWkNRT3VDUUpjZFQ0bk5keHdacC1OVkEwU0RkSVg5QVZGN3NZRlByWjJhWWktQjlDTUdNMlZ4VjViRWxqMndjR0ZiOFZEM3A2UXpFUWhrd3FGOUxQU0FVUTNJS2ZLMFVCdjV3R01vUGotODE0YWwtWkVnNTM1NDFyWnZ3dFBUenY0bnk3d1Y1QURpMHUwb1JWX1Nhdk5UVWhQUGZQNXVER2Y4eUXSAewBQVVfeXFMT3JWVGdSd0VyVTBDeFZQVE5ORmQzWUVmcFF5cVhzTmtkaVU4Mm5fbmZZX0sxQVRxTzhyZ0otbzl5Vnl1WVQxTlNwdkVGTXBINy1KWEhLajd5SS01cXlERHV0el8yQ3lJNjZNWXk0cDN0cGhKYzU4eTdaYTRJbk8wNWVJNkNVYTJyUlp2RzFpMDU3b2RuOXJtODJ6Nk55aU5acDV1MVhIMWxlaDNpaURJcmdtSzliUzBheGtBTEttbDdNZFlsTjBmMjNqSThGR1VycEVYNy0xVVNMeVNHc0M4ZFhZb0RfYTUxZkw4N1o?oc=5",
-              "summary": "Farhan Akhtar Walks Out Of Lalkaara Due To Scheduling Clash, Sidhant Gupta Replaces Him | Report News18",
+              "title": "'I Should Be In Ashu's Next Film': How Shah Rukh Khan Bagged Swades After Aamir Khan Exit",
+              "link": "https://news.google.com/rss/articles/CBMiyAFBVV95cUxQRm5SbWhvMXUwc2k5cENXOUtVTmd6UUpQS1F3QUtBVVA1M0ZhcHlpd0VMOVdUaml0MDNrZ0hVTEFkS0lCOHVyRjdwbHdrTnpydUVibnAzdlV5bWNfdzV6WjBseDVrTlR0VVVveXNYcjVXYmFJLUFCMVNmcmFUQy1FWG55dERpNWdnZmdTeDdYcUJJWDVZWWlsaHN1SDRjRHhzX0xnYlBRZjNiUkJ0OEhhUDlrOURJbC1kMklPN093dlpaR2o3T0FuMNIB0AFBVV95cUxNRFp4Z3otRmFNUkxvUlZxQVd0V2kzMUpCTlluYll4Q01NbXc3dTdPNlJ6WFFDYVhMcHRVcHJ3MWJyaGRaNWtEZjFMdk1WLXFFa2xHbjNQanRhUGt0MDNzU2J1dlpCTEJlWXI1eDcwWUtOOWZwYWdMNUZhaW1wSXd4TktkNUdlaUVHNlVWSXlKMG5saUExel9RQXdrd2xlTUtVSklyRzgwSEd2UnFYSGVUby1pb19GWHByVHlyUHhqVlFVVDFoR0xvU0xROXlhQkxt?oc=5",
+              "summary": "'I Should Be In Ashu's Next Film': How Shah Rukh Khan Bagged Swades After Aamir Khan Exit NDTV",
               "thumb": "",
               "kind": "article",
-              "via": "News18",
+              "via": "NDTV",
               "paywall": "",
-              "dt": "2026-08-03T09:21:22+00:00"
+              "dt": "2026-09-03T13:50:23+00:00"
             },
             {
-              "title": "Lalkaara: Farhan Akhtar Backs Out Of Aamir Khan-Ashutosh Gowariker's Sports Drama For THIS Film",
-              "link": "https://news.google.com/rss/articles/CBMi-gFBVV95cUxPb0lHX1pWdS1feWtvN0pLRWFPMzRHdGdmbTdnWVg3dl9qR1pqVW8xdUlzRHJLNDNSRGxDQkdsWnpFOTF3LVlJdGQtZ2V2YkpVdG5kT2w2em0tNldJVU9IdUM0QmppNVIyNTRPQXRoWXVGN01YeWw3TGdtU2l2bW1IbU5TMjd4VHptenJiMFJZb3hDN1lWbGFNbGEya3M5Y1BLbVdsWU1rLU5JRWNsSGhLQVVuQkpiNHVhVFNmeHFyVFNJdHVNOUEweUthSW4yd01xeFAyQW8yTXFUVEdneFI0S1JJYVoyNDNiN1EtSktVaEl2T3J0LWViV1Rn0gH_AUFVX3lxTE5vUVB5aG5vcmg5X0FoQWpKQVBhWDh0TzZ0dWM1TnU3SlVFelJnTXF1Z0JtT3c1NkhtTDBPRTRDRG96OXhfQzVsQnQwQmJVVEluYVVRZ25jUURuYkZqcS1MdGRQbjNsbks0YUZoWEUxT2lIMXM0Y2FOdEQ0Zkx2bjczcXZ1XzlNQThBaUNfZV91T3YxZHZzSGhGVngxdGhrZnhwcDNqbkMwcFdpOFMzclpuNTNXNlNDcEc2aVo1SDUwZmlHZ1l2ZFRMbkNvVEZhUTM2TUY1VzQwaEQ4R0R6UTBvVXhpbTY5YkY3NHNXMWp4WGM5NXRpWEhBd0NFV1NYTQ?oc=5",
-              "summary": "Lalkaara: Farhan Akhtar Backs Out Of Aamir Khan-Ashutosh Gowariker's Sports Drama For THIS Film Republic World",
+              "title": "शाहरुख का कबूलनामा, \"आमिर जिन फिल्मों को रिजेक्ट करते हैं, उन्हें स्क्रिप्ट पढ़े बिना एक्सेप्ट कर लेता हूं\" | The Lallantop",
+              "link": "https://news.google.com/rss/articles/CBMi2wFBVV95cUxQY3UwZEFGaWN6Q25SaVN4dWVjR1FXV1JjejFWdXBSdEFoZnBmSUFGOTY3dXF6NUpDNXJ6NXV4djN4MldlZmZieVV2Zml4TWZKVWdNMWJ1Z09FTFU3aXZvOXRRZWMzSlZoM0ZsZTNFa0p6VTFNTzlObFVuQXZhaS1uM0FwVl91Y1RKRll1cVQ3eGdLNWZMUVFNUzE3R2VKZlVMSlRWc2ZhbXFwR2ZXZ1R3QVlPRWVPXzVhc29hOWhMM0JLeDFQQWQxSW5MN3VHX3ZzVFpYRG9RSVQ0Z2fSAeABQVVfeXFMTzczd2tRYmdtMl9aZUNYRnpfNzRUeld3TzJtaURSN0tNMkJBTFRwdDRwSDd2NWNQNWdmcFhoa1ZpbktHakxxWU1pV0dpWVNZMGg5NmNob1RDSnBSLXBWUEtIdElVWHBFZ2hPZmctUkVQTk9nSzNQOUIxakFsYi00b2psbDJhWXhfSTA2T1RQUkpEckNzMW5KREp5ZEplQXNidnp6dWwyaGxwWllZOHltb0N0d2FLZF9rcG5hWVdpNHpVNjdjTHRvZnJSUTY2LWRWT0RwN2dkVjlKdHF2SExDYV8?oc=5",
+              "summary": "शाहरुख का कबूलनामा, \"आमिर जिन फिल्मों को रिजेक्ट करते हैं, उन्हें स्क्रिप्ट पढ़े बिना एक्सेप्ट कर लेता हूं\" | The Lallant…",
               "thumb": "",
               "kind": "article",
-              "via": "Republic World",
+              "via": "thelallantop.com",
               "paywall": "",
-              "dt": "2026-08-03T09:11:03+00:00"
+              "dt": "2026-09-03T12:14:42+00:00"
             },
             {
-              "title": "Vikrant Massey to join Aamir Khan in 'Lalkaara'?",
-              "link": "https://news.google.com/rss/articles/CBMinAFBVV95cUxPN05WRWJVZHMwaXhqYjIxa0hIWkJyMkpxSGpoTDk3MkUxS3dEZEozMlZSRUVoblNVTHhNSTZ5Y1VoVFIweG5YU1pyV1dKTGlpanZrVVdJNk56Rl9WMHFHV0R0U2dGQ1Y5d20wdjFLTXFCMFNDQTYxX0JqQTdtOFNnNDFrVTFQSmZpVVBGMFM4TjN5MnlyazlFNFp2enk?oc=5",
-              "summary": "Vikrant Massey to join Aamir Khan in 'Lalkaara'? NewsBytes",
-              "thumb": "",
-              "kind": "article",
-              "via": "NewsBytes",
-              "paywall": "",
-              "dt": "2026-08-03T08:30:26+00:00"
-            },
-            {
-              "title": "Sidhant Gupta steps in for Farhan Akhtar in Aamir Khan-Ashutosh Gowariker’s ‘Lalkaara’",
-              "link": "https://news.google.com/rss/articles/CBMisgFBVV95cUxOWDJxR0QxNlV3TGRONGN5VWZiSC14UzRCS3hBX0JjRzlNR3hzSV9VZHpGRTBmNXo2MmJnLWx5M29sZklmT0lQeFhuWGxJU3U1Z2ZPbGh3bWt5OFE5d3p1TUNDanlEcF9OVGl0aE5KSnZmaXlPRFZmamFRbnBCcVI4Xy1XdV9iTkpfLVFKbWd0RFFkUktKbmFuRjJiZXBOUmFhMkNfMEVONVZSMVYzcVdTOUh3?oc=5",
-              "summary": "Sidhant Gupta steps in for Farhan Akhtar in Aamir Khan-Ashutosh Gowariker’s ‘Lalkaara’ BizAsiaLive",
-              "thumb": "",
-              "kind": "article",
-              "via": "BizAsiaLive",
-              "paywall": "",
-              "dt": "2026-08-03T08:25:59+00:00"
-            },
-            {
-              "title": "Farhan Akhtar opts out of 'Lalkaara'; Sidhant Gupta comes on board for Aamir Khan's sports drama - Report",
-              "link": "https://news.google.com/rss/articles/CBMiowJBVV95cUxQQTJINlM1OHpJS1Bha2Q3dk03LXJvVFIxdWdtNjJaXy1zMU0wZXRuMElzVjhCbVN2bGFVWXlaMVFsdlhKcy01anBkSkg5d1B4QkhhTTdMRllNMUduVlItZ3BnZEdySnk1SjJhMnotdjZMVHA1c01zV1dIdlMyRkpGbkVBaEN5S0IzU1pJaWh4c3F5WlVuX3VUX0hGSXFjSVd5ZWdmRUQzTHZIaktEV0tvemVuUmI1bnZJenBBYUZ1dDJrN1ZQSXlXTS1pTm1DaWQ0eTEtemxXUjFfTWNVaExPLWpCblR5MVNCd2dKXzVsSk9TZzZja3RTNk5NOU9uSVItQzEzM1c2QzhtZ3Y3ZUNjZld3TTZ4NnRNNV9fOWtERVNqT0HSAagCQVVfeXFMTjlFaXpXd0syeE11UGFsSHRHaEx0MGhpeE45OVNfUmJmYzA3aUJtTENtZUE0c0d5VW92OXJlMGZmU1JZOGlxSF9iNmtCV0NJTHh1MHNGa285UUpKaDNFNHp6Z2x2SkdKTkxlM3lrMUZIck0ycTZrY21FX2JWWEpzejNuMHVEWHpQTVpSeHJkUnlBVmY4TmRDTEUtZ0FoR3VLclNzUi0xanE4d2lnbXhOX3lobTQtaV9KNE1VRGtseDlIRlJtVU9TQndUQ0FCUTFielBMUTF0WGZrX3NHVXlEbUo0X0JRVFVJMG4wcUkycC1Jb1UyRW5VaE5WZGdYYjk1MjVEZFNhVEhWa0hWeTNxQk92dFBLaDRheHFOc1Zyb0hjUTEtSTctQWU?oc=5",
-              "summary": "Farhan Akhtar opts out of 'Lalkaara'; Sidhant Gupta comes on board for Aamir Khan's sports drama - Report The Times of I…",
+              "title": "R Madhavan killed the audition for 'Swades', what an actor,' recalls writer, reveals the film was origina",
+              "link": "https://news.google.com/rss/articles/CBMi8gJBVV95cUxOWm81WVdoaGxpTG8zT1lWeFRPM1VOYTFKVVRmQTctdEF5WE0zQmo3ZkYwUl9BZ1l0ZmxMLWVZRzFGcS14bXlTemZ3eGdkRXdHU0JIbnZoU1ljRDlyV0MwZ2dQcEttaTdFbzgzcEt3ajVhYXY2SXR6a1Vqb1NrNUhwTUR1R0hKY3phbG8xcU8zNURZQnBFX2hUaElnVFl1WGJzeURra0dBRDg3RXN2dVV0WEx5RVZ4NFAzU3JuWkdYb0w5Wk5jRjQ2cE9XWTFLQldjcjliMkUtLXJuRHdVR0tEaXB2M2w1OEtoQ3NDT2c3dlhYcU5CN0ZPMUxuSTNoWW51cmlyeVVxQzF4R2MxOXFRSUN0UHdEZTkzVVZKdUZ2Umt6QU9UODNOX1BfYkFEZDhfZzlneWtoanMwUkk0bzlSSTEwNUdoRmJQV3NiTTctZ2JoYU02dERJa0NiVUh5UmZOMWJOT09WTE5ieXlJeTV4bWRB0gH3AkFVX3lxTE9heEJjTnJicnVtX1hQZnJaWS1TcDlaT05mVG5fYWF2bnBjckRiWHk4RjZ0R3haQ0JabFBXZEE4aEZUUHFRS1dRWnpkTmtHRnJKd2wwTm80WWp2eXpHVmFncHpKbUVSSHdkRDZEc0h5N0RtYUduYm5lN1ltRC13S1dETEpBdFJybkVJeDhOVklLTWJBT3I3MWwwQVk2QWxjeFZ3MVVBMVdERzZUZzFkLXBKcVJCNm1FZk1lTE5ITDY4XzNfUnV5WkxOeGhCcmxHYlU5cEVESkw2cmdtbnFHeGxlTkhma3oxakdoQ3FodjhRMXB4VVVyRWxkN012MGx6WGZwZnNxT0tDYkc3WS1Hd0VycnV4QlNmNVZXUHI4aTE5NkdxOU1EbzhnOUF0aDRpRUdvOUdVVGc4cW8xbi1WaHVnNkZvUFFRSUx5bTBZX21KelI3TVJYMnptYV9WcG5yQXZwSVJDeV85dk93OG4zSUVHRXBqOE9WNA?oc=5",
+              "summary": "R Madhavan killed the audition for 'Swades', what an actor,' recalls writer, reveals the film was origina The Times of I…",
               "thumb": "",
               "kind": "article",
               "via": "The Times of India",
               "paywall": "",
-              "dt": "2026-08-03T06:28:00+00:00"
+              "dt": "2026-09-03T11:58:00+00:00"
             },
             {
-              "title": "Sidhant Gupta replaces Farhan Akhtar in Aamir Khan's 'Lalkaara'?",
-              "link": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOZDRueWV4dDJ3V0dGeHlPUC1ydEVYVkNndmRRWVhZWkRBNDlFaldUTTJRQml6NVluM0tNazREQU1KV3NtVnRfYjJtZVNhM0ZtSlZOWVVmelREblFPMllidXAtdVFVSkVWTW9qUDJUbDNUQ2lTUER0cFRCNEtpTnRMSnpqU3U2VkE5alNUR2t0OFJva1pUZWZOdC1zakxFMVgzZ1RUVQ?oc=5",
-              "summary": "Sidhant Gupta replaces Farhan Akhtar in Aamir Khan's 'Lalkaara'? NewsBytes",
+              "title": "Rajkumar Hirani confirms 3 Idiots sequel is in development",
+              "link": "https://news.google.com/rss/articles/CBMilgFBVV95cUxNRkx5NERwOE42UU1jVXYxemJfRW5xRWFGMFpyUHVuRmRvVlZlMWE3SExZckRRYU1iei12SDFsVE9yU3V6ekRzMTItZm04QVpxdHZkRkJGbGJ1ekJVUnVrSGswZ3EzNTdmV3AxYm1hc3dwQmhLbU9uaVJ1TEZ6V2c2WTR2bnNHLXNwUkpHYWxlZ1JCSnltTmfSAZsBQVVfeXFMUGVaNkU3UmNLWEh0Q3pTZjFoS0o5NGlkQmI3UVVIT2UzcHAxUXZjRFJiVHpZR1dNWXhFRnRuWlV1R1ZOMFlsTjROQThzT3gzTUlDZDlvTzZBQ1JDbHEtWnF3RUFFNC1PQ1E1SEJYN1hnb3Y5T2hSVjFISzFvV1U4eFBBTHJBaHhpU0ZwV1p2ek5Od24tdnAwckFYNmc?oc=5",
+              "summary": "Rajkumar Hirani confirms 3 Idiots sequel is in development Dhaka Tribune",
               "thumb": "",
               "kind": "article",
-              "via": "NewsBytes",
+              "via": "Dhaka Tribune",
               "paywall": "",
-              "dt": "2026-08-03T06:25:16+00:00"
+              "dt": "2026-09-03T10:32:31+00:00"
             },
             {
-              "title": "SRK Replaced Sudesh Berry in Darr Because Yash Chopra Couldn’t See Him ‘Punching Sunny Deol’",
-              "link": "https://news.google.com/rss/articles/CBMi1gFBVV95cUxNazVVbk1yZjBWSFp4UkR6NHJuN3dSZlEyRWdtTlZTelJRM0hHZmlCT2dfQWxBVENLVDJtcTA5U3VlZHNJYlVYaWNRZWdUbF9xcTlBM3Zwc1lTUWM4YlBZNEhRdTg5NTVMbEpzbjc1ZkNiWXBNa1kwQk5zZWozSzRuMm0yOXpOVXVGSDhZbHVvWjdMWDMzaTRWNEVtVFlCNGpTYXE0ZkRFU0d3b3U3a1hSQnBpMlJhdFlwOXNyYVQ3T19lUEU5NWQwSktfWFE0NENUU0p4c1Z30gHbAUFVX3lxTFBJOTBPQkViUkxDc0FqY3p3NHlwdG5QaXdaY1N1YzgySW5qdUhlSHdJT3Zyb3JMVUx3bXg0cy1vay01OGR4b05xOE9zU0x5NFJ6cDZadFliZlhzRDFyU2tZTXNNNEF3Q1JHc0NzZ0lKNXRFeEZqVlc0dktkbGUzZk5SUmtmbFZvZjFjVTl3NDNjRTVDbGhzdFhMaUc3WWhGUmFYeVhMSUFlcmxLNGpUS2FLVkxCR2g5OXJYci1PeHNkWnVPci1YNFYxMGk1VDN4OWR0WUtneFF2RVRucw?oc=5",
-              "summary": "SRK Replaced Sudesh Berry in Darr Because Yash Chopra Couldn’t See Him ‘Punching Sunny Deol’ MensXP",
+              "title": "Bigg Boss 20 contestant list: Aamir Khan's brother Faisal Khan to Riya Ahir, here’s who can join Salman Khan’s show | Hindustan Times",
+              "link": "https://news.google.com/rss/articles/CBMikgJBVV95cUxNM3NUWWxwS2JSa2NmTGRaazQ5S1Uzcm0zSWlmUTg4Znh5MHZWejR5eUdZN2R4dk0yQkdwRy10SGhTNkRGeGdVaXNsYXVocmJ3ZlhjLVRqZVY2S3pXXzUzeFd3QmFKNG1ZZTcxY3dkTks2c2pBazhZQVhQbTFFVkNNWk1Iek5YV3NBVkt0aDdocnVxTGRfc3RwbVE3WGFNNVRVVGFpNm4xOFJueTdROHZYMjdIUDFmNTlHTmt6YnZxc0d2akYteVlGc05yWTU2TGZ3TGFzaHd0b09XbjFoNzhBdjJyNldmRmZjTC1ZSmxQdGZuOHAwVFRBS0c3MUwyMFF3UHNoMk5QdmVoWk1zUkJ5RzhR0gGXAkFVX3lxTE96T3dBQzNudVhxanY3aFdSbWUxUGlWRGxOYk1LdGV3OE8wQTZNT0MyOGtoR1A4UVBqWVhtaEsyTUFaVDJOdkx2VDRiZWlncy1VTjVjTlM0bTdLUHpuNnZDckpGNk0xQVRQbDhpOF9BazlzbXRqTzZjQjNIOFBfLUR2LXd3NWdJYWhtZkZ3ZVlaOXNFNDBkNmFXQVpUWk9oYUJjTGhnVFA0Qm9pV0FvWGpiNFdNQ1VxQ20zYURJY0IzTXY4M2xnWlJua29MaGNXeklNc21HT3FxcnNpR3Q5S1pDTzFsVXozQUVORmtXZjI2NlF5dVZCZDVmTWFQSUlETVJCUzYzNWRlM0dwUVVKQW14YmRiS2RKdw?oc=5",
+              "summary": "Bigg Boss 20 contestant list: Aamir Khan's brother Faisal Khan to Riya Ahir, here’s who can join Salman Khan’s show | Hi…",
               "thumb": "",
               "kind": "article",
-              "via": "MensXP",
+              "via": "Hindustan Times",
               "paywall": "",
-              "dt": "2026-08-03T05:50:10+00:00"
+              "dt": "2026-09-02T09:56:20+00:00"
             },
             {
-              "title": "シークレット・スーパースター／サブ1 | あなたが観たい",
-              "link": "https://news.google.com/rss/articles/CBMiwAJBVV95cUxOVlJFbkxIeHphbDRuYlR0QUktSUkyQ3p4THhSMm5iVjluc1FhUVVyREo1Q29NbnhWUHpTbTlLZzJWMXNJRE94MUVlYWhZa2ZTMjYwNDM4NXBPTDc3SHlqaGFNRDBRRlF4czlfc1ZkMldoRTFUOGUzZ21BLWZBcFlYYVdibWpuOGo2Z2ZQMkMtMWM2RDJocGs2MTF2YW9md01QcGhlaXgzSDBXa2I1RGVSSGNsclEzbHk4MXBFUllqbEpwUnJEQXFyWFVFQ0lGTUtpdmVwbUZjXzVoV0FoU1dNbDQ1ZmRZeGNVeE5RRVV1b3R1UXh5aGQ0WFBVLVVxVlJRZVB4SDF1dWEtY19UaUhGcUxNM2Nwb2Jyb2lCUUpoSFZpVmp0eGJWZGpzNGduOXV1WjFUQnAxNkNPdDBWUFB5cQ?oc=5",
-              "summary": "シークレット・スーパースター／サブ1 | あなたが観たい banger.jp",
+              "title": "\"Casting will be same...20 saal baad kya hota hai woh hoga story mein\": Rajkumar Hirani shares...",
+              "link": "https://news.google.com/rss/articles/CBMijAJBVV95cUxNR01ON2hlbkNZMjBoTjZndnNJc2lfVjl5cVhmMUpKblBYOTN2V0dEc2JqX01pMENIUXVucUFWWmVQWUIycUVyUkM1YjhJdUltUFkxUG84Sk9KUGdmZlQxR0w1RXJTckQxbHdZdVFsODlHWGFnMElFY2Rrc1JxWTN6ZWhwbC01X0VZUVlEak5UZGZfbFZxQnI2bmlnWFZxVklNWWhOQlplM3d5cnktQW1vQmZHempiNjdfNDE5NmNEUUhJV2dYM3VKd2pPaUVCamxxUXpIbXh5UnZKanIzWXZ0N3NMZE5DWGRJU1cyakRtanFfOEtVZC13OU5PY2ZURE9fTXVXTlNWekhKeFR30gGSAkFVX3lxTE9qWU1nNlRYVEpBUG9TcXNPVlVNNi05cktFWHpvQUNCN3lra3lWTlkyVVA0QU1WbWpfbjQ0LVZtVzN6dUZMb1Z5SXZ2TERwbkUwbUkwb2lnZW9CM1M4Nkl6WDRlcnZXWDQ0bEpUeUJnaEgwX3hnZ0VMbEtnMngtVlJvV19JOTJWcTJKNS1LMmQwNml6ek1IdWxHZEl0aGV1cU1vVEZLSkFVZjFYZ3JEV0V2TC1DNEE4ZzFqOXRQV1djRVV4OUp6aFFTaXFkeldwYm8wMWFfcGhrcHV1V1NzQjI3NmI3RmNLZTZYZDRhU3FORmRVMmh3bWhGTWRSUmpIWm1IbUphVzltU3d6RU1GR0ZuYXc?oc=5",
+              "summary": "\"Casting will be same...20 saal baad kya hota hai woh hoga story mein\": Rajkumar Hirani shares... Moneycontrol.com",
               "thumb": "",
               "kind": "article",
-              "via": "banger.jp",
+              "via": "Moneycontrol.com",
               "paywall": "",
-              "dt": "2026-07-29T12:51:23+00:00"
+              "dt": "2026-09-02T08:23:49+00:00"
+            },
+            {
+              "title": "Aamir Khan, R Madhavan, Sharman Joshi back for 3 Idiots sequel? Rajkumar Hirani drops major update",
+              "link": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxOMHhIUXlWWHBUTVI4NjhOUW51UExQRTdjYjgyMnMtUmJ2R3BHT2I5MzRCM1BVbGM5VDYyUjVyOHZBVHJYUEVsdkNWa0lZalFIblNqcjNPSlN0MGhtMDhvSVRyVlVKUG9DTENRRkpOT205TnltanNtUTk5bjl6Tk5YU2xtTUwxNmJTRFAyUTVaMFJVNzRVMjdsV2JoMXRtMVdyRHF2aTVBOU1qZFd1UjV4UC11VWc2d0Eza1VLQm9GR183cFVFQ0xfU0hNOUc0OUFZS1QyQnJLdVZSTWtXREHSAeMBQVVfeXFMTjZRM3RNVmxEd0xaVlRRTjE4bjQ0ZWtmRlRsb0tHMXZlVm51U1BvZXVCZlh2c09vQW9ueFk3bXZEX2tweDlrb0hRTnprbHFDZ1R5YUt4enpIdExSVVI0S1Z5XzdiZ1BqeWpfaTlpZm9fYWRKcVhxYVQ1dTlQSFBwVlY4X2ppVkx5ZnZVZDY2emZ5R1BiMXpvSk84NXRUQ1RxTGhUVm52aUUxX2NrOVU2eEVwS3E5NHJiLWUwbFhuaFpkNmZzUWUteGpiX09hWW9XTnRhREdiaG5uMldRVTZETkFYUUU?oc=5",
+              "summary": "Aamir Khan, R Madhavan, Sharman Joshi back for 3 Idiots sequel? Rajkumar Hirani drops major update DNA India",
+              "thumb": "",
+              "kind": "article",
+              "via": "DNA India",
+              "paywall": "",
+              "dt": "2026-09-02T08:23:00+00:00"
             }
           ]
         },
@@ -188,74 +368,74 @@ window.NEWS_DATA = {
           "name": "アクアワールド大洗",
           "items": [
             {
-              "title": "アクアワールド 大洗水族館(茨城県大洗町) | 雨音のつぶやき",
-              "link": "https://ameblo.jp/ameoto613/entry-12974568416.html",
-              "summary": "アクアワールド 大洗水族館は 580種68000点の生き物を飼育する関東有数の大型水族館です。 サメの研究に力を入れており、50種以上の多種多様なサメを飼育し ...",
+              "title": "画像3 / 18＞【コロナ対策情報付き】アクアワールド茨城県大洗水族館の楽しみ方！飼育種数日本一のサメや巨大水槽のマンボウが人気",
+              "link": "https://news.google.com/rss/articles/CBMibkFVX3lxTE1FbmsxUGZRT3BJUy00c0RmYXJOc0h0SVdHZkVYczNmTlRodk5Bc01YWW1kVGR5NHo0UV9lT01jSmI1NFZIX3JiOUg4OXBsYThVNWZVZnVLUlhVSW5fVDZVY0lmN0dwbUJ4aHp2dElB?oc=5",
+              "summary": "画像3 / 18＞【コロナ対策情報付き】アクアワールド茨城県大洗水族館の楽しみ方！飼育種数日本一のサメや巨大水槽のマンボウが人気 ウォーカープラス",
               "thumb": "",
               "kind": "article",
-              "via": "",
+              "via": "ウォーカープラス",
               "paywall": "",
-              "dt": "2026-08-02T15:48:54+00:00"
+              "dt": "2026-09-01T21:22:59+00:00"
             },
             {
-              "title": "アクアワールド茨城県大洗水族館｜2026年8月 1日｜出没！アド街ック天国：テレビ東京",
-              "link": "https://news.google.com/rss/articles/CBMidkFVX3lxTFBBRDBXVlI4SVRFa2Z4bUJFOGZQdkJrN1RCaGU1MERnUzJfSjZZS2xPLXplcXVKMUZrWERPSDhuc041WGEyVERCTUJiX1JqZFgwSTRsWFN0VjB4Qk1CdEllLXpvLU1ReHJUTTZ5SHVCUVNXYlF6ckE?oc=5",
-              "summary": "アクアワールド茨城県大洗水族館｜2026年8月 1日｜出没！アド街ック天国：テレビ東京 tv-tokyo.co.jp",
+              "title": "アクアワールド・大洗で生きものたちと一緒にドキドキワクワクのハロウィンを満喫しようハロウィンアクアワールド2026",
+              "link": "https://news.google.com/rss/articles/CBMiakFVX3lxTE1pZ0ozdW05anhtaml6ZjN4M3N5bnJobWFrWmVJVkthRHZnaF9DVVA1V0kyZU1vb1AwaFMwM1VPRThWV0kwa3RJbkE2R25KRndKQi1uMnZNNTlUU0JkOWVvc2VBOXVDYkl3OVE?oc=5",
+              "summary": "アクアワールド・大洗で生きものたちと一緒にドキドキワクワクのハロウィンを満喫しようハロウィンアクアワールド2026 PR TIMES",
               "thumb": "",
               "kind": "article",
-              "via": "tv-tokyo.co.jp",
+              "via": "PR TIMES",
               "paywall": "",
-              "dt": "2026-08-01T16:07:43+00:00"
+              "dt": "2026-08-31T06:00:11+00:00"
             },
             {
-              "title": "ペンギンの目的は、涼より“団子” アクアワールド・大洗（茨城・大洗町）",
-              "link": "https://news.google.com/rss/articles/CBMie0FVX3lxTE9JVGFnMDNic2NPMThPT3BhbElVMnRodElOZ1B2OWJoT1VBdFdTQnJmVVp0U1BSUVpjSjFmNFZicmF2Y2t5Ty1yOEc4Ykg4M2tNc3JIYlhfSzJfSjRkbWNzTVBuc3NHQ0lKNWI4NkhyY2FqNmMxZkVtUlV5Zw?oc=5",
-              "summary": "ペンギンの目的は、涼より“団子” アクアワールド・大洗（茨城・大洗町） よみうりタウンニュース",
+              "title": "画像6 / 25＞アクアワールド茨城県大洗水族館にピングーがやって来る！ワークショップも開催【PR】",
+              "link": "https://news.google.com/rss/articles/CBMia0FVX3lxTE9PVlY2emRtQzlVUzdWMlZPcW9UR0tIWFV3SFV6OFQ3aDBueHIydGlpN0pxTVkxOVNmc2JlcmNxMlhxZWE5ZmoxSjhXWVRrZi1wU0FTQlBwMWRCM180aFE1c1RaRVc2ZmpVVkRV?oc=5",
+              "summary": "画像6 / 25＞アクアワールド茨城県大洗水族館にピングーがやって来る！ワークショップも開催【PR】 ウォーカープラス",
               "thumb": "",
               "kind": "article",
-              "via": "よみうりタウンニュース",
+              "via": "ウォーカープラス",
               "paywall": "",
-              "dt": "2026-07-25T19:06:34+00:00"
+              "dt": "2026-08-28T22:16:18+00:00"
             },
             {
-              "title": "「人間よりサメを見分けるのが得意」。レジェンド飼育員とサメ好き絵本作家が語る、サメの奥深い魅力 (ESSE-online)",
-              "link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxPeWhnWVN4VjJmdkxpd0VpczJyWWs4VkdvWVp1N1R3UGxJcHhJV1Z5YVVFM0Z2YnBmcGtLT2hvNkR6R1NKSnRSMFZYb25zZWJjSWFtOGQ5NGk3WlNhemdpV092MWM3WEZuampTSFYxR01IYV9vTmpTSVY2ekFVZFNoTXZOTl9vTFZPZEQ1NlF3?oc=5",
-              "summary": "「人間よりサメを見分けるのが得意」。レジェンド飼育員とサメ好き絵本作家が語る、サメの奥深い魅力 (ESSE-online) Yahoo!ニュース",
+              "title": "茨城の海とウミガメの未来を考える！『アクアワールド茨城県大洗水族館』にてウミガメ保護活動の特設パネル展示が8月27日より開催",
+              "link": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE4xQk5aS2dwZ05Delg3TVhkZ0JwUnE3Z2ZVaEFwYmx1d1Z6SmRVSGdGWFR0d0dfaEhMY0lWaHFuUWwxYnJGX3JkYWJjVkFlaUJnUERRSkU4ZWdqQ2Z2MW4w?oc=5",
+              "summary": "茨城の海とウミガメの未来を考える！『アクアワールド茨城県大洗水族館』にてウミガメ保護活動の特設パネル展示が8月27日より開催 千葉テレビ放送",
               "thumb": "",
               "kind": "article",
-              "via": "Yahoo!ニュース",
+              "via": "千葉テレビ放送",
               "paywall": "",
-              "dt": "2026-07-24T04:23:58+00:00"
+              "dt": "2026-08-24T01:15:24+00:00"
             },
             {
-              "title": "アクアワールド茨城県大洗水族館で「祭あくあわーるど」 氷やしゃぼん玉で涼 (みんなの経済新聞ネットワーク)",
-              "link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxPU2s1c1RYdHNEdUx5Z2daUXRGM2lheW50c0dqemtsRW95NkREUzQ2b0FrS2NFZ0ZQQjlzRE9RcjhNRGVJSGVXTGpfUnJSc05SY2ZfemF2MFU5LUY1RC1RamxVdDQ5UW5sOWxON0c0V0V4WkxldmlsWTBHUUs0MzBqenYxWXQtV3Bfb0JNNlRR?oc=5",
-              "summary": "アクアワールド茨城県大洗水族館で「祭あくあわーるど」 氷やしゃぼん玉で涼 (みんなの経済新聞ネットワーク) Yahoo!ニュース",
+              "title": "SDGs週間 パネル展示「海からのメッセージ～ウミガメのみらい～」 アクアワールド・大洗で2026年8月27日(木)から9月30日(水)まで開催",
+              "link": "https://news.google.com/rss/articles/CBMidEFVX3lxTE9ud1ZfaEM3dkcxaGRKc0lVQXBReWVEV0dOM3g0UW5QNWVGUVRvczR2aTF6aHYzU2EzREJ2aldadEFHMDJJQkt4eDJ1eDAtZXdCSFB2aWZRWU82LUxISGlLSENrSWVWeGtsczFTYndrclNTQ2Ew?oc=5",
+              "summary": "SDGs週間 パネル展示「海からのメッセージ～ウミガメのみらい～」 アクアワールド・大洗で2026年8月27日(木)から9月30日(水)まで開催 Excite エキサイト",
               "thumb": "",
               "kind": "article",
-              "via": "Yahoo!ニュース",
+              "via": "Excite エキサイト",
               "paywall": "",
-              "dt": "2026-07-20T12:46:07+00:00"
+              "dt": "2026-08-22T11:10:00+00:00"
             },
             {
-              "title": "流しそうめんをイメージした「ペンギンのもぐもぐタイム～みんなで流しお魚?～」（写真提供＝アクアワールド・大洗）",
-              "link": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFBRV29WeGpYSWtNcURzc0xRVWhZOFpPU2Vxb09tWC1yX295TEtKdi1salRwbXI1b19zX2thOG50OFY3Mm14WnVWamQyNkJ4NEh0SlE?oc=5",
-              "summary": "流しそうめんをイメージした「ペンギンのもぐもぐタイム～みんなで流しお魚?～」（写真提供＝アクアワールド・大洗） 水戸経済新聞",
+              "title": "アクアワールド・大洗でウミガメ保護のパネル展 海洋ごみなど課題紹介",
+              "link": "https://news.google.com/rss/articles/CBMieEFVX3lxTE84TnJwcm1BRF9WQVlzU09HNUtNUUpJOWhJbEJ2Zi1NbDc2VkJTMDNPVjZiRHVibEZTMXpRZ0dHTVhCMm5WdFI3VXFma21rZExpM0RmWnAxUHRrS3MyM2dEaEFReVRZdWJDQkthN2hzR3lQNWZPZGZkeg?oc=5",
+              "summary": "アクアワールド・大洗でウミガメ保護のパネル展 海洋ごみなど課題紹介 au Webポータル",
+              "thumb": "",
+              "kind": "article",
+              "via": "au Webポータル",
+              "paywall": "",
+              "dt": "2026-08-22T07:00:00+00:00"
+            },
+            {
+              "title": "保護活動（写真提供＝アクアワールド茨城県大洗水族館）",
+              "link": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE1Ua1lNZ0x5dFZ6ZEFkNHNjcGpHbktfSWlscExhRnBobngybXRoaEsyN1V3UDFLcFhvZHRDUzZuSWRVU3FPc3RoTDJoNV9SbDhQN2c?oc=5",
+              "summary": "保護活動（写真提供＝アクアワールド茨城県大洗水族館） 水戸経済新聞",
               "thumb": "",
               "kind": "article",
               "via": "水戸経済新聞",
               "paywall": "",
-              "dt": "2026-07-20T07:00:00+00:00"
-            },
-            {
-              "title": "すみっコぐらしすいぞくかん×アクアワールド･大洗(茨城県)の情報",
-              "link": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFA0WDRSZjVUWUdCY0VuQW9FczhFNktJUWNmY2dHZjNpU2YyXzFYZzk3Nk44bDRXQm9iVG0wTkNKVFRMRmo2ODFDLXBiWFVBTXZ5ZlJmUGp6Y2JldFE?oc=5",
-              "summary": "すみっコぐらしすいぞくかん×アクアワールド･大洗(茨城県)の情報 walkerplus.com",
-              "thumb": "",
-              "kind": "article",
-              "via": "walkerplus.com",
-              "paywall": "",
-              "dt": "2026-07-17T05:28:46+00:00"
+              "dt": "2026-08-21T23:09:35+00:00"
             }
           ]
         }
@@ -268,124 +448,104 @@ window.NEWS_DATA = {
           "name": "Claude Code",
           "items": [
             {
-              "title": "Rubrik、Anthropic「Claude Code」向けにAIエージェントのセキュリティ基盤「Rubrik Agent Cloud」を発表",
-              "link": "https://news.google.com/rss/articles/CBMiS0FVX3lxTFBuR3BjT083RktwYVhyLUNteG9PTjNoVHBIVXBfaDRJbkRjMnVzWU5vYzRYcTF0LXJPZFhJMmJFWXBtcnkzMEhYQTNQaw?oc=5",
-              "summary": "Rubrik、Anthropic「Claude Code」向けにAIエージェントのセキュリティ基盤「Rubrik Agent Cloud」を発表 thinkit.co.jp",
+              "title": "Claude CodeでWeb制作を効率化、9月25日無料セミナー開催",
+              "link": "https://news.google.com/rss/articles/CBMiRkFVX3lxTE1oS0ptRVRLNkdyYnFMODRDQkdaZXVwOU9QREROOWJ0TjV2bUswcEp2cW9KRlRPSnUtMktqOVZVWDN6VV9nVXc?oc=5",
+              "summary": "Claude CodeでWeb制作を効率化、9月25日無料セミナー開催 Koubo",
               "thumb": "",
               "kind": "article",
-              "via": "thinkit.co.jp",
+              "via": "Koubo",
               "paywall": "",
-              "dt": "2026-08-03T07:09:06+00:00"
+              "dt": "2026-09-03T18:46:55+00:00"
             },
             {
-              "title": "Claude CodeのRoutinesとは？使い方と料金・危険性を解説",
-              "link": "https://news.google.com/rss/articles/CBMiSkFVX3lxTE8xcjNzbjRVbFNQZEV0Ty1kSXhzcFhTUmdCdUNUQnp1Z1N2c2d2d3c0bUtGQ1lpbHdPcHBGSHJ2a016amRYX3ZPMDh3?oc=5",
-              "summary": "Claude CodeのRoutinesとは？使い方と料金・危険性を解説 SHIFT AI",
+              "title": "エクスペリサス、Claude Codeを全社導入、社員作成の業務スキル700件超を社内共有",
+              "link": "https://news.google.com/rss/articles/CBMic0FVX3lxTFBxcTJvQUJlcWFHTWU0UTRIbDNHb2VfNWNoeUJmR0NCSm0yakcxc0pwSG1BeWJhbjBOOFVpcEZUZ0VwYWdFNGRtb0JvM3F3SlVsSV90d3pLelRPTEpkMkZFc1lLNTh5ZXpkQkNiOTVMbTRUMVE?oc=5",
+              "summary": "エクスペリサス、Claude Codeを全社導入、社員作成の業務スキル700件超を社内共有 Excite エキサイト",
               "thumb": "",
               "kind": "article",
-              "via": "SHIFT AI",
+              "via": "Excite エキサイト",
               "paywall": "",
-              "dt": "2026-08-03T06:58:12+00:00"
+              "dt": "2026-09-03T14:10:00+00:00"
             },
             {
-              "title": "Varonis、Claude CodeとClaude CoworkへのAIセキュリティ適用を発表し新たな時代へ",
-              "link": "https://news.google.com/rss/articles/CBMibkFVX3lxTE5CbWhRUUYxSHd2Zm9JS3NheWc3Mk5QZDcycVo3a3pRVmlnaDV3bk9XTFJhZExBcFpzVXN6bVhWalpLaEV1ZXZkWGJwQzFtTmZMaURXUk5DTmx4QzJSVmhUOWpiYjFHRk54M0hUSEhB?oc=5",
-              "summary": "Varonis、Claude CodeとClaude CoworkへのAIセキュリティ適用を発表し新たな時代へ ニュースメディアVOIX",
+              "title": "AnthropicとSalesforceが発表。Claudeから営業データ分析や顧客対応 - au Webポータル",
+              "link": "https://article.auone.jp/b2a065b7-38b7-4948-81ab-2b7ac93f2a61",
+              "summary": "関連記事 · Claude Fable 5.1提供開始 セーフガード誤介入が大幅減、性能向上で半額以下のタスクも。「 · 朗報：Claude Codeの週間制限が恒常25%増へ。 · 自宅PCで ...",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "",
+              "dt": "2026-09-03T12:41:16+00:00"
+            },
+            {
+              "title": "Claude Codeでブログ運営を自動化した話【非エンジニア・スマホだけで記事投稿まで】",
+              "link": "https://aiwork-note.com/claude-code-blog-automation/",
+              "summary": "PCなし・プログラミング未経験でも、Claude Codeならブログの執筆から画像作成、WordPress投稿まで任せられます。開設3日目から投稿を自動化している当 ...",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "",
+              "dt": "2026-09-03T11:22:38+00:00"
+            },
+            {
+              "title": "【Claude Code】Web制作の仕事はどこまでAIに任せられる？ 9/25（金）無料セミナー「Claude Code実践講座」を開催",
+              "link": "https://news.google.com/rss/articles/CBMiakFVX3lxTFBZblJzUDRwWGc1b2tEUVM2MDFuQjhMY0d0QkpueUc3bWctSU9uR1ExTnBkR3pHQUU0NWFfaVV1Y1plM0xPaFpoTmJYd3p0ZFNLOUM5X05iUVp2Zm5VVi1xVnJBSlpCLWFYcEE?oc=5",
+              "summary": "【Claude Code】Web制作の仕事はどこまでAIに任せられる？ 9/25（金）無料セミナー「Claude Code実践講座」を開催 PR TIMES",
+              "thumb": "",
+              "kind": "article",
+              "via": "PR TIMES",
+              "paywall": "",
+              "dt": "2026-09-03T11:00:01+00:00"
+            },
+            {
+              "title": "OrcaRouter、新モデル「Claude Fable 5.1」のAIエージェント動作指示を発表当日に取得・公開",
+              "link": "https://news.google.com/rss/articles/CBMiakFVX3lxTE1SMVAxekNIa1BPdjdnaWpOcUZ3MjRndkZQTEJ5bEZWUFIwblhGcnNTV3FUclFSYWFHXzVvVzlPUnI3ZlNfMTBrRkk2T2t2QzBVTEY2UmhwalNwcHAtVVEyamFGLWtfOUc0TWc?oc=5",
+              "summary": "OrcaRouter、新モデル「Claude Fable 5.1」のAIエージェント動作指示を発表当日に取得・公開 PR TIMES",
+              "thumb": "",
+              "kind": "article",
+              "via": "PR TIMES",
+              "paywall": "",
+              "dt": "2026-09-03T10:00:01+00:00"
+            },
+            {
+              "title": "エクスペリサスが全社員にAIエージェント導入、業務スキルの共有基盤を構築",
+              "link": "https://news.google.com/rss/articles/CBMib0FVX3lxTE8xd3N1NE9LNzZHT19FMXRmWDVpNUszMmdoRWdlT3dvQjQ0SEJtaDZiZDY1djF6RF94bnN4VlJmSTFGcVFVODlpUXlYSUpFZkVWcC1wT1o3amFmQjc0Y21SQTRxNnB1RU0wLVdmSUxKUQ?oc=5",
+              "summary": "エクスペリサスが全社員にAIエージェント導入、業務スキルの共有基盤を構築 ニュースメディアVOIX",
               "thumb": "",
               "kind": "article",
               "via": "ニュースメディアVOIX",
               "paywall": "",
-              "dt": "2026-08-03T04:43:03+00:00"
+              "dt": "2026-09-03T07:43:33+00:00"
             },
             {
-              "title": "Codex Skillsの使い方とは？SKILL.mdの書き方からおすすめスキル・Claude Code Skillsとの違いまで解説",
-              "link": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE9kUzJPemYya3h5eERiV1duZmF3bF9mY1NwaVBVZ3dhUEdVVlhmTEx3UC1hWElHck5BRVpKYk9kZkJ6U0VNcDVwOHV1REdtbjFqa2dXRUxRMU16Njg?oc=5",
-              "summary": "Codex Skillsの使い方とは？SKILL.mdの書き方からおすすめスキル・Claude Code Skillsとの違いまで解説 aismiley.co.jp",
+              "title": "もうユーザーの作業を妨げない ～「Claude」のPC操作、バックグラウンドで動作可能に",
+              "link": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE1pVTJYdWZHZldOazhDdnJqTEdmZHQ3Yk5SZlRiSzJzMW9tQ3BGSjdvaktCQU9WVkRPZnU3UEQwa3FVS2FXUTZKX2NlaThlT1FYU0dOWU4yRU5PTm9UU2xuTnZCVjFTT2Q1?oc=5",
+              "summary": "もうユーザーの作業を妨げない ～「Claude」のPC操作、バックグラウンドで動作可能に 窓の杜",
               "thumb": "",
               "kind": "article",
-              "via": "aismiley.co.jp",
+              "via": "窓の杜",
               "paywall": "",
-              "dt": "2026-08-03T04:23:33+00:00"
+              "dt": "2026-09-03T06:15:00+00:00"
             },
             {
-              "title": "非エンジニアの経営者が「Claude Code」を使って開発した〝組織改革に効くアプリ〟とは？",
-              "link": "https://news.google.com/rss/articles/CBMiREFVX3lxTE9wbkkyYjhyaWZFTy1JX2dqZjV5SjBoVFRCb0NFZTBiY3BzLUhrWGk4OHBPZkY4ejdIUEFIM1hhRWp2UWdn?oc=5",
-              "summary": "非エンジニアの経営者が「Claude Code」を使って開発した〝組織改革に効くアプリ〟とは？ @DIME アットダイム",
-              "thumb": "",
-              "kind": "article",
-              "via": "@DIME アットダイム",
-              "paywall": "",
-              "dt": "2026-08-02T22:03:57+00:00"
-            },
-            {
-              "title": "【Claude Code＆Design】Webサイト作成〜公開を完全解説 - WEBST8",
-              "link": "https://webst8.com/blog/claude-web-publish/",
-              "summary": "Claude Codeとは？Webサイト作成に使えるAIツール. Claude Code（クロードコード）は、Anthropic社が提供するAIエージェントツールです。生成AI「Claude」の ...",
+              "title": "Claude Codeが突然使えない？macOS 13.0以上に変更！macOS 12以下の対処法 - テックジム",
+              "link": "https://techgym.jp/column/macos-claude/",
+              "summary": "Claude Codeのサポート対象がmacOS 13.0以上になりました。macOS 12以下で突然使えなくなった原因、自分のMacの確認方法、アップデートや買い替えの判断基準 ...",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-02T15:30:22+00:00"
+              "dt": "2026-09-03T05:28:14+00:00"
             },
             {
-              "title": "「Claude Codeの教科書」を販売します！ - イケハヤラジオ - LISTEN",
-              "link": "https://listen.style/p/ikehaya/biv3vgq0",
-              "summary": "まあ、そのクロードコードとはこんな感じですって教えてもさ、別に ... クロードコードの教科書、AI秘書で、ん?から始める爆速仕事塾、あ、塾じゃ ...",
+              "title": "Claudeの“見えない透かし”運用開始 Fable 5.1とMythos 5.1が出力する文やコード、画像に付与 日本も対象（ITmedia NEWS）",
+              "link": "https://news.google.com/rss/articles/CBMif0FVX3lxTFBUTGtZZTU1ek9MdkwyblVaR0ZWek9CemlTZEtPNUVYQnVDR3V3dkFmcFlkV2tJV0lRcjZCZEhvSENKTVFNSEpSRFlOYXlqc2tfRW5Gam1RYmNJc19Fc01YRm9OV3hueUhMUFE5Wm8xalNmZXJkeUlRT19wcTEtdVU?oc=5",
+              "summary": "Claudeの“見えない透かし”運用開始 Fable 5.1とMythos 5.1が出力する文やコード、画像に付与 日本も対象（ITmedia NEWS） Yahoo!ニュース",
               "thumb": "",
               "kind": "article",
-              "via": "",
+              "via": "Yahoo!ニュース",
               "paywall": "",
-              "dt": "2026-08-02T10:13:17+00:00"
-            },
-            {
-              "title": "元でんぱ組・元Juice=JuiceがClaude Codeでアプリを自作した日｜強いのは技術ではなく「顧客 ...",
-              "link": "https://www.ai-crew-school.jp/blog/idol-claude-code/",
-              "summary": "2026年8月1日、元でんぱ組.incの古川未鈴さんと元Juice=Juiceの宮本佳林さんが、Claude Codeで自作した美肌カメラと配信システムを同じ日に披露しました。",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "paywall": "",
-              "dt": "2026-08-02T07:35:09+00:00"
-            },
-            {
-              "title": "【徹底検証】Claude Code VS Codex！どっちが結局最強なの？ Foogiano (lV9mONmWBb)",
-              "link": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE50ZEdBSU0ycmQyWERPU0FHazRuRDBYZV9RU3MzNEtab09Xb3RFNk5fWV9tUnVPM0Eta3FOYThUaFVmTEpOREhLTURFRHlFZHYtbEllRU1jTTVqVXNsTFpaeQ?oc=5",
-              "summary": "【徹底検証】Claude Code VS Codex！どっちが結局最強なの？ Foogiano (lV9mONmWBb) Mshale",
-              "thumb": "",
-              "kind": "article",
-              "via": "Mshale",
-              "paywall": "",
-              "dt": "2026-08-01T16:28:36+00:00"
-            },
-            {
-              "title": "Claude Code学習ブーム加速、初心者向け授業に600人が申し込み殺到",
-              "link": "https://news.google.com/rss/articles/CBMiQEFVX3lxTE8zcmVNZVN5ZUtFQ3JPU2c0Qnl4d2pQOVFMcFZkMUpuX2prcGFFT1BtT2FYcWVPR1Z0bzNpNkxpUUM?oc=5",
-              "summary": "Claude Code学習ブーム加速、初心者向け授業に600人が申し込み殺到 shiritomo",
-              "thumb": "",
-              "kind": "article",
-              "via": "shiritomo",
-              "paywall": "",
-              "dt": "2026-08-01T03:22:59+00:00"
-            },
-            {
-              "title": "AI商用化の次なる一手：科学研究は「Claude Code」の爆発的普及を再現できるか",
-              "link": "https://news.google.com/rss/articles/CBMidEFVX3lxTFBqeFJCLXB5UUQ3WWlUNzJaSjY3S1ktSi1ialJ6U3ltSXFVNWhGS2VwUlJSaUNUWFFsZHpySGM4QlZUM3QwaU51ZnBSOWkzRXdJWUQwWVhxM2p5a1RrWWc5cU51ejhYdjRoOEp0aFo2VVFWWWNr?oc=5",
-              "summary": "AI商用化の次なる一手：科学研究は「Claude Code」の爆発的普及を再現できるか BigGo ファイナンス",
-              "thumb": "",
-              "kind": "article",
-              "via": "BigGo ファイナンス",
-              "paywall": "",
-              "dt": "2026-08-01T00:05:00+00:00"
-            },
-            {
-              "title": "マーケの本命「Claude」スキル構築の極意 SWOT分析もわずか15分 - 日経クロストレンド",
-              "link": "https://xtrend.nikkei.com/atcl/contents/18/01433/00001/",
-              "summary": "Claude Codeは「ターミナル」と呼ばれるエンジニア向けの画面でコマンド入力を要求されるため、非エンジニアにとっては操作の難易度が高く、心理的なハードルが ...",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "paywall": "paid",
-              "dt": "2026-08-02T15:08:56+00:00"
+              "dt": "2026-09-03T04:26:34+00:00"
             }
           ]
         },
@@ -393,84 +553,84 @@ window.NEWS_DATA = {
           "name": "ITmedia AI＋",
           "items": [
             {
-              "title": "スクエニ、ゲームの品質テストをGeminiで自動化 AIが画面を見ながらコントローラーを操作、検証作業を自走",
-              "link": "https://www.itmedia.co.jp/aiplus/article/2607/31/2000000322/",
-              "summary": "スクウェア・エニックスが、ゲームのQAテストを「Gemini」で自動化する取り組みを「Google Cloud Next Tokyo '26」基調講演で披露。AIが画面を見ながらコントローラーを操作し、検証作業を自ら進める。",
+              "title": "複数のAIサービスで障害発生 ChatGPT／Claude／Grok【復旧済み】",
+              "link": "https://www.itmedia.co.jp/aiplus/article/2609/04/2000001152/",
+              "summary": "日本時間の2026年9月4日午前0時30分現在、複数のAIサービスで障害が発生しており、接続しにくい、もしくは接続できない状態となっている。少なくとも、米OpenAIの「ChatGPT」、米Anthropicの「Claude」、米Space…",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T11:45:49+00:00"
+              "dt": "2026-09-03T18:10:08+00:00"
             },
             {
-              "title": "実在女性の中学時代の体操着姿からAIわいせつ画像作成・投稿か 男逮捕、高校生書類送検",
-              "link": "https://www.itmedia.co.jp/news/article/2608/03/2000000365/",
-              "summary": "女性の写真を生成AIで加工したわいせつ画像をSNSに投稿したとして、警視庁などは、名誉毀損（きそん）と児童買春・ポルノ禁止法違反（公然陳列）の疑いで、兵庫県姫路市の会社員、井元健太容疑者（32）を逮捕した。また、画像の加工を依頼したとして、…",
+              "title": "「AIで業務アプリを作成する仕組み」で特許取得、KDDI傘下のELYZA X上では一部批判も【追記あり】",
+              "link": "https://www.itmedia.co.jp/aiplus/article/2609/03/2000001144/",
+              "summary": "KDDIグループのAI開発企業ELYZAは、法人向けAIツール「ELYZA Works」において、業務アプリをAIで作成する仕組みの特許を取得したと発表した。一方、X上の一部では批判の声も上がっている。",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T11:08:29+00:00"
+              "dt": "2026-09-03T14:09:57+00:00"
             },
             {
-              "title": "カメラとディスプレイ搭載のAIグラス、「Rokid スマートAIグラス」を試してみた",
-              "link": "https://www.itmedia.co.jp/news/article/2608/03/2000000351/",
-              "summary": "「Rokid スマートAIグラス」の一般発売が7月10日に始まった。製品を借りることができたので、現在地の評価と、未来の可能性について考えてみたい。AIグラスは、何を可能にし、何を可能にしないのだろうか。",
+              "title": "NVIDIAがHugging Face買収で合意 約2兆円 ジェンスン・フアンCEOはオープンモデルの重要性に言及",
+              "link": "https://www.itmedia.co.jp/aiplus/article/2609/03/2000001150/",
+              "summary": "米NVIDIAが、AI開発プラットフォームを運営する米Hugging Faceを129億3030万ドルで買収することに合意したと発表した。",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T09:42:59+00:00"
+              "dt": "2026-09-03T13:34:49+00:00"
             },
             {
-              "title": "「Qwen3.8-Max」登場、オープン化は「来週」 一部「Fable 5」「GPT-5.6 Sol」超えの性能うたう",
-              "link": "https://www.itmedia.co.jp/aiplus/article/2608/03/2000000353/",
-              "summary": "中国Alibaba傘下のAlibaba Cloudは8月3日、AIモデル「Qwen3.8-Max」を正式にリリースした。来週にはモデルの重みも公開する予定だ。",
+              "title": "AWSをゲームで学べる“AWSクエスト”にまさかの新バージョン AIバーチャル顧客と対話可能に",
+              "link": "https://www.itmedia.co.jp/news/article/2609/03/2000001124/",
+              "summary": "米Amazon Web Services（AWS）は、3DオープンワールドでAWSを学べるオンラインゲーム「AWS Cloud Quest」の新バージョン「AWS Cloud Quest 2.0」の提供を開始しました。",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T03:26:15+00:00"
+              "dt": "2026-09-03T07:26:37+00:00"
             },
             {
-              "title": "「エンジニアの代替ではなく、できることを増やす」 Devin開発元が見据えるIT外注大国・日本の“伸びしろ”",
-              "link": "https://www.itmedia.co.jp/aiplus/article/2608/03/2000000350/",
-              "summary": "自律型AIエンジニア「Devin」を手掛ける米Cognition AIの日本ユーザー人口は、米国に次ぐ規模だという。IT人材の約7割がSIer側に偏るIT外注大国・日本で同社は何を狙うのか。日本法人代表の正井拓己氏に聞いた。",
+              "title": "Adobe、Slackから「Photoshop」などのツールを使える「Adobe for Slack」提供開始 会話からPDFや動画を生成",
+              "link": "https://www.itmedia.co.jp/news/article/2609/03/2000001114/",
+              "summary": "Adobeは、Slack上で「Photoshop」や「Firefly」など70種以上のツールを使える「Adobe for Slack」の提供を開始した。Slackbot経由で指示を出し、チャットやcanvasの内容を文脈として反映した画像や…",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T01:57:26+00:00"
+              "dt": "2026-09-03T04:51:58+00:00"
             },
             {
-              "title": "富士通とNECは「AI需要」と「収益」をどう語った？ 2026年下半期の見通しを考察",
-              "link": "https://www.itmedia.co.jp/enterprise/articles/2608/03/news061.html",
-              "summary": "企業の業務に向けたAI需要はどのような動きなのか。AI需要の盛り上がりと、ITサービス企業の収益は直結するのか。富士通とNECのCFOによる直近決算会見での発言から考察する。",
+              "title": "「社長の声」悪用で被害45億円 元警視庁が明かす「AI詐欺」の手口",
+              "link": "https://www.itmedia.co.jp/enterprise/articles/2609/03/news041.html",
+              "summary": "生成AIの進化は、業務効率化をもたらした半面、サイバー攻撃の手口も増やしてしまっている。2026年はどのような攻撃に気を付けるべきなのか。元警視庁職員などの専門家が示す最新のボイスフィッシングや、ランサムウェア攻撃の最新トレンドまで、組織が…",
+              "thumb": "",
+              "kind": "article",
+              "via": "",
+              "paywall": "",
+              "dt": "2026-09-03T02:30:00+00:00"
+            },
+            {
+              "title": "キオクシアのフラッシュメモリとSSDはなぜAIデータセンターに必要とされるのか",
+              "link": "https://monoist.itmedia.co.jp/mn/articles/2609/04/news059.html",
+              "summary": "キオクシアは、2026年8月4～6日に米国サンタクララで開催されたメモリとストレージのイベント「FMS: the Future of Memory and Storage」の展示内容を中心に、AIデータセンター向け製品の最新技術について説明…",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "paid",
-              "dt": "2026-08-03T03:00:00+00:00"
+              "dt": "2026-09-03T21:00:00+00:00"
             },
             {
-              "title": "【レベル14】生成AIを味方に、3D CADを使いこなそう！",
-              "link": "https://monoist.itmedia.co.jp/mn/articles/2608/03/news002.html",
-              "summary": "設計スキルのレベルアップを目指す設計者の皆さんを“冒険者”に見立て、さまざまな“問（モン）スター”に挑む「テルえもんクエストII」の世界へようこそ。【レベル14】のテーマは、生成AIを活用した3D CADデータの作成と操作です。",
+              "title": "なぜAI企業は社内で「ソフトウェアエンジニア」と呼ばなくなったのか 広がる「MTS」と職種の未来",
+              "link": "https://atmarkit.itmedia.co.jp/ait/articles/2609/04/news003.html",
+              "summary": "AnthropicやOpenAIでは、研究者とエンジニアをまたぐ共通の社内肩書きとして「Member of Technical Staff（技術スタッフの一員）」が使われている。元CTOたちが次々とこの肩書きに転じている現象から、肩書きが専…",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "paid",
-              "dt": "2026-08-02T23:00:00+00:00"
-            },
-            {
-              "title": "月100億トークン使うビズリーチ 「AIコスト増」懸念の中、費用対効果どう判断しているのか",
-              "link": "https://www.itmedia.co.jp/business/articles/2608/03/news010.html",
-              "summary": "AI活用が広がる一方で、コスト増加への懸念が高まっている。月間約100億トークンを消費するというビズリーチCTOは、AIの費用対効果をどのように考えているのか。",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "paywall": "paid",
-              "dt": "2026-08-02T22:00:00+00:00"
+              "dt": "2026-09-03T20:00:00+00:00"
             }
           ]
         }
@@ -483,84 +643,34 @@ window.NEWS_DATA = {
           "name": "茨城新聞 県内ニュース",
           "items": [
             {
-              "title": "包丁やボウガン所持し八千代の民家下見 強盗予備疑いで男4人逮捕 匿流視野に捜査 茨城県警",
-              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1785754852936700",
-              "summary": "2026年8月3日(月)",
+              "title": "不満、冷静 思惑抱え 茨城・神栖市長選訴訟 高裁、木内氏の請求棄却",
+              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1788443858695900",
+              "summary": "2026年9月4日(金)",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T11:53:56+00:00"
+              "dt": "2026-09-03T22:00:00+00:00"
             },
             {
-              "title": "鉾田で約550軒停電 茨城【まとめ】",
-              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1785745941773100",
-              "summary": "2026年8月3日(月)",
+              "title": "茨城・神栖市長選訴訟 「まんじゅうや」は無効 木内氏の当選認めず 東京高裁判決",
+              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1788441392950700",
+              "summary": "2026年9月4日(金)",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T11:08:39+00:00"
+              "dt": "2026-09-03T21:00:00+00:00"
             },
             {
-              "title": "特産サツマイモ生かす 口当たりまろやか 本格焼酎開発 「行方の黄福」販売 茨城",
-              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1785668882388600",
-              "summary": "2026年8月3日(月)",
+              "title": "鹿島神宮、御船祭に幕 茨城・鹿嶋",
+              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1788440828777200",
+              "summary": "2026年9月4日(金)",
               "thumb": "",
               "kind": "article",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T04:05:02+00:00"
-            },
-            {
-              "title": "夏の夜彩る、涼やか風鈴 茨城・日立",
-              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1785679010094900",
-              "summary": "2026年8月3日(月)",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "paywall": "",
-              "dt": "2026-08-03T02:00:00+00:00"
-            },
-            {
-              "title": "「店舗に爆弾を置いた」と110番 威力業務妨害容疑で男逮捕 茨城県警石岡署",
-              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1785721379555800",
-              "summary": "2026年8月3日(月)",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "paywall": "",
-              "dt": "2026-08-03T01:44:33+00:00"
-            },
-            {
-              "title": "小児がん経験者 親子で工場見学や工作楽しむ 茨城・阿見",
-              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1785677690629100",
-              "summary": "2026年8月3日(月)",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "paywall": "",
-              "dt": "2026-08-03T01:00:00+00:00"
-            },
-            {
-              "title": "災害派遣チーム 茨城県DPAT、熊本へ出発 精神保健業務を支援",
-              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1785677692352300",
-              "summary": "2026年8月3日(月)",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "paywall": "",
-              "dt": "2026-08-03T00:00:00+00:00"
-            },
-            {
-              "title": "樹齢800年超 御神木「夫婦欅」倒れる 古河・雀神社 茨城",
-              "link": "https://ibarakinews.jp/news/newsdetail.php?f_jun=1785677691752900",
-              "summary": "2026年8月3日(月)",
-              "thumb": "",
-              "kind": "article",
-              "via": "",
-              "paywall": "",
-              "dt": "2026-08-02T23:00:00+00:00"
+              "dt": "2026-09-03T20:00:00+00:00"
             }
           ]
         }
@@ -573,84 +683,84 @@ window.NEWS_DATA = {
           "name": "リュウジのバズレシピ",
           "items": [
             {
-              "title": "米、使うな。完全に炒飯なのに絶対太らないヤバい炒飯の作り方",
-              "link": "https://www.youtube.com/watch?v=F6ClJFb039k",
+              "title": "僕が人生で一番うめえと思ったカレーをガチ再現しました",
+              "link": "https://www.youtube.com/watch?v=R_jrHvOT1ng",
               "summary": "",
-              "thumb": "https://i3.ytimg.com/vi/F6ClJFb039k/hqdefault.jpg",
+              "thumb": "https://i3.ytimg.com/vi/R_jrHvOT1ng/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T10:11:10+00:00"
+              "dt": "2026-09-03T10:29:40+00:00"
             },
             {
-              "title": "何十種類のカレールウを食べ比べた結果一番美味しいのがこのルウなんですけどもこれで作るカレーがあまりにもウマいです #PR #JPCスポーツ教室",
-              "link": "https://www.youtube.com/shorts/FzE-WD4onD0",
+              "title": "サバ缶とほうじ茶で作るお茶漬けがマジでうまいんでやってください #リュウジ #サバ缶 #ほうじ茶 #お茶漬け #レシピ #料理 #簡単レシピ #バズレシピ",
+              "link": "https://www.youtube.com/shorts/NMpd4Dxd-nQ",
               "summary": "",
-              "thumb": "https://i3.ytimg.com/vi/FzE-WD4onD0/hqdefault.jpg",
+              "thumb": "https://i3.ytimg.com/vi/NMpd4Dxd-nQ/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T08:00:34+00:00"
+              "dt": "2026-09-03T08:00:20+00:00"
             },
             {
-              "title": "カップ焼きそばに革命起きんぞこれ",
-              "link": "https://www.youtube.com/watch?v=bPw5QTd-3nQ",
+              "title": "今まで言わなかったあの件について",
+              "link": "https://www.youtube.com/watch?v=4aq_EYDiAQo",
               "summary": "",
-              "thumb": "https://i3.ytimg.com/vi/bPw5QTd-3nQ/hqdefault.jpg",
+              "thumb": "https://i1.ytimg.com/vi/4aq_EYDiAQo/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-02T10:00:14+00:00"
+              "dt": "2026-09-02T13:23:50+00:00"
             },
             {
-              "title": "もうたっけえ豚バラ肉買わなくなるかもしれません。安い豚こま肉でも美味しい最高の冷しゃぶの作り方 #リュウジ #冷しゃぶ #レシピ #料理 #バズレシピ",
-              "link": "https://www.youtube.com/shorts/8tife26pE-s",
+              "title": "ご報告があります",
+              "link": "https://www.youtube.com/watch?v=PbRlQAnFS-w",
               "summary": "",
-              "thumb": "https://i1.ytimg.com/vi/8tife26pE-s/hqdefault.jpg",
+              "thumb": "https://i1.ytimg.com/vi/PbRlQAnFS-w/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-02T08:00:21+00:00"
+              "dt": "2026-09-02T11:20:27+00:00"
             },
             {
-              "title": "成城石井ガチ勢に教わるガチ商品がヤバすぎる",
-              "link": "https://www.youtube.com/watch?v=VuK8KzjFq1w",
+              "title": "材料はなんと塩だけ。鶏肉、塩、ミニトマトだけで作る煮込みがあまりにもウマすぎた #リュウジ #鶏肉 #ミニトマト #塩 #煮込み #レシピ #料理 #バズレシピ",
+              "link": "https://www.youtube.com/shorts/2yyP2PmdLsw",
               "summary": "",
-              "thumb": "https://i3.ytimg.com/vi/VuK8KzjFq1w/hqdefault.jpg",
+              "thumb": "https://i3.ytimg.com/vi/2yyP2PmdLsw/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-01T10:20:04+00:00"
+              "dt": "2026-09-02T08:00:09+00:00"
             },
             {
-              "title": "表参道で2500円で売られている味だって言われているサムライマックのソース抜きが本当に美味しいのか料理研究家が検証します #リュウジ #マクドナルド #レビュー #検証 #バズレシピ",
-              "link": "https://www.youtube.com/shorts/im-copktrpQ",
+              "title": "正直、これの専門店がほしいくらい旨いそうめん",
+              "link": "https://www.youtube.com/watch?v=6yLhIr_Odzg",
               "summary": "",
-              "thumb": "https://i2.ytimg.com/vi/im-copktrpQ/hqdefault.jpg",
+              "thumb": "https://i3.ytimg.com/vi/6yLhIr_Odzg/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-01T08:00:28+00:00"
+              "dt": "2026-09-01T10:13:59+00:00"
             },
             {
-              "title": "100g120円の豚こまで米騒動が起こる。やみつきぶた",
-              "link": "https://www.youtube.com/watch?v=30trk-td70Q",
+              "title": "しょっぱすぎて海水飲んでるみたいって言われてるセブンイレブンのコショウそば。料理研究家が本気でまずいのかどうか言います。 #リュウジ #コンビニ #ラーメン #レビュー #バズレシピ",
+              "link": "https://www.youtube.com/shorts/4o7a7RZSmnY",
               "summary": "",
-              "thumb": "https://i4.ytimg.com/vi/30trk-td70Q/hqdefault.jpg",
+              "thumb": "https://i1.ytimg.com/vi/4o7a7RZSmnY/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-07-31T10:22:41+00:00"
+              "dt": "2026-09-01T08:00:13+00:00"
             },
             {
-              "title": "水で作るカップヌードルが本当に美味しいのかどうか料理研究家が検査してみた #リュウジ #カップヌードル #インスタントラーメン #日清 #検証 #バズレシピ",
-              "link": "https://www.youtube.com/shorts/X_9kv1OIpMs",
+              "title": "明日、全国のスーパーから｢ほんだし｣が消えます。",
+              "link": "https://www.youtube.com/watch?v=1qlV9-epyAU",
               "summary": "",
-              "thumb": "https://i1.ytimg.com/vi/X_9kv1OIpMs/hqdefault.jpg",
+              "thumb": "https://i2.ytimg.com/vi/1qlV9-epyAU/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-07-31T08:00:09+00:00"
+              "dt": "2026-08-31T10:12:04+00:00"
             }
           ]
         }
@@ -663,84 +773,84 @@ window.NEWS_DATA = {
           "name": "両学長 リベラルアーツ大学",
           "items": [
             {
-              "title": "今日の学長ライブ l 食品消費税1%で、実は困る飲食店/結局、投資は何しておけばいいの？→NISAでオルカン。でもそれだけだと人生の落とし穴が...？/AI相談チャットオープン【8/3 8:30まで】",
-              "link": "https://www.youtube.com/watch?v=cSTYql7WwWU",
+              "title": "【再放送】【攻略法を伝授】副業で月5万円稼ぐための9つのポイント【稼ぐ 実践編】：（アニメ動画）第153回",
+              "link": "https://www.youtube.com/watch?v=rycvphw9m7Y",
               "summary": "",
-              "thumb": "https://i4.ytimg.com/vi/cSTYql7WwWU/hqdefault.jpg",
+              "thumb": "https://i3.ytimg.com/vi/rycvphw9m7Y/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-02T23:50:56+00:00"
+              "dt": "2026-09-03T22:00:16+00:00"
             },
             {
-              "title": "【再放送】【貯蓄はもうヤメ！】難易度が低めな「コーストFIRE」について解説【人生論】：（アニメ動画）第488回",
-              "link": "https://www.youtube.com/watch?v=K20SU5PHEI4",
+              "title": "今日の学長ライブ l GPT-6 Astra公開/豪雨で車が水没したけど車両保険なし。間違ってた？/ダイソンの新作歯ブラシカメラジェット使ってみた【9/4 8:30まで】",
+              "link": "https://www.youtube.com/watch?v=LR_bKzx8iVo",
               "summary": "",
-              "thumb": "https://i4.ytimg.com/vi/K20SU5PHEI4/hqdefault.jpg",
+              "thumb": "https://i1.ytimg.com/vi/LR_bKzx8iVo/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-02T22:00:15+00:00"
+              "dt": "2026-09-03T21:36:02+00:00"
             },
             {
-              "title": "【賃貸が無難？】借金してでも買った方がいい住宅とは【リベ大公式切り抜き】 #shorts",
-              "link": "https://www.youtube.com/shorts/PFCRnxQGZdk",
+              "title": "【転職術の新常識】年収アップの基本戦略「軸ずらし転職」について解説【稼ぐ 実践編】 #shorts",
+              "link": "https://www.youtube.com/shorts/NhhfNnskd9k",
               "summary": "",
-              "thumb": "https://i1.ytimg.com/vi/PFCRnxQGZdk/hqdefault.jpg",
+              "thumb": "https://i3.ytimg.com/vi/NhhfNnskd9k/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-02T09:00:16+00:00"
+              "dt": "2026-09-03T09:00:25+00:00"
             },
             {
-              "title": "今日の学長ライブ l YouTubeから届いたお手紙【8/2 8:30まで】",
-              "link": "https://www.youtube.com/watch?v=ce4EQHpLooM",
+              "title": "今日の学長ライブ l 「聖闘士星矢」の作者、元スタッフに\"46億円\"を横領され納税が困難に。騙されるのは必ず「信頼してた人」から【9/3 8:30まで】",
+              "link": "https://www.youtube.com/watch?v=1bjLR2OMFic",
               "summary": "",
-              "thumb": "https://i4.ytimg.com/vi/ce4EQHpLooM/hqdefault.jpg",
+              "thumb": "https://i2.ytimg.com/vi/1bjLR2OMFic/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-01T23:54:20+00:00"
+              "dt": "2026-09-02T23:49:19+00:00"
             },
             {
-              "title": "【価格破壊】ウィブル証券が米国株の取引手数料を無料に！資産形成の天敵「手数料」との付き合い方【リベ大公式切り抜き】",
-              "link": "https://www.youtube.com/watch?v=YhP9heKiW0c",
+              "title": "【政策金利2.5％へ？】預金・国債・不動産…あなたのお金に起きること3選【リベ大公式切り抜き】",
+              "link": "https://www.youtube.com/watch?v=Vg7eKQpkJyY",
               "summary": "",
-              "thumb": "https://i2.ytimg.com/vi/YhP9heKiW0c/hqdefault.jpg",
+              "thumb": "https://i3.ytimg.com/vi/Vg7eKQpkJyY/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-01T22:00:21+00:00"
+              "dt": "2026-09-02T22:00:32+00:00"
             },
             {
-              "title": "【お金のクイズ】ワールドカップでFIFAはいくら稼いだ？ #shorts",
-              "link": "https://www.youtube.com/shorts/vICWOR5cZJU",
+              "title": "【失敗の原因？】「好き・得意」で仕事を選ぶと危ない理由 #shorts",
+              "link": "https://www.youtube.com/shorts/XzNZ5bkMS1U",
               "summary": "",
-              "thumb": "https://i3.ytimg.com/vi/vICWOR5cZJU/hqdefault.jpg",
+              "thumb": "https://i1.ytimg.com/vi/XzNZ5bkMS1U/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-01T09:00:07+00:00"
+              "dt": "2026-09-02T09:00:11+00:00"
             },
             {
-              "title": "今日の学長ライブ l 【あなたも払う】いつの間にか増税。「防衛特別所得税」って知ってる？/8月から更にお得なリベシティ/桐谷さんが優待だけで暮らして少し後悔してる事/大腸カメラ【8/1 8:30まで】",
-              "link": "https://www.youtube.com/watch?v=ICKZAWGr7-0",
+              "title": "今日の学長ライブ l Fable5.1登場/docomoポイ活プラン、クレカこそっと改悪/金融庁がNISA利便性向上要求/みんなで大家さん終了/リベシティは見てるだけでもOK【9/2 8:30まで】",
+              "link": "https://www.youtube.com/watch?v=qPRy2lkNWac",
               "summary": "",
-              "thumb": "https://i2.ytimg.com/vi/ICKZAWGr7-0/hqdefault.jpg",
+              "thumb": "https://i2.ytimg.com/vi/qPRy2lkNWac/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-01T00:03:27+00:00"
+              "dt": "2026-09-01T23:17:31+00:00"
             },
             {
-              "title": "【NISAのやめどき】実はもう十分？「積立投資の卒業ライン」の考え方【リベ大公式切り抜き】",
-              "link": "https://www.youtube.com/watch?v=YmL6hmCq8Y4",
+              "title": "【再放送】【悩む人多数】「円安の今、S＆P500や全世界株への投資は待つべきか？」為替の基本と対処法を分かりやすく解説【株式投資編】：（アニメ動画）第307回",
+              "link": "https://www.youtube.com/watch?v=gsaN3D7GDYM",
               "summary": "",
-              "thumb": "https://i2.ytimg.com/vi/YmL6hmCq8Y4/hqdefault.jpg",
+              "thumb": "https://i4.ytimg.com/vi/gsaN3D7GDYM/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-07-31T22:00:08+00:00"
+              "dt": "2026-09-01T22:00:28+00:00"
             }
           ]
         }
@@ -753,84 +863,84 @@ window.NEWS_DATA = {
           "name": "チームみらい公式",
           "items": [
             {
-              "title": "【生配信】週刊チームみらいNEWS (2026年8月3日19:00頃開始予定) #高山聡史 #河合道雄",
-              "link": "https://www.youtube.com/watch?v=CtqCyYRNvHg",
+              "title": "【峰島編】5分でわかる!?サンラグ方式解説してみた #チームみらい #峰島侑也",
+              "link": "https://www.youtube.com/watch?v=wpPd8A9UH7M",
               "summary": "",
-              "thumb": "https://i4.ytimg.com/vi/CtqCyYRNvHg/hqdefault.jpg",
+              "thumb": "https://i4.ytimg.com/vi/wpPd8A9UH7M/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-03T10:48:53+00:00"
+              "dt": "2026-09-01T09:00:31+00:00"
             },
             {
-              "title": "【国会成果報告】#チームみらい 1→12の議席増で何ができた? 選挙公約の3本柱から振り返る第221回国会での成果と今後の展望 #安野貴博",
-              "link": "https://www.youtube.com/watch?v=y9cUr2nyzuA",
+              "title": "【生配信】週刊チームみらいNEWS (2026年9月3日19:00頃開始予定) #峰島侑也 #河合道雄",
+              "link": "https://www.youtube.com/watch?v=Y4bY0Qox1JA",
               "summary": "",
-              "thumb": "https://i2.ytimg.com/vi/y9cUr2nyzuA/hqdefault.jpg",
+              "thumb": "https://i2.ytimg.com/vi/Y4bY0Qox1JA/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-01T12:10:08+00:00"
+              "dt": "2026-09-01T06:13:53+00:00"
             },
             {
-              "title": "質疑150回超! 数字で見る第221回国会 #チームみらい",
-              "link": "https://www.youtube.com/shorts/vbAy_T5vKRE",
+              "title": "AIカテキョ帰りの活動報告ライブ! #チームみらい",
+              "link": "https://www.youtube.com/shorts/Vq9bvqfBtBA",
               "summary": "",
-              "thumb": "https://i3.ytimg.com/vi/vbAy_T5vKRE/hqdefault.jpg",
+              "thumb": "https://i3.ytimg.com/vi/Vq9bvqfBtBA/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-08-01T12:10:03+00:00"
+              "dt": "2026-08-31T09:08:00+00:00"
             },
             {
-              "title": "【チームみらい】国民会議最速速報 ぶら下がり会見 (2026年7月29日16:00頃開始予定) #国民会議 #安野貴博 #高山聡史 #峰島侑也",
-              "link": "https://www.youtube.com/watch?v=NXguzUt-KHE",
+              "title": "【AI家庭教師】カテキョ実現で高市総理初バイブコーディング #チームみらい",
+              "link": "https://www.youtube.com/shorts/kGEKIkfFaOM",
               "summary": "",
-              "thumb": "https://i3.ytimg.com/vi/NXguzUt-KHE/hqdefault.jpg",
+              "thumb": "https://i4.ytimg.com/vi/kGEKIkfFaOM/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-07-29T19:10:51+00:00"
+              "dt": "2026-08-30T13:06:32+00:00"
             },
             {
-              "title": "アプリで議決・グッズ投票! 次世代の党大会 #チームみらい",
-              "link": "https://www.youtube.com/shorts/JZBoAlifCbc",
+              "title": "【ノーカット】高市総理にAI家庭教師! 物価高対策シミュレーターをバイブコーディング / ぶら下がり会見も収録 #チームみらい #安野貴博",
+              "link": "https://www.youtube.com/watch?v=G8zoANbQihI",
               "summary": "",
-              "thumb": "https://i3.ytimg.com/vi/JZBoAlifCbc/hqdefault.jpg",
+              "thumb": "https://i4.ytimg.com/vi/G8zoANbQihI/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-07-29T10:19:04+00:00"
+              "dt": "2026-08-30T12:52:54+00:00"
             },
             {
-              "title": "【活動報告7月4週目】初の党大会ご報告! RCV体験も／与野党7党で国会DX提言を提出／7月30日から全国を回ります!｜チームみらい #武藤かず子 #小林修平",
-              "link": "https://www.youtube.com/watch?v=0T-0L36Jggo",
+              "title": "【秋山編】ケーキでフワッとわかる!?サンラグ方式解説してみた #チームみらい 国会対策委員会 秋山美穂",
+              "link": "https://www.youtube.com/watch?v=LmMBtZvKZIQ",
               "summary": "",
-              "thumb": "https://i1.ytimg.com/vi/0T-0L36Jggo/hqdefault.jpg",
+              "thumb": "https://i1.ytimg.com/vi/LmMBtZvKZIQ/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-07-29T10:18:52+00:00"
+              "dt": "2026-08-30T10:00:14+00:00"
             },
             {
-              "title": "【チームみらい】国民会議最速速報 ぶら下がり会見 (2026年7月27日17:30頃開始予定) #国民会議 #峰島侑也 #高山聡史",
-              "link": "https://www.youtube.com/watch?v=kZefRbrBWdU",
+              "title": "【小林編】魔法でわかる!?サンラグ方式解説してみた #チームみらい #小林修平",
+              "link": "https://www.youtube.com/watch?v=1Ztj8N-EBGY",
               "summary": "",
-              "thumb": "https://i4.ytimg.com/vi/kZefRbrBWdU/hqdefault.jpg",
+              "thumb": "https://i2.ytimg.com/vi/1Ztj8N-EBGY/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-07-27T08:23:57+00:00"
+              "dt": "2026-08-29T08:00:14+00:00"
             },
             {
-              "title": "チームみらい第1回党大会が開催されました！",
-              "link": "https://www.youtube.com/shorts/MBcsBrob8f0",
+              "title": "【チームみらい】選挙制度について語ろうナイト｜2026年8月28日21:30〜 開始予定",
+              "link": "https://www.youtube.com/watch?v=QKpQwEH4S48",
               "summary": "",
-              "thumb": "https://i2.ytimg.com/vi/MBcsBrob8f0/hqdefault.jpg",
+              "thumb": "https://i2.ytimg.com/vi/QKpQwEH4S48/hqdefault.jpg",
               "kind": "video",
               "via": "",
               "paywall": "",
-              "dt": "2026-07-24T12:42:10+00:00"
+              "dt": "2026-08-29T01:42:41+00:00"
             }
           ]
         }
@@ -844,11 +954,27 @@ window.NEWS_DATA = {
     },
     {
       "name": "沢木耕太郎（ブログ/はてブ）",
-      "status": "OK 1件"
+      "status": "OK 2件"
+    },
+    {
+      "name": "吉村昭（Googleニュース）",
+      "status": "OK 8件"
+    },
+    {
+      "name": "吉村昭（ブログ/はてブ）",
+      "status": "OK 2件"
+    },
+    {
+      "name": "井上陽水（Googleニュース）",
+      "status": "OK 8件"
+    },
+    {
+      "name": "井上陽水（ブログ/はてブ）",
+      "status": "OK 4件"
     },
     {
       "name": "アーミル・カーン（Googleニュース）",
-      "status": "OK 1件"
+      "status": "0件（フィルタ後）"
     },
     {
       "name": "アーミル・カーン（海外報道）",
@@ -860,11 +986,11 @@ window.NEWS_DATA = {
     },
     {
       "name": "沢木耕太郎（アラート）",
-      "status": "OK 1件"
+      "status": "OK 4件"
     },
     {
       "name": "アクアワールド大洗（アラート）",
-      "status": "OK 1件"
+      "status": "0件（フィルタ後）"
     },
     {
       "name": "Claude Code（Googleニュース）",
@@ -880,7 +1006,7 @@ window.NEWS_DATA = {
     },
     {
       "name": "茨城新聞 県内ニュース",
-      "status": "OK 8件"
+      "status": "OK 3件"
     },
     {
       "name": "リュウジのバズレシピ",
