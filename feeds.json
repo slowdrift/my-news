@@ -32,7 +32,8 @@
     {
       "name": "仕事・AI",
       "feeds": [
-        { "topic": "\"Claude Code\"", "sources": ["gnews_ja"], "require": [] },
+        { "topic": "\"Claude Code\"", "sources": ["gnews_ja", "hatebu"], "require": [],
+          "exclude": ["セミナー", "ウェビナー", "説明会", "無料相談", "受講", "申し込み"] },
         { "name": "Claude Code（アラート）", "group": "Claude Code", "url_env": "ALERT_CLAUDE_URL", "alert": true },
         { "name": "ITmedia AI＋", "url": "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml" }
       ]
@@ -52,8 +53,14 @@
     {
       "name": "お金",
       "feeds": [
-        { "name": "両学長 リベラルアーツ大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC67Wr_9pA4I0glIxDt_Cpyw", "type": "video" },
-        { "name": "中田敦彦のYouTube大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCFo4kqllbcQ4nV83WCyraiw", "type": "video" }
+        { "name": "両学長 リベラルアーツ大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC67Wr_9pA4I0glIxDt_Cpyw", "type": "video" }
+      ]
+    },
+    {
+      "name": "学び",
+      "feeds": [
+        { "name": "中田敦彦のYouTube大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCFo4kqllbcQ4nV83WCyraiw", "type": "video" },
+        { "name": "安野貴博の自由研究", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiMwbmcCSMORJ-85XWhStBw", "type": "video" }
       ]
     },
     {

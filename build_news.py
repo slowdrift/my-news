@@ -22,6 +22,7 @@ import json
 import os
 import re
 import socket
+import unicodedata
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -90,6 +91,10 @@ VERIFY_MAX_BYTES = 400_000  # 読み込む最大バイト数（重いページ�
 PAYWALL_TEXT_MARKERS = [
     "有料会員限定", "有料記事です", "この記事は有料", "会員限定記事",
     "続きは会員登録", "続きを読むには会員",
+    # 「有料」ではないが、登録やログインをしないと読めないもの
+    "無料会員登録", "会員登録が必要", "会員登録すると",
+    "続きを読むにはログイン", "ログインが必要です", "登録して続きを読む",
+    "この記事は会員限定", "会員限定コンテンツです",
 ]
 
 
@@ -300,7 +305,20 @@ NG_WORDS = [
     "電子書籍", "通販", "セール", "クーポン", "リアルタイム検索",
     "楽天ブックス", "Amazon", "最安", "ポイント還元",
     "＜画像",  # Googleニュースの画像ギャラリー別ページ（同一記事の分身）
+    # 記事本体ではなく写真・プロフィールのページに飛ぶもの
+    "の画像", "（写真・画像", "| 写真 |", "｜写真｜", "写真提供＝",
+    "のプロフィール", "フォトギャラリー",
 ]
+
+# 配信元名（via）で除外する低品質なサイト。
+# Googleニュース経由の記事は実URLが分からずドメイン判定が効かないため、名前で弾く。
+BLOCK_SOURCES = [
+    "mshale",              # 動画転載のスパム的サイト（無関係な語がタイトルに混じる）
+    "pasquale pillitteri",
+]
+
+# タイトル末尾に「(英数字10文字前後)」が付くもの（転載サイト特有のID）
+JUNK_TITLE_PATTERN = re.compile(r"\([0-9A-Za-z_-]{8,14}\)\s*$")
 
 # これより古い記事は表示しない。既読管理を入れたので、時間での足切りは緩めにする
 # （未読なら古くても読みたいため）。テーマ個別に max_age_days で上書きできる。
@@ -378,6 +396,20 @@ def is_blocked_domain(url: str) -> bool:
     return any(b in net for b in BLOCK_DOMAINS)
 
 
+def is_blocked_source(via: str, title: str) -> bool:
+    """配信元名や、転載サイト特有のタイトルの型で低品質な記事を弾く。
+
+    Googleニュース経由の記事は実URLが分からないため、ドメインではなく
+    配信元名（via）で判定する必要がある。
+    """
+    v = (via or "").lower()
+    if any(w in v for w in BLOCK_SOURCES):
+        return True
+    if JUNK_TITLE_PATTERN.search(title or ""):
+        return True
+    return False
+
+
 def passes_keywords(require_hay: str, text: str, require, exclude) -> bool:
     """必須語/NG語による判定。
 
@@ -401,11 +433,30 @@ def normalize_title(title: str) -> str:
     """
     base = re.sub(r"\s*[|｜\-–—]\s*[^|｜\-–—]*$", "", title)  # 末尾の媒体名を除去
     base = base or title
+    # 全角と半角を揃える（「２０２６年」と「2026年」を同じ記事とみなすため）
+    base = unicodedata.normalize("NFKC", base)
     return re.sub(r"[\s\W_]+", "", base, flags=re.UNICODE).lower()
 
 
 # 重複とみなす「先頭一致」の最小文字数。これ以上共通なら同一記事とみなす。
 DUP_PREFIX_MIN = 14
+
+
+# 見出しの似ている度合いがこの値以上なら同一記事とみなす
+# （実データで検証：0.75 で言い換え記事だけを拾い、別ニュースの誤マージは0件）
+DUP_SIMILARITY = 0.75
+
+
+def title_bigrams(norm: str):
+    """正規化済みの見出しを2文字ずつに刻んだ集合にする（類似度の計算用）。"""
+    return set(norm[i:i + 2] for i in range(len(norm) - 1))
+
+
+def similarity(a_grams, b_grams) -> float:
+    """2つの見出しの重なり具合（0〜1）。共通部分 ÷ 全体で求める。"""
+    if not a_grams or not b_grams:
+        return 0.0
+    return len(a_grams & b_grams) / len(a_grams | b_grams)
 
 
 def is_duplicate_title(norm: str, seen_titles) -> bool:
@@ -417,11 +468,17 @@ def is_duplicate_title(norm: str, seen_titles) -> bool:
     """
     if not norm:
         return False
+    grams = title_bigrams(norm)
     for s in seen_titles:
         if norm == s:
             return True
+        # 一方が他方の先頭部分（末尾に装飾が付いただけの同一記事）
         if min(len(norm), len(s)) >= DUP_PREFIX_MIN and (norm.startswith(s) or s.startswith(norm)):
             return True
+        # 言い換えられた見出しでも、重なり具合が高ければ同一記事とみなす
+        if len(norm) >= DUP_PREFIX_MIN and len(s) >= DUP_PREFIX_MIN:
+            if similarity(grams, title_bigrams(s)) >= DUP_SIMILARITY:
+                return True
     return False
 
 
@@ -470,6 +527,9 @@ def fetch_feed(feed):
     exclude = (NG_WORDS + feed.get("exclude", [])) if use_ng else None
     # require の判定対象："title"（既定）/ "text"（タイトル＋リード文。ブログ向け）
     require_in = feed.get("require_in", "title")
+    # ショート動画を除くか。既定で除外する（本編と内容が重なりやすく、一覧も長くなるため）。
+    # 特定チャンネルだけ残したい場合は feeds.json で "skip_shorts": false と書く。
+    skip_shorts = feed.get("skip_shorts", True)
     # 鮮度上限はフィード個別に上書き可（ブログ層は古い深掘り記事にも価値があるため）
     max_age = feed.get("max_age_days", MAX_AGE_DAYS)
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=max_age)
@@ -492,6 +552,10 @@ def fetch_feed(feed):
         # --- 多層フィルタ ---
         if is_alert and link and is_blocked_domain(link):
             continue  # 通販・SNS等の発信元を除外
+        if is_blocked_source(via, title):
+            continue  # 低品質な転載サイト・スパム的なタイトルを除外
+        if skip_shorts and "/shorts/" in link:
+            continue  # ショート版は本編と内容が重なるので落とす
         text = title + " " + summary_raw
         require_hay = text if require_in == "text" else title
         if not passes_keywords(require_hay, text, require, exclude):
