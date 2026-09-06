@@ -1,0 +1,40 @@
+{
+  "_使い方": [
+    "有料記事の媒体リストです。配信元名（例: 日経クロストレンド）またはURLのドメインに",
+    "下の語句が含まれていれば、その分類になります。語句を足す/消すだけで調整できます。",
+    "paid    = ほぼ全文が有料。🔒バッジを付け、テーマ内で無料記事より後ろに回します。",
+    "partial = 無料記事も多い媒体。控えめな△印を付けるだけ（並び順は変えません）。"
+  ],
+
+  "paid": [
+    "日経", "nikkei.com", "nikkeibp",
+    "WSJ", "wsj.com", "Wall Street Journal",
+    "New York Times", "nytimes.com",
+    "Financial Times", "ft.com",
+    "Bloomberg", "bloomberg.co.jp",
+    "東洋経済", "toyokeizai.net",
+    "ダイヤモンド・オンライン", "diamond.jp",
+    "JBpress", "jbpress.ismedia.jp",
+    "ITmedia ビジネスオンライン有料",
+    "Newsweek日本版プラス",
+    "文春オンライン有料"
+  ],
+
+  "partial": [
+    "朝日新聞", "asahi.com",
+    "産経ニュース", "sankei.com",
+    "毎日新聞", "mainichi.jp",
+    "読売新聞", "yomiuri.co.jp",
+    "AERA", "aera.jp",
+    "信濃毎日新聞", "shinmai.co.jp",
+    "北海道新聞", "hokkaido-np.co.jp",
+    "西日本新聞", "nishinippon.co.jp",
+    "京都新聞", "kyoto-np.co.jp",
+    "神戸新聞", "kobe-np.co.jp",
+    "中日新聞", "chunichi.co.jp",
+    "河北新報", "kahoku.news",
+    "茨城新聞", "ibarakinews.jp",
+    "時事通信", "jiji.com",
+    "スポニチ有料"
+  ]
+}
