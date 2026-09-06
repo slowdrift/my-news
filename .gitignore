@@ -1,0 +1,13 @@
+# 秘密情報（Googleアラート等のURL）。絶対にコミットしない
+.env
+
+# 生成物（CIやローカル実行で作られる）
+data.js
+data.json
+fetch.log
+_site/
+# ※ index.html と app.js は手書きの“静的ソース”なのでコミット対象（除外しない）
+
+# Python
+__pycache__/
+*.pyc

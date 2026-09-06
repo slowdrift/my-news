@@ -39,7 +39,8 @@ jobs:
       - name: 依存をインストール
         run: pip install -r requirements.txt
 
-              # 設定ファイルの書式ミス（カンマ抜け等）をここで検出して止める。
+      # 設定ファイルの書式ミス（カンマ抜け等）をここで検出して止める。
+      # 失敗すると以降は実行されないため、公開中のページは無事なまま保たれる。
       - name: 設定ファイルの書式を確認
         run: |
           python -c "import json;json.load(open('feeds.json',encoding='utf-8'));print('feeds.json OK')"
