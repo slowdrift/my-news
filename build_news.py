@@ -324,6 +324,11 @@ JUNK_TITLE_PATTERN = re.compile(r"\([0-9A-Za-z_-]{8,14}\)\s*$")
 # （未読なら古くても読みたいため）。テーマ個別に max_age_days で上書きできる。
 MAX_AGE_DAYS = 365
 
+# 記事が少ないテーマは、期間を広げてもう一度探す
+# （例：故人の作家など新着が出ない相手でも、未読なら古い記事を読みたいため）
+THIN_THRESHOLD = 3       # これ未満しか取れなかったら「少ない」とみなす
+THIN_MAX_AGE_DAYS = 3650  # そのとき遡る日数（約10年）
+
 # 一部サーバ対策のためブラウザ風 User-Agent を名乗る
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -361,6 +366,21 @@ def entry_datetime(entry):
         if t:
             # time.struct_time（UTC）→ aware datetime
             return datetime.datetime(*t[:6], tzinfo=datetime.timezone.utc)
+    return None
+
+
+def extract_views(entry):
+    """YouTubeエントリから再生回数を取り出す（取れなければ None）。
+
+    YouTubeのRSSには media:community/media:statistics に views が入っている。
+    追加のAPIを呼ばずに済む。
+    """
+    st = entry.get("media_statistics")
+    if isinstance(st, dict):
+        try:
+            return int(st.get("views"))
+        except (TypeError, ValueError):
+            return None
     return None
 
 
@@ -570,6 +590,7 @@ def fetch_feed(feed):
             "link": link,
             "summary": summary,
             "thumb": extract_thumbnail(e) if kind == "video" else "",
+            "views": extract_views(e) if kind == "video" else None,
             "kind": kind,
             "via": via,
             "paywall": classify_paywall(via, link),  # "paid" / "partial" / ""
@@ -593,6 +614,7 @@ def to_json_item(a):
         "link": a["link"],
         "summary": a["summary"],
         "thumb": a["thumb"],
+        "views": a.get("views"),   # 動画の再生回数（記事は None）
         "kind": a["kind"],
         "via": a.get("via", ""),  # 実際の配信元（Googleニュース経由の記事のみ）
         "paywall": a.get("paywall", ""),  # "paid"（ほぼ全文有料）/ "partial"（一部有料）/ ""
@@ -624,6 +646,14 @@ def main():
         collected = []
         for feed in feeds:
             articles, status = fetch_feed(feed)
+            # 取れた件数が少ないテーマは、期間を大きく広げて取り直す
+            # （既読管理があるので、古い記事が混ざっても未読なら読む価値がある）
+            if len(articles) < THIN_THRESHOLD and not feed.get("max_age_days"):
+                wide = dict(feed)
+                wide["max_age_days"] = THIN_MAX_AGE_DAYS
+                more, more_status = fetch_feed(wide)
+                if len(more) > len(articles):
+                    articles, status = more, more_status + "（期間を拡大）"
             for a in articles:
                 norm = normalize_title(a["title"])
                 if (a["link"] and a["link"] in seen_links) or is_duplicate_title(norm, seen_titles):

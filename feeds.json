@@ -22,7 +22,7 @@
         { "topic": "沢木耕太郎" },
         { "topic": "吉村昭" },
         { "topic": "井上陽水" },
-        { "topic": "近藤紘一", "max_age_days": 3650 },
+        { "topic": "近藤紘一" },
         { "topic": "アーミル・カーン", "topic_en": "\"Aamir Khan\"", "sources": ["gnews_ja", "gnews_in"], "require": [] },
         { "topic": "アクアワールド 大洗", "name": "アクアワールド大洗", "sources": ["gnews_ja"] },
         { "name": "沢木耕太郎（アラート）", "group": "沢木耕太郎", "url_env": "ALERT_SAWAKI_URL", "alert": true, "require": ["沢木耕太郎"] },
