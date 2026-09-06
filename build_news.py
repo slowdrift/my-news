@@ -239,6 +239,10 @@ def expand_topic(entry):
             feed["require"] = [plain_for_require]
         if entry.get("exclude"):
             feed["exclude"] = entry["exclude"]
+        # 鮮度の上限。テーマ側の指定はソース既定より優先する
+        # （例: 近藤紘一のように新着が少ない人物は長めにする）
+        if "max_age_days" in entry:
+            feed["max_age_days"] = entry["max_age_days"]
         feeds.append(feed)
     return feeds
 
