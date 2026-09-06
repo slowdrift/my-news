@@ -52,7 +52,8 @@
     {
       "name": "お金",
       "feeds": [
-        { "name": "両学長 リベラルアーツ大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC67Wr_9pA4I0glIxDt_Cpyw", "type": "video" }
+        { "name": "両学長 リベラルアーツ大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC67Wr_9pA4I0glIxDt_Cpyw", "type": "video" },
+        { "name": "中田敦彦のYouTube大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCFo4kqllbcQ4nV83WCyraiw", "type": "video" }
       ]
     },
     {

@@ -13,23 +13,44 @@
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
-    line-height: 1.5; -webkit-text-size-adjust: 100%;
+    line-height: 1.45; -webkit-text-size-adjust: 100%;
   }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 0 14px 48px; }
-  header { padding: 20px 4px 6px; }
-  header h1 { font-size: 21px; margin: 0; letter-spacing: .02em; }
-  header .meta-head { color: var(--sub); font-size: 12px; margin-top: 4px; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 12px 40px; }
+
+  header { padding: 16px 4px 4px; }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+  header .meta-head { color: var(--sub); font-size: 12px; margin-top: 3px; }
   header .age { margin-left: 4px; }
   header .age.stale { color: #b45309; font-weight: 600; }
+  header .unread { margin-left: 8px; font-weight: 700; color: var(--accent); }
+  .tools { margin: 8px 0 2px; }
+  .tool-btn {
+    font-size: 12px; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--sub); font-weight: 600;
+  }
+  .tool-btn.on { border-color: var(--accent); color: var(--accent); background: #eff4ff; }
 
-  /* カテゴリ（大見出し・折りたたみ）。--cat はカテゴリ色。 */
-  details.cat { margin: 22px 0 4px; }
+  /* 上部のカテゴリジャンプ */
+  .catnav {
+    display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .catnav .nav-chip {
+    flex: 0 0 auto; font-size: 11.5px; font-weight: 700; text-decoration: none;
+    color: var(--cat); background: #fff; border: 1px solid var(--line);
+    border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+  }
+  .catnav .nav-chip span {
+    margin-left: 5px; color: var(--sub); font-weight: 600;
+  }
+
+  /* カテゴリ（大見出し・折りたたみ） */
+  details.cat { margin: 16px 0 4px; scroll-margin-top: 8px; }
   details.cat > summary {
-    cursor: pointer; list-style: none; padding: 4px 2px 8px;
+    cursor: pointer; list-style: none; padding: 4px 2px 6px;
     border-bottom: 2px solid var(--cat);
   }
   details.cat > summary::-webkit-details-marker { display: none; }
-  /* 見出し h2 は summary の中。マーカーは h2 側に付けて縦位置を揃える */
   details.cat > summary h2 {
     margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .08em;
     color: var(--cat); display: flex; align-items: center; gap: 6px;
@@ -40,84 +61,83 @@
     margin-left: auto; font-weight: 700; color: var(--cat);
     font-size: 11px; letter-spacing: 0;
   }
-  details.cat > .body { padding-top: 6px; }
+  details.cat > .body { padding-top: 4px; }
 
   /* テーマ（中見出し） */
-  .group { margin: 16px 0 10px; }
-  /* h3 見出し。既定の余白・文字サイズを打ち消して従来の見た目を保つ */
+  .group { margin: 12px 0 8px; }
   h3.ghead {
-    display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px;
-    font-size: 16px; font-weight: 700;
+    display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px;
+    font-size: 15px; font-weight: 700;
   }
-  .ghead .gname {
-    border-left: 3px solid var(--cat); padding-left: 8px;
-  }
+  .ghead .gname { border-left: 3px solid var(--cat); padding-left: 8px; }
   .ghead .gcount { font-size: 11px; color: var(--sub); font-weight: 400; }
 
   /* 記事カード */
   .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    padding: 10px 14px; margin-bottom: 7px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 6px;
   }
   .card a.title {
-    color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 600;
-    display: block; letter-spacing: .01em;
+    color: var(--ink); text-decoration: none; font-size: 13.5px; font-weight: 600;
+    display: block; letter-spacing: .01em; line-height: 1.4;
   }
   .card a.title:active { color: var(--accent); }
-  .card .summary { color: #4b5563; font-size: 12.5px; margin-top: 6px; line-height: 1.55; }
+  .card .summary { color: #4b5563; font-size: 12px; margin-top: 5px; line-height: 1.5; }
 
-  /* リード（各テーマ先頭の大きめカード）。羅列感を崩す主役。 */
-  .card.lead {
-    border-left: 3px solid var(--cat); padding: 13px 15px;
-  }
-  .card.lead a.title { font-size: 16.5px; line-height: 1.45; }
+  /* リード（各テーマ先頭の大きめカード） */
+  .card.lead { border-left: 3px solid var(--cat); padding: 11px 13px; }
+  .card.lead a.title { font-size: 15.5px; line-height: 1.42; }
 
-  /* メタ行：発信元チップ＋相対時刻 */
-  .card .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  /* メタ行：有料バッジ＋発信元チップ＋相対時刻 */
+  .card .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
   .chip {
-    font-size: 10.5px; color: #374151; background: #eef0f3;
+    font-size: 10px; color: #374151; background: #eef0f3;
     border-radius: 5px; padding: 1px 6px; font-weight: 600; white-space: nowrap;
   }
-  /* 有料記事の印（開く前に気づけるように） */
-  .pw {
-    font-size: 10.5px; border-radius: 5px; padding: 1px 6px;
-    font-weight: 700; white-space: nowrap;
-  }
+  .pw { font-size: 10px; border-radius: 5px; padding: 1px 6px; font-weight: 700; white-space: nowrap; }
   .pw.paid { color: #9a3412; background: #ffedd5; border: 1px solid #fed7aa; }
   .pw.partial { color: #6b7280; background: #f3f4f6; border: 1px solid #e5e7eb; font-weight: 600; }
-  /* 有料記事のカード自体も少し控えめに */
+  .card .time { font-size: 10.5px; color: var(--sub); }
   .card:has(.pw.paid) a.title { color: #4b5563; }
-  .card .time { font-size: 11px; color: var(--sub); }
 
-  .empty { color: var(--sub); font-size: 13px; padding: 8px 2px; }
+  /* 既読（「既読も表示」時のみ現れる。読んだものと分かるよう薄く） */
+  .card.read { opacity: .5; }
+  .card.read a.title { color: var(--sub); font-weight: 500; }
 
-  /* 動画カード（YouTube）：サムネ＋タイトルで1つのリンク（a.vlink） */
+  .empty { color: var(--sub); font-size: 12.5px; padding: 6px 2px; }
+
+  /* 動画カード：左サムネ・右タイトルの横並びにして高さを抑える */
   .card.video { padding: 0; overflow: hidden; }
-  .card.video a.vlink { display: block; text-decoration: none; color: var(--ink); }
-  .card.video a.vlink:active { color: var(--accent); }
-  .card.video .thumb { position: relative; display: block; }
-  .card.video .thumb img { width: 100%; display: block; aspect-ratio: 16/9; object-fit: cover; }
+  .card.video a.vlink {
+    display: flex; gap: 10px; align-items: flex-start;
+    text-decoration: none; color: var(--ink); padding: 8px 10px;
+  }
+  .card.video a.vlink:active .title { color: var(--accent); }
+  .card.video .thumb { position: relative; flex: 0 0 108px; display: block; }
+  .card.video .thumb img {
+    width: 108px; height: 61px; display: block; object-fit: cover; border-radius: 6px;
+  }
   .card.video .thumb .play {
-    position: absolute; left: 8px; bottom: 8px; width: 26px; height: 26px;
+    position: absolute; left: 4px; bottom: 4px; width: 18px; height: 18px;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(0,0,0,.6); color:#fff; font-size: 11px; border-radius: 999px;
+    background: rgba(0,0,0,.6); color:#fff; font-size: 9px; border-radius: 999px;
   }
+  .card.video .vtext { min-width: 0; }
   .card.video .title {
-    display: block; padding: 9px 12px 0; font-size: 13.5px; font-weight: 600;
+    display: block; font-size: 12.5px; font-weight: 600; line-height: 1.38;
   }
-  .card.video .vfoot { padding: 0 12px 11px; }
-  .card.video .vfoot .meta { margin-top: 5px; }
+  .card.video .meta { margin-top: 4px; }
 
   /* skim：初期は隠しておく余剰カード。もっと見るで展開 */
   .gitems:not(.expanded) > .card.extra { display: none; }
   .more-btn {
-    display: block; width: 100%; margin: 3px 0 4px; padding: 8px;
-    background: transparent; border: 1px dashed var(--line); border-radius: 10px;
-    color: var(--cat); font-size: 12.5px; font-weight: 700; cursor: pointer;
+    display: block; width: 100%; margin: 2px 0 4px; padding: 6px;
+    background: transparent; border: 1px dashed var(--line); border-radius: 9px;
+    color: var(--cat); font-size: 12px; font-weight: 700; cursor: pointer;
   }
   .more-btn:active { background: #eef0f3; }
 
-  footer { margin-top: 36px; border-top: 1px solid var(--line); padding-top: 14px; }
+  footer { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 12px; }
   footer details.diag > summary { cursor: pointer; font-size: 12px; color: var(--sub); }
   footer table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
   footer td { padding: 4px 6px; border-bottom: 1px dashed var(--line); color: var(--sub); }
