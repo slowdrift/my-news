@@ -1,0 +1,48 @@
+{
+  "categories": [
+    {
+      "name": "趣味",
+      "feeds": [
+        { "name": "沢木耕太郎", "topic": "\"沢木耕太郎\"", "sources": ["gnews_ja", "hatebu"], "require": ["沢木耕太郎"] },
+        { "name": "吉村昭", "topic": "\"吉村昭\"", "sources": ["gnews_ja", "hatebu"], "require": ["吉村昭"] },
+        { "name": "井上陽水", "topic": "\"井上陽水\"", "sources": ["gnews_ja", "hatebu"], "require": ["井上陽水"] },
+        { "name": "アーミル・カーン", "topic": "アーミル・カーン", "topic_en": "\"Aamir Khan\"", "sources": ["gnews_ja", "gnews_in"] },
+        { "name": "アクアワールド大洗", "topic": "アクアワールド 大洗", "sources": ["gnews_ja"] },
+        { "name": "沢木耕太郎（アラート）", "group": "沢木耕太郎", "url_env": "ALERT_SAWAKI_URL", "alert": true, "require": ["沢木耕太郎"] },
+        { "name": "アクアワールド大洗（アラート）", "group": "アクアワールド大洗", "url_env": "ALERT_AQUA_URL", "alert": true, "require": ["アクアワールド"], "exclude": ["口コミ", "アクアプレイ"] }
+      ]
+    },
+    {
+      "name": "仕事・AI",
+      "feeds": [
+        { "name": "Claude Code", "topic": "\"Claude Code\"", "sources": ["gnews_ja"] },
+        { "name": "Claude Code（アラート）", "group": "Claude Code", "url_env": "ALERT_CLAUDE_URL", "alert": true },
+        { "name": "ITmedia AI＋", "url": "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml" }
+      ]
+    },
+    {
+      "name": "地域",
+      "feeds": [
+        { "name": "茨城新聞 県内ニュース", "url": "https://ibarakinews.jp/news/hphead.rss" }
+      ]
+    },
+    {
+      "name": "料理",
+      "feeds": [
+        { "name": "リュウジのバズレシピ", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCW01sMEVYQdhcvkrhbxdBpw", "type": "video" }
+      ]
+    },
+    {
+      "name": "お金",
+      "feeds": [
+        { "name": "両学長 リベラルアーツ大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC67Wr_9pA4I0glIxDt_Cpyw", "type": "video" }
+      ]
+    },
+    {
+      "name": "政治・チームみらい",
+      "feeds": [
+        { "name": "チームみらい公式", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC72A_x2FKHkJ8Nc2eIzqj8Q", "type": "video" }
+      ]
+    }
+  ]
+}
