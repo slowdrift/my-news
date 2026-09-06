@@ -1,13 +1,29 @@
 {
+  "_使い方": [
+    "■ キーワードを追加するには",
+    "  追加したいカテゴリの feeds に、次の1行を足すだけです。",
+    "    { \"topic\": \"追加したい語\" },",
+    "  例: { \"topic\": \"宮沢賢治\" },",
+    "  → Googleニュースとブログ(はてブ)から自動で集め、見出しにその語を含む記事だけを残します。",
+    "",
+    "■ 書くときの注意",
+    "  ・直前の行の末尾に カンマ , が必要です（最後の行だけカンマ不要）。",
+    "  ・語を2つ並べる（例: アクアワールド 大洗）と、両方を含む記事を探します。",
+    "",
+    "■ このファイルについて",
+    "  GitHub上のこのファイルが本番で使われます。編集して Commit すると数分で公開ページに反映されます。",
+    "  書式を間違えた場合は自動更新が止まるだけで、公開中のページは無事です（GitHubから失敗メールが届きます）。"
+  ],
+
   "categories": [
     {
       "name": "趣味",
       "feeds": [
-        { "name": "沢木耕太郎", "topic": "\"沢木耕太郎\"", "sources": ["gnews_ja", "hatebu"], "require": ["沢木耕太郎"] },
-        { "name": "吉村昭", "topic": "\"吉村昭\"", "sources": ["gnews_ja", "hatebu"], "require": ["吉村昭"] },
-        { "name": "井上陽水", "topic": "\"井上陽水\"", "sources": ["gnews_ja", "hatebu"], "require": ["井上陽水"] },
-        { "name": "アーミル・カーン", "topic": "アーミル・カーン", "topic_en": "\"Aamir Khan\"", "sources": ["gnews_ja", "gnews_in"] },
-        { "name": "アクアワールド大洗", "topic": "アクアワールド 大洗", "sources": ["gnews_ja"] },
+        { "topic": "沢木耕太郎" },
+        { "topic": "吉村昭" },
+        { "topic": "井上陽水" },
+        { "topic": "アーミル・カーン", "topic_en": "\"Aamir Khan\"", "sources": ["gnews_ja", "gnews_in"], "require": [] },
+        { "topic": "アクアワールド 大洗", "name": "アクアワールド大洗", "sources": ["gnews_ja"] },
         { "name": "沢木耕太郎（アラート）", "group": "沢木耕太郎", "url_env": "ALERT_SAWAKI_URL", "alert": true, "require": ["沢木耕太郎"] },
         { "name": "アクアワールド大洗（アラート）", "group": "アクアワールド大洗", "url_env": "ALERT_AQUA_URL", "alert": true, "require": ["アクアワールド"], "exclude": ["口コミ", "アクアプレイ"] }
       ]
@@ -15,7 +31,7 @@
     {
       "name": "仕事・AI",
       "feeds": [
-        { "name": "Claude Code", "topic": "\"Claude Code\"", "sources": ["gnews_ja"] },
+        { "topic": "\"Claude Code\"", "sources": ["gnews_ja"], "require": [] },
         { "name": "Claude Code（アラート）", "group": "Claude Code", "url_env": "ALERT_CLAUDE_URL", "alert": true },
         { "name": "ITmedia AI＋", "url": "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml" }
       ]
