@@ -1,0 +1,62 @@
+name: ニュースをビルドして公開
+
+# 実行タイミング
+on:
+  schedule:
+    # GitHubのcronはUTC。21:00 UTC = 翌06:00 JST（毎朝6時ごろ・数分前後あり）
+    - cron: "0 21 * * *"
+  workflow_dispatch:        # 手動実行ボタン
+  push:
+    branches: [ main ]      # main への変更時にも更新
+
+# GitHub Pages へデプロイするための権限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 公開は1つずつ（同時実行を防ぐ）
+# デプロイ途中で打ち切られないよう、進行中の実行はキャンセルしない
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: ソースを取得
+        uses: actions/checkout@v4
+
+      - name: Python を準備
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: 依存をインストール
+        run: pip install -r requirements.txt
+
+      - name: ニュースデータ(data.js)を生成
+        # 秘密のURLは Secrets から環境変数として渡す
+        env:
+          ALERT_SAWAKI_URL: ${{ secrets.ALERT_SAWAKI_URL }}
+          ALERT_AQUA_URL: ${{ secrets.ALERT_AQUA_URL }}
+          ALERT_CLAUDE_URL: ${{ secrets.ALERT_CLAUDE_URL }}
+        run: python build_news.py
+
+      - name: 公開用フォルダに配信ファイルを配置
+        run: |
+          mkdir -p _site
+          cp index.html app.js data.js _site/
+
+      - name: Pages 用にアップロード
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: GitHub Pages へデプロイ
+        id: deploy
+        uses: actions/deploy-pages@v4
