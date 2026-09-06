@@ -11,7 +11,7 @@ on:
 
 # GitHub Pages へデプロイするための権限
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -53,6 +53,21 @@ jobs:
           ALERT_AQUA_URL: ${{ secrets.ALERT_AQUA_URL }}
           ALERT_CLAUDE_URL: ${{ secrets.ALERT_CLAUDE_URL }}
         run: python build_news.py
+
+      # 見つけた記事の蓄積(archive.json)を保存する。
+      # これが無いと、未読の記事が次回の取得で消えてしまう。
+      # [skip ci] を付けるのは、このpushで再びビルドが走る無限ループを防ぐため。
+      - name: 記事の蓄積を保存
+        run: |
+          if [ -n "$(git status --porcelain archive.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add archive.json
+            git commit -m "記事の蓄積を更新 [skip ci]"
+            git push
+          else
+            echo "蓄積に変化なし"
+          fi
 
       - name: 公開用フォルダに配信ファイルを配置
         run: |

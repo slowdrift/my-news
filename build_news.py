@@ -62,6 +62,59 @@ FEEDS_FILE = BASE_DIR / "feeds.json"     # フィード定義（編集はここ�
 PAYWALL_FILE = BASE_DIR / "paywall.json"  # 有料媒体リスト（編集はここ）
 OUTPUT_DATA = BASE_DIR / "data.js"       # 生成物（表示用データを JS に埋め込む）
 LOG_FILE = BASE_DIR / "fetch.log"        # 取得ログ（追記）
+ARCHIVE_FILE = BASE_DIR / "archive.json"  # これまでに見つけた記事の蓄積（消さずに貯める）
+
+# 1テーマあたり蓄積しておく上限。超えたら古いものから捨てる。
+ARCHIVE_MAX_PER_GROUP = 300
+
+
+def load_archive(path: Path):
+    """これまでに見つけた記事の蓄積を読む。無ければ空。
+
+    形式: { "テーマ名": [ {記事…, "first_seen": ISO日時}, ... ] }
+    毎回ゼロから取り直すと、未読のまま消えてしまう記事が出るため貯めておく。
+    """
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}  # 壊れていても全体は止めず、作り直す
+
+
+def save_archive(path: Path, archive) -> None:
+    path.write_text(json.dumps(archive, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def merge_into_archive(archive, group_name, items, now_iso):
+    """今回取得した記事を蓄積へ統合する。
+
+    - すでにある記事（同じURL）は残し、first_seen を保つ
+    - 新しい記事には first_seen（初めて見つけた日時）を付ける
+      → これが「NEW」判定の根拠になる（記事の配信日ではなく、アプリに入ってきた日）
+    """
+    old_items = archive.get(group_name, [])
+    by_link = {}
+    for a in old_items:
+        if a.get("link"):
+            by_link[a["link"]] = a
+
+    for a in items:
+        link = a.get("link")
+        if not link:
+            continue
+        if link in by_link:
+            # 既にある記事：初めて見つけた日時は維持し、中身だけ最新に更新する
+            a["first_seen"] = by_link[link].get("first_seen", now_iso)
+        else:
+            a["first_seen"] = now_iso
+        by_link[link] = a
+
+    merged = list(by_link.values())
+    # 新しい順に整え、上限を超えた分は古いものから捨てる
+    merged.sort(key=lambda x: x.get("dt") or "", reverse=True)
+    archive[group_name] = merged[:ARCHIVE_MAX_PER_GROUP]
+    return archive[group_name]
 
 
 def load_paywall(path: Path):
@@ -283,7 +336,8 @@ def load_feeds(path: Path):
 
 # 取得・表示に関する調整値
 TIMEOUT_SEC = 10        # 1フィードあたりの取得タイムアウト
-MAX_ITEMS_PER_FEED = 8  # フィードごとに表示する最大件数
+MAX_ITEMS_PER_FEED = 60   # 1フィードから取り込む上限（重複除去の前に切らないため多めに）
+MAX_ITEMS_PER_GROUP = 30  # 1テーマから data.js に載せる件数（重複を除いた後の値）
 SUMMARY_MAX_LEN = 120   # リード文の最大文字数
 
 # ----------------------------------------------------------------------------
@@ -406,7 +460,27 @@ def clean_link(url: str) -> str:
         qs = parse_qs(p.query)
         for key in ("url", "q"):  # 実URLは url= か q= に入っている
             if qs.get(key):
-                return qs[key][0]
+                url = qs[key][0]
+                break
+    return strip_page_number(url)
+
+
+def strip_page_number(url: str) -> str:
+    """記事の「9ページ目」等へのリンクを1ページ目に直す。
+
+    分割記事の途中から始まると読みにくいうえ、同じ記事が別ページとして
+    重複してしまうため、ページ指定を取り除いてから扱う。
+    """
+    if not url:
+        return url
+    # ?page=9 / &p=3 のような指定だけを消す（他の条件は壊さない）
+    parts = urlparse(url)
+    if parts.query:
+        keep = [kv for kv in parts.query.split("&")
+                if kv.split("=")[0].lower() not in ("page", "p", "pagenum", "page_num")]
+        url = parts._replace(query="&".join(keep)).geturl()
+    # /article/12345/3 のように末尾がページ番号のもの（2〜99）も落とす
+    url = re.sub(r"/([2-9]|[1-9]\d)/?$", "/", url)
     return url
 
 
@@ -414,6 +488,26 @@ def is_blocked_domain(url: str) -> bool:
     """実URLのドメインが除外リストに該当するか。"""
     net = urlparse(url).netloc.lower()
     return any(b in net for b in BLOCK_DOMAINS)
+
+
+# 個人が書いている場（報道機関ではない）と判断するドメイン
+BLOG_DOMAINS = [
+    "hatenablog", "hatenadiary", "note.com", "ameblo.jp", "livedoor.blog",
+    "fc2.com", "blogspot", "wordpress.com", "qiita.com", "zenn.dev",
+    "medium.com", "substack.com", "seesaa.net", "exblog.jp", "goo.ne.jp",
+]
+
+
+def is_personal_blog(feed, link: str) -> bool:
+    """個人ブログ・note などの「素人記事」かどうか。
+
+    はてブ検索から来たものと、ブログ系ドメインを個人発信とみなす。
+    報道と区別して印を付けるためのもので、除外はしない。
+    """
+    if "b.hatena.ne.jp" in (feed.get("url") or ""):
+        return True
+    net = urlparse(link or "").netloc.lower()
+    return any(d in net for d in BLOG_DOMAINS)
 
 
 def is_blocked_source(via: str, title: str) -> bool:
@@ -591,6 +685,7 @@ def fetch_feed(feed):
             "summary": summary,
             "thumb": extract_thumbnail(e) if kind == "video" else "",
             "views": extract_views(e) if kind == "video" else None,
+            "blog": is_personal_blog(feed, link),
             "kind": kind,
             "via": via,
             "paywall": classify_paywall(via, link),  # "paid" / "partial" / ""
@@ -615,6 +710,8 @@ def to_json_item(a):
         "summary": a["summary"],
         "thumb": a["thumb"],
         "views": a.get("views"),   # 動画の再生回数（記事は None）
+        "blog": a.get("blog", False),  # 個人ブログ・note等（報道と区別する印）
+        "first_seen": a.get("first_seen"),  # アプリに初めて入ってきた日時（NEW判定用）
         "kind": a["kind"],
         "via": a.get("via", ""),  # 実際の配信元（Googleニュース経由の記事のみ）
         "paywall": a.get("paywall", ""),  # "paid"（ほぼ全文有料）/ "partial"（一部有料）/ ""
@@ -684,6 +781,10 @@ def main():
             log_lines.append(line)
             print(line)
 
+    # これまでに見つけた記事の蓄積を読み込む（未読のまま消えないようにするため）
+    archive = load_archive(ARCHIVE_FILE)
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
     # カテゴリごとにテーマ(group)へ束ねる。group の初出順を保つ。
     for cat, collected in cat_items:
         order = []
@@ -696,12 +797,24 @@ def main():
             buckets[g].append(a)
         groups_out = []
         for g in order:
-            # まず新しい順、そのあと「有料(paid)は後ろ」に安定ソート。
-            # → 各テーマの先頭（リード表示）に有料記事が来ず、有料が連続しない。
-            items = sorted(buckets[g], key=lambda a: a["dt"] or DT_MIN, reverse=True)
-            items.sort(key=lambda a: a.get("paywall") == "paid")
-            groups_out.append({"name": g, "items": [to_json_item(a) for a in items]})
+            # 今回の取得分を蓄積へ統合し、過去に見つけた記事も一緒に扱う
+            fresh = [to_json_item(a) for a in buckets[g]]
+            merged = merge_into_archive(archive, g, fresh, now_iso)
+
+            # 並べ替え：新しい順 →「読めないもの・個人ブログは後ろ」の順に安定ソート。
+            # 先に読める報道を持ってくることで、冒頭が有料記事だらけになるのを防ぐ。
+            items = sorted(merged, key=lambda a: a.get("dt") or "", reverse=True)
+            items.sort(key=lambda a: bool(a.get("blog")))
+            items.sort(key=lambda a: a.get("paywall") in ("paid", "partial"))
+            groups_out.append({"name": g, "items": items[:MAX_ITEMS_PER_GROUP]})
         categories_out.append({"name": cat, "groups": groups_out})
+
+    # 蓄積を保存（次回以降、未読の記事が消えないようにするため）
+    save_archive(ARCHIVE_FILE, archive)
+    total_archived = sum(len(v) for v in archive.values())
+    line = f"蓄積: {total_archived}件（{len(archive)}テーマ）を archive.json に保存"
+    log_lines.append(line)
+    print(line)
 
     # data.js 書き出し（UTF-8・日本語そのまま）
     #   window.NEWS_DATA にデータを入れる形にすると、<script src> で読めるため

@@ -69,10 +69,14 @@ function isRead(a) { return !!READ[a.link]; }
 function markRead(link) { READ[link] = Date.now(); saveRead(READ); }
 function countUnread(list) { return (list || []).filter((a) => !isRead(a)).length; }
 
-// 前回の訪問より後に出た記事か（NEWバッジの判定）
+// 前回の訪問より後に「アプリへ入ってきた」記事か（NEWバッジの判定）
+// 記事の配信日で判定すると、過去の記事しか無い日は永久にNEWが付かないため、
+// 収集側が記録した first_seen（初めて見つけた日時）と比べる。
 function isNew(a) {
-  if (!LAST_SEEN || !a.dt) return false;
-  const t = new Date(a.dt).getTime();
+  if (!LAST_SEEN) return false;
+  const src = a.first_seen || a.dt;
+  if (!src) return false;
+  const t = new Date(src).getTime();
   return !isNaN(t) && t > LAST_SEEN;
 }
 
@@ -127,6 +131,7 @@ function metaRow(a) {
   const t = relTime(a.dt);
   const inner = (isNew(a) ? '<span class="new">NEW</span>' : "")
     + payBadge(a)
+    + (a.blog ? '<span class="blog">個人ブログ</span>' : "")
     + (a.via ? '<span class="chip">' + esc(a.via) + "</span>" : "")
     + (a.views ? '<span class="views">▶ ' + fmtViews(a.views) + "</span>" : "")
     + (t ? '<span class="time">' + esc(t) + "</span>" : "");

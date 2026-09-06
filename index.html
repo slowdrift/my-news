@@ -137,6 +137,15 @@
     border-radius: 4px; padding: 1px 5px; letter-spacing: .04em;
   }
   .views { font-size: calc(10px * var(--fs)); color: var(--sub); white-space: nowrap; }
+  /* 個人ブログ・note等（報道と区別するための印） */
+  .blog {
+    font-size: calc(10px * var(--fs)); color: #7c3aed; background: #f3e8ff;
+    border: 1px solid #e9d5ff; border-radius: 5px; padding: 1px 6px;
+    font-weight: 600; white-space: nowrap;
+  }
+  :root[data-theme="dark"] .blog, :root[data-theme="auto"] .blog {
+    color: #c4b5fd; background: #2a2440; border-color: #3f3663;
+  }
   .pw { font-size: calc(10px * var(--fs)); border-radius: 5px; padding: 1px 6px; font-weight: 700; white-space: nowrap; }
   .pw.paid { color: #9a3412; background: #ffedd5; border: 1px solid #fed7aa; }
   .pw.partial { color: var(--sub); background: var(--chip-bg); border: 1px solid var(--line); font-weight: 600; }
