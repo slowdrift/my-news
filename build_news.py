@@ -173,35 +173,70 @@ SOURCE_TEMPLATES = {
 }
 
 
+def split_topic(raw: str):
+    """検索語を「検索クエリ」と「必須語（素の語）」に分ける。
+
+    - すでに "..." で囲まれている → そのまま完全一致検索に使う
+    - 空白を含む（例: アクアワールド 大洗） → 複数語のAND検索とみなし、囲まない。
+      この場合そのままでは必須語にできないので、必須語は空にする（自動補完しない）
+    - それ以外（例: 吉村昭） → 完全一致検索にするため囲む
+
+    戻り値: (検索クエリ, 必須語にできる素の語／できなければ空文字)
+    """
+    raw = str(raw).strip()
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        return raw, raw[1:-1]
+    if " " in raw or "　" in raw:
+        return raw, ""
+    return f'"{raw}"', raw
+
+
+# テーマ型で sources を省略したときに使うソース
+DEFAULT_SOURCES = ["gnews_ja", "hatebu"]
+
+
 def expand_topic(entry):
     """テーマ型エントリを、ソースごとの仮想フィードのリストに展開する。
 
-    例: {"name":"沢木耕太郎","topic":"\"沢木耕太郎\"","sources":["gnews_ja","hatebu"]}
-      → 「沢木耕太郎（Googleニュース）」「沢木耕太郎（ブログ/はてブ）」の2フィード
+    最小の書き方は { "topic": "吉村昭" } だけ。
+    name / sources / require は検索語から自動で補う（明示された値が優先）。
+      → 「吉村昭（Googleニュース）」「吉村昭（ブログ/はてブ）」の2フィードになる
     """
+    quoted, plain = split_topic(entry.get("topic", ""))
+    name = entry.get("name") or plain
+    sources = entry.get("sources") or DEFAULT_SOURCES
+
     feeds = []
-    for key in entry.get("sources", []):
+    for key in sources:
         tpl = SOURCE_TEMPLATES.get(key)
         if tpl is None:
             # 未知のソース名：全体は止めず、診断に出るだけの空フィードにする
-            feeds.append({"name": f"{entry['name']}（{key}）", "url": "",
+            feeds.append({"name": f"{name}（{key}）", "url": "",
                           "skip_reason": f"未知のソース: {key}"})
             continue
-        # 英語系ソースは topic_en を優先（無ければ topic をそのまま使う）
-        q = entry.get("topic_en") if tpl.get("english") and entry.get("topic_en") else entry["topic"]
+        # 英語系ソースは topic_en を優先。必須語も英語側に合わせないと全滅するため、
+        # 検索語とセットで切り替える。
+        if tpl.get("english") and entry.get("topic_en"):
+            q, plain_for_require = split_topic(entry["topic_en"])
+        else:
+            q, plain_for_require = quoted, plain
+
         feed = {
-            "name": f"{entry['name']}（{tpl['label']}）",
+            "name": f"{name}（{tpl['label']}）",
             # group（表示上のテーマ名）：複数ソースを1つの見出しに束ねるための鍵
-            "group": entry.get("group", entry["name"]),
+            "group": entry.get("group", name),
             "url": tpl["url"].format(q=quote(q)),
             **tpl.get("opts", {}),
         }
-        # require/exclude はテーマに指定されていれば全ソースに引き継ぐ。
+        # require（必須語）は、書かれていなければ検索語から自動で補う。
         # Googleニュース検索は「関連記事」として検索語を含まない無関係な記事を
-        # 混ぜてくることがある（例:「吉村昭」検索に無関係な訃報記事が混入）ため、
-        # gnews系でも require によるタイトルチェックを効かせる。
-        if entry.get("require"):
-            feed["require"] = entry["require"]
+        # 混ぜてくることがあるため、既定で効かせて誤混入を防ぐ。
+        # 意図的に無効化したいテーマは feeds.json で "require": [] と書く。
+        if "require" in entry:
+            if entry["require"]:
+                feed["require"] = entry["require"]
+        elif plain_for_require:
+            feed["require"] = [plain_for_require]
         if entry.get("exclude"):
             feed["exclude"] = entry["exclude"]
         feeds.append(feed)
