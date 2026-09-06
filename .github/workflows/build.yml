@@ -39,6 +39,12 @@ jobs:
       - name: 依存をインストール
         run: pip install -r requirements.txt
 
+              # 設定ファイルの書式ミス（カンマ抜け等）をここで検出して止める。
+      - name: 設定ファイルの書式を確認
+        run: |
+          python -c "import json;json.load(open('feeds.json',encoding='utf-8'));print('feeds.json OK')"
+          python -c "import json;json.load(open('paywall.json',encoding='utf-8'));print('paywall.json OK')"
+
       - name: ニュースデータ(data.js)を生成
         # 秘密のURLは Secrets から環境変数として渡す
         env:
