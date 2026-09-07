@@ -326,6 +326,26 @@ def expand_topic(entry):
         if "max_age_days" in entry:
             feed["max_age_days"] = entry["max_age_days"]
         feeds.append(feed)
+
+    # サイトを指定した検索（ニュース以外の情報源を名指しで探す）
+    # 例: { "topic": "近藤紘一", "sites": ["1101.com", "note.com"] }
+    news_tpl = SOURCE_TEMPLATES["gnews_ja"]
+    for site in (entry.get("sites") or []):
+        q_site = f"{quoted} site:{site}"
+        site_feed = {
+            "name": f"{name}（{site}）",
+            "group": entry.get("group", name),
+            "url": news_tpl["url"].format(q=quote(q_site)),
+            # サイトで絞り込み済みなので、見出しに検索語があることまでは求めない。
+            # 求めると「本文で語っているブログ記事」がすべて落ちてしまう。
+            "site_search": True,
+            **news_tpl.get("opts", {}),
+            "backfill": {"url": news_tpl["url"], "q": q_site},
+        }
+        for key in ("exclude", "prefer", "demote"):
+            if entry.get(key):
+                site_feed[key] = entry[key]
+        feeds.append(site_feed)
     return feeds
 
 
@@ -355,6 +375,17 @@ def load_feeds(path: Path):
             feed.setdefault("group", feed["name"])
             items.append(feed)
         feeds_by_cat[cat["name"]] = items
+
+    # サイト指定検索は見出し一致を求めないぶん、他テーマの記事が紛れ込む
+    # （例: note を「近藤紘一」で探すと、沢木耕太郎の記事が混じる）。
+    # 「別のテーマ名が見出しにあり、自分のテーマ名は無い」ものは落とす。
+    names = {f.get("group") or f.get("name")
+             for items in feeds_by_cat.values() for f in items}
+    names.discard(None)
+    for items in feeds_by_cat.values():
+        for f in items:
+            mine = f.get("group") or f.get("name")
+            f["other_topics"] = sorted(n for n in names if n != mine)
     return feeds_by_cat
 
 
@@ -386,6 +417,7 @@ NG_WORDS = [
     # 記事本体ではなく写真・プロフィールのページに飛ぶもの
     "の画像", "（写真・画像", "| 写真 |", "｜写真｜", "写真提供＝",
     "のプロフィール", "フォトギャラリー", "関連画像",
+    "タグ記事一覧", "の記事まとめ",  # noteのタグ一覧など、記事本体でないページ
 ]
 
 # 配信元名（via）で除外する低品質なサイト。
@@ -439,6 +471,11 @@ THIN_MAX_AGE_DAYS = 3650  # そのとき遡る日数（約10年）
 # 昔の記事は出てこない。Googleニュース検索は after:/before: に対応している
 # （実測：「沢木耕太郎 after:2010-01-01 before:2013-01-01」で2010〜2012年の記事を取得）。
 # 蓄積が少ないテーマだけを対象にするので、毎朝の取得が重くなりすぎることはない。
+# 記事の少ないテーマで、ニュース以外にも自動で当たる情報源。
+# Googleニュース検索は site: 指定に対応しており、報道以外のページも索引にある
+# （実測：「"近藤紘一" site:note.com」で54件。ニュース検索だけでは5件だった）。
+DEFAULT_DEEP_SITES = ["note.com", "hatenablog.com", "1101.com"]
+
 BACKFILL_TARGET = 40   # 蓄積がこの件数に届かないテーマは過去を掘る
 BACKFILL_YEARS = 20    # 何年前まで遡るか
 BACKFILL_SLICE = 4     # 何年ずつ区切って聞くか
@@ -570,16 +607,24 @@ BLOG_DOMAINS = [
 ]
 
 
-def is_personal_blog(feed, link: str) -> bool:
+def looks_like_blog(link: str, via_host: str = "") -> bool:
+    """リンクか発信元ドメインが、個人が書く場のものか。"""
+    hay = urlparse(link or "").netloc.lower() + " " + (via_host or "").lower()
+    return any(d in hay for d in BLOG_DOMAINS)
+
+
+def is_personal_blog(feed, link: str, via_host: str = "") -> bool:
     """個人ブログ・note などの「素人記事」かどうか。
 
     はてブ検索から来たものと、ブログ系ドメインを個人発信とみなす。
     報道と区別して印を付けるためのもので、除外はしない。
+
+    ※Googleニュース経由の記事はリンクが中継URLなので、リンクだけ見ても
+      note やはてなブログだと分からない。発信元ドメイン（via_host）も見る。
     """
     if "b.hatena.ne.jp" in (feed.get("url") or ""):
         return True
-    net = urlparse(link or "").netloc.lower()
-    return any(d in net for d in BLOG_DOMAINS)
+    return looks_like_blog(link, via_host)
 
 
 def is_blocked_source(via: str, title: str) -> bool:
@@ -721,6 +766,11 @@ def fetch_feed(feed):
     #   demote … 話題性の低い記事（例: BGMに使われただけ）→ 後ろへ
     prefer = feed.get("prefer") or []
     demote = DEMOTE_WORDS + (feed.get("demote") or [])
+    # サイト指定検索での「別テーマの紛れ込み」を防ぐための材料
+    # 実際に使うのはサイト指定検索のときだけ。
+    # 通常の検索は見出し一致（require）で守られているため、ここまで絞ると取りこぼす。
+    other_topics = (feed.get("other_topics") or []) if feed.get("site_search") else []
+    my_topic = feed.get("group") or name
     # 鮮度上限はフィード個別に上書き可（ブログ層は古い深掘り記事にも価値があるため）
     max_age = feed.get("max_age_days", MAX_AGE_DAYS)
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=max_age)
@@ -752,6 +802,8 @@ def fetch_feed(feed):
             continue  # 低品質な転載サイト・スパム的なタイトルを除外
         if skip_shorts and "/shorts/" in link:
             continue  # ショート版は本編と内容が重なるので落とす
+        if other_topics and my_topic not in title and any(n in title for n in other_topics):
+            continue  # 別テーマの記事の紛れ込み（サイト指定検索のみ）
         text = title + " " + summary_raw
         require_hay = text if require_in == "text" else title
         if not passes_keywords(require_hay, text, require, exclude):
@@ -769,7 +821,7 @@ def fetch_feed(feed):
             "summary": summary,
             "thumb": extract_thumbnail(e) if kind == "video" else "",
             "views": extract_views(e) if kind == "video" else None,
-            "blog": is_personal_blog(feed, link),
+            "blog": is_personal_blog(feed, link, via_host),
             "rank": rank,   # 並び順の重み（-1 優先 / 0 普通 / 1 後回し）
             "kind": kind,
             "via": via,
@@ -847,6 +899,7 @@ def main():
     # 設定を直しても過去分が古いままだと、ラベル漏れや変な並びが残り続けるため。
     relabeled = 0
     reranked = 0
+    reblogged = 0
     for g, items in archive.items():
         prefer, demote_extra = rank_rules.get(g, ([], []))
         demote = DEMOTE_WORDS + demote_extra
@@ -861,8 +914,38 @@ def main():
             if new_rank != a.get("rank", 0):
                 a["rank"] = new_rank
                 reranked += 1
-    if relabeled or reranked:
-        line = f"蓄積分の見直し: ラベル{relabeled}件 / 並び順{reranked}件を更新"
+            # 発信元ドメインで個人ブログを判定し直す
+            # （中継URLしか見ていなかった頃の記事は note でも印が付いていない）
+            if not a.get("blog") and looks_like_blog(a.get("link", ""), a.get("via_host", "")):
+                a["blog"] = True
+                reblogged += 1
+    # 別テーマの記事が紛れ込んでいたら、消さずに本来のテーマへ移す。
+    # （サイト指定検索を入れる前に貯めた分の手当て。記事自体には読む価値がある）
+    theme_names = set(archive)
+    moved = 0
+    for g in list(archive):
+        keep = []
+        for a in archive[g]:
+            title = a.get("title") or ""
+            if g not in title:
+                owners = [n for n in theme_names if n != g and n in title]
+                if len(owners) == 1:
+                    dest = owners[0]
+                    links = {x.get("link") for x in archive.get(dest, [])}
+                    if a.get("link") not in links:
+                        archive.setdefault(dest, []).append(a)
+                    moved += 1
+                    continue   # 元のテーマからは外す（移動であって削除ではない）
+            keep.append(a)
+        archive[g] = keep
+    if moved:
+        line = f"整理: 別テーマに紛れていた{moved}件を本来のテーマへ移動"
+        log_lines.append(line)
+        print(line)
+
+    if relabeled or reranked or reblogged:
+        line = (f"蓄積分の見直し: ラベル{relabeled}件 / 並び順{reranked}件 / "
+                f"個人ブログ{reblogged}件を更新")
         log_lines.append(line)
         print(line)
 
@@ -900,10 +983,11 @@ def main():
         # --- 蓄積が手薄なテーマは、期間を区切って過去へ遡り補充する ---
         # 検索は既定では最近の記事しか返さない。「何十年前でも読みたい」を叶えるには、
         # 年で区切って何度も聞き直す必要がある。手薄なテーマだけが対象なので負荷は小さい。
+        deep_done = set()   # サイト指定の深掘りはテーマごとに1回だけ
         for feed in feeds:
             bf = feed.get("backfill")
-            if not bf:
-                continue
+            if not bf or feed.get("site_search"):
+                continue   # 既にサイト指定のフィードは、そこからさらに掘らない
             g = feed.get("group") or feed["name"]
             # 「実際に貯まっている件数」だけで判断する。
             # 今回取得した分を足すと、その大半は蓄積済みの記事と重複しているため、
@@ -912,6 +996,29 @@ def main():
             if have >= BACKFILL_TARGET:
                 continue
             gained = 0
+            # (a) まずニュース以外の情報源へ。報道が少ない相手でも、
+            #     ブログや媒体サイトには書かれていることがある。
+            if g not in deep_done:
+                deep_done.add(g)
+                for site in DEFAULT_DEEP_SITES:
+                    if have + gained >= BACKFILL_TARGET:
+                        break
+                    sub = dict(feed)
+                    sub.pop("backfill", None)
+                    sub.pop("require", None)   # サイトで絞るので見出し一致までは求めない
+                    sub["site_search"] = True
+                    sub["url"] = bf["url"].format(q=quote(f'{bf["q"]} site:{site}'))
+                    sub["max_age_days"] = 36500
+                    arts, _ = fetch_feed(sub)
+                    got = take(arts, collected)
+                    if got:
+                        line = f"[{cat}] {g}: {site} から{got}件"
+                        summary_rows.append({"name": f"{g}（{site}）", "status": f"OK {got}件"})
+                        log_lines.append(line)
+                        print(line)
+                    gained += got
+
+            # (b) それでも足りなければ、期間を区切って過去へ遡る
             for start, end in backfill_ranges(now.year):
                 if have + gained >= BACKFILL_TARGET:
                     break
@@ -922,8 +1029,7 @@ def main():
                 arts, _ = fetch_feed(past)
                 gained += take(arts, collected)
             if gained:
-                line = f"[{cat}] {g}: 過去から{gained}件を補充（{have}件 → {have + gained}件）"
-                summary_rows.append({"name": f"{g}（過去の補充）", "status": f"OK {gained}件"})
+                line = f"[{cat}] {g}: 情報源を広げて{gained}件を補充（{have}件 → {have + gained}件）"
                 log_lines.append(line)
                 print(line)
 
