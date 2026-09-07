@@ -518,6 +518,9 @@ def truncate(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + "…"
 
 
+# 表示に使う時刻はすべて日本時間で揃える（実行環境の時計に左右されないため）
+JST = datetime.timezone(datetime.timedelta(hours=9))
+
 # 日時不明な記事を末尾に回すための比較用の最小値（aware）
 DT_MIN = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
 
@@ -866,7 +869,9 @@ def to_json_item(a):
 
 def main():
     socket.setdefaulttimeout(TIMEOUT_SEC)  # 遅いサーバでハングしないように
-    now = datetime.datetime.now()
+    # 日本時間で記録する。GitHub Actions の時計はUTCなので、そのまま使うと
+    # 画面の「更新」が9時間前に見えてしまう（実際にずれていた）。
+    now = datetime.datetime.now(JST)
     generated_at = now.strftime("%Y-%m-%d %H:%M")
 
     feeds_by_cat = load_feeds(FEEDS_FILE)
