@@ -437,13 +437,14 @@ function render(data) {
     parts.push("</div></details>");
   });
 
-  // 動画は最下部の独立ブロックへ。まとめて見るものなので、既定は閉じておく。
+  // 動画は最下部の独立ブロックへ。記事とは読む時間帯が違うため枠で分ける
+  // （閉じてはおかない。分かれてさえいれば、そのまま見られるほうが良い）。
   if (videoGroups.length) {
     const body = videoGroups.map(function (x) {
       return renderGroup(x.group, ALL_GROUPS.indexOf(x));
     }).join("");
-    parts.push('<details class="cat videos" id="videos" style="--cat:#dc2626">');
-    parts.push('<summary><h2>🎬 動画（あとで見る）'
+    parts.push('<details class="cat videos" open id="videos" style="--cat:#dc2626">');
+    parts.push('<summary><h2>🎬 動画'
       + '<span class="catcount">' + videoUnread + "件</span></h2></summary>");
     parts.push('<div class="body">');
     parts.push(body || '<div class="empty">すべて見終えました 🎉</div>');

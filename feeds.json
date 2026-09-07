@@ -51,9 +51,27 @@
       "name": "仕事・AI",
       "feeds": [
         { "topic": "\"Claude Code\"", "sources": ["gnews_ja", "hatebu"], "require": [],
-          "exclude": ["セミナー", "ウェビナー", "説明会", "無料相談", "受講", "申し込み"] },
+          "sites": ["zenn.dev", "note.com", "qiita.com"],
+          "blog_last": false,
+          "prefer": ["使い方", "コツ", "実践", "入門", "効率化", "自動化",
+                     "ワークフロー", "設定", "やってみた", "試した", "運用", "工夫"],
+          "demote": ["資金調達", "決算", "株価", "上場", "提携", "業務提携",
+                     "導入支援", "法人向け", "エンタープライズ", "調査", "講演",
+                     "協会", "自治体", "行政", "ソリューション", "提供開始"],
+          "exclude": ["セミナー", "ウェビナー", "説明会", "無料相談", "受講", "申し込み", "講座"] },
         { "name": "Claude Code（アラート）", "group": "Claude Code", "url_env": "ALERT_CLAUDE_URL", "alert": true },
-        { "name": "ITmedia AI＋", "url": "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml" }
+        { "topic": "生成AI 活用", "name": "生成AIの使いこなし",
+          "require": ["生成AI", "ChatGPT", "Claude", "Gemini", "Copilot", "AIエージェント"],
+          "sources": ["gnews_ja", "hatebu"],
+          "sites": ["zenn.dev", "note.com", "qiita.com"],
+          "blog_last": false,
+          "prefer": ["使い方", "コツ", "実践", "入門", "効率化", "自動化",
+                     "ワークフロー", "やってみた", "試した", "工夫", "プロンプト"],
+          "demote": ["資金調達", "決算", "株価", "上場", "提携", "市場規模",
+                     "導入事例", "法人向け", "エンタープライズ", "調査", "講演",
+                     "協会", "自治体", "行政", "ソリューション", "提供開始", "様にて"],
+          "exclude": ["セミナー", "ウェビナー", "説明会", "無料相談", "受講", "申し込み",
+                      "講座", "資料ダウンロード", "ホワイトペーパー"] }
       ]
     },
     {

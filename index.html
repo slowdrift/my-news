@@ -12,6 +12,7 @@
     --line:#e5e7eb; --accent:#2563eb; --cat:#2563eb;
     --chip-bg:#eef0f3; --chip-ink:#374151; --btn-bg:#fff;
     --read-opacity:.5;
+    --videos-bg:#fdf2f2;   /* 動画ブロックの下地（記事と見分けるため） */
     --fs:1;           /* 文字サイズの倍率 */
   }
   /* 端末が暗い設定のとき（手動指定が無い＝自動のとき）だけ暗くする */
@@ -21,6 +22,7 @@
       --line:#2b313c; --accent:#7aa7ff; --chip-bg:#262c37; --chip-ink:#c3cad6;
       --btn-bg:#1b1f27;
       --read-opacity:.8;
+      --videos-bg:#1a1416;
     }
   }
   /* 手動で「暗い」を選んだとき */
@@ -29,6 +31,7 @@
     --line:#2b313c; --accent:#7aa7ff; --chip-bg:#262c37; --chip-ink:#c3cad6;
     --btn-bg:#1b1f27;
     --read-opacity:.8;
+    --videos-bg:#1a1416;
   }
   /* 文字サイズ */
   :root[data-font="s"] { --fs:.92; }
@@ -204,9 +207,22 @@
     color: var(--cat); font-size: calc(12px * var(--fs)); font-weight: 700; cursor: pointer;
   }
 
-  /* 動画ブロック（記事と分けて最下部に置く） */
-  details.cat.videos { margin-top: 22px; }
-  details.cat.videos > summary { border-bottom-style: dashed; }
+  /* 動画ブロック（記事と分けて最下部に置く）
+     記事の一覧と地続きに見えないよう、枠で囲んだ別ブロックとして扱う */
+  details.cat.videos {
+    margin-top: 32px; padding: 4px 12px 10px;
+    border: 2px solid var(--cat); border-radius: 14px;
+    background: var(--videos-bg);
+  }
+  /* 枠の上辺に重ねるラベル。記事の続きではないことを一目で分かるようにする */
+  details.cat.videos::before {
+    content: "ここから下は動画です";
+    display: block; width: fit-content; margin: -16px auto 6px;
+    font-size: calc(10.5px * var(--fs)); font-weight: 700; letter-spacing: .06em;
+    color: var(--cat); background: var(--bg); padding: 0 10px;
+  }
+  details.cat.videos > summary { border-bottom-width: 1px; }
+  details.cat.videos .card { background: var(--card); }
 
   footer { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 12px; }
   footer details.diag > summary { cursor: pointer; font-size: 12px; color: var(--sub); }

@@ -110,11 +110,56 @@ def merge_into_archive(archive, group_name, items, now_iso):
             a["first_seen"] = now_iso
         by_link[link] = a
 
-    merged = list(by_link.values())
+    # 見出しでも重複をまとめる。
+    # Googleの中継URLは日によって変わるため、URLだけでは同じ記事を見分けられない
+    #（実測：同じ hicbc.com の記事が別URLで3件貯まっていた）。
+    merged = dedupe_by_title(list(by_link.values()))
     # 新しい順に整え、上限を超えた分は古いものから捨てる
     merged.sort(key=lambda x: x.get("dt") or "", reverse=True)
     archive[group_name] = merged[:ARCHIVE_MAX_PER_GROUP]
     return archive[group_name]
+
+
+def better_record(a, b):
+    """同じ記事の2件から、残す方を選ぶ。
+
+    直リンクのほうが読者にとって扱いやすく（中継URLを経由しない）、
+    有料判定を実ページで確認済みの記録も価値が高い。
+    """
+    def score(x):
+        n = 0
+        if x.get("link") and "news.google.com" not in x["link"]:
+            n += 2
+        if x.get("pwv"):
+            n += 1
+        return n
+    return a if score(a) >= score(b) else b
+
+
+def dedupe_by_title(items):
+    """見出しが同じ記事を1件にまとめる（元の並び順は保つ）。
+
+    初めて見つけた日時は古いほうを引き継ぐ。
+    新しいほうに合わせると、まとめた瞬間にNEWが再点灯してしまうため。
+    """
+    best = {}
+    order = []
+    for a in items:
+        key = normalize_title(a.get("title") or "")
+        if not key:
+            order.append((False, a))   # 見出しが取れないものはそのまま残す
+            continue
+        if key not in best:
+            best[key] = a
+            order.append((True, key))
+        else:
+            cur = best[key]
+            seen = [x.get("first_seen") for x in (cur, a) if x.get("first_seen")]
+            keep = better_record(cur, a)
+            if seen:
+                keep["first_seen"] = min(seen)
+            best[key] = keep
+    return [best[v] if is_key else v for is_key, v in order]
 
 
 def load_paywall(path: Path):
@@ -266,6 +311,19 @@ def split_topic(raw: str):
     return f'"{raw}"', raw
 
 
+def require_words(raw: str):
+    """検索語から「見出しに含むべき語」を作る。
+
+    以前は空白を含む検索語（例: アクアワールド 大洗）だと必須語が空になり、
+    見出しの判定が丸ごと効かなくなっていた（「小林氏、引き続き要職に」等が混入した原因）。
+    "..." で囲んだ語はひとまとまりの語として、それ以外は単語ごとに必須語にする。
+    """
+    raw = str(raw).strip()
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        return [raw[1:-1]]
+    return [w for w in re.split(r"[\s　]+", raw) if w]
+
+
 # テーマ型で sources を省略したときに使うソース
 DEFAULT_SOURCES = ["gnews_ja", "hatebu"]
 
@@ -310,13 +368,16 @@ def expand_topic(entry):
         if "require" in entry:
             if entry["require"]:
                 feed["require"] = entry["require"]
-        elif plain_for_require:
-            feed["require"] = [plain_for_require]
+        else:
+            source_raw = entry["topic_en"] if (tpl.get("english") and entry.get("topic_en"))                 else entry.get("topic", "")
+            words = require_words(source_raw)
+            if words:
+                feed["require"] = words
         if entry.get("exclude"):
             feed["exclude"] = entry["exclude"]
         # 記事の重み付け（⑥）：優先したい語・後ろに回したい語
-        for key in ("prefer", "demote"):
-            if entry.get(key):
+        for key in ("prefer", "demote", "blog_last"):
+            if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
         if tpl.get("backfill"):
@@ -342,9 +403,13 @@ def expand_topic(entry):
             **news_tpl.get("opts", {}),
             "backfill": {"url": news_tpl["url"], "q": q_site},
         }
-        for key in ("exclude", "prefer", "demote"):
-            if entry.get(key):
+        for key in ("exclude", "prefer", "demote", "blog_last"):
+            if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
+        # 自動で作る必須語は使わないが、明示された必須語は効かせる
+        # （「生成AI」のような広いテーマは、絞らないと何でも入ってしまうため）
+        if entry.get("require"):
+            site_feed["require"] = entry["require"]
         feeds.append(site_feed)
     return feeds
 
@@ -630,6 +695,24 @@ def is_personal_blog(feed, link: str, via_host: str = "") -> bool:
     return looks_like_blog(link, via_host)
 
 
+# 見出しの文字種を見分けるための判定
+HANGUL_RE = re.compile(r"[가-힯ᄀ-ᇿ]")          # ハングル
+JAPANESE_RE = re.compile(r"[぀-ヿ一-鿿]")        # ひらがな・カタカナ・漢字
+
+
+def is_foreign_title(title: str) -> bool:
+    """日本語で書かれていない見出しか。
+
+    サイト指定検索は見出し一致を求めないぶん、同じ書き手が多言語で出している
+    記事まで拾ってしまう（近藤紘一に韓国語版・英語版が混じっていた）。
+    ハングルを含むもの、または冒頭に日本語が1文字も無いものを外す。
+    """
+    title = title or ""
+    if HANGUL_RE.search(title):
+        return True
+    return not JAPANESE_RE.search(title[:30])
+
+
 def is_blocked_source(via: str, title: str) -> bool:
     """配信元名や、転載サイト特有のタイトルの型で低品質な記事を弾く。
 
@@ -774,6 +857,8 @@ def fetch_feed(feed):
     # 通常の検索は見出し一致（require）で守られているため、ここまで絞ると取りこぼす。
     other_topics = (feed.get("other_topics") or []) if feed.get("site_search") else []
     my_topic = feed.get("group") or name
+    # 日本語のテーマかどうか。英語圏のソース（海外報道）には効かせない。
+    japanese_topic = bool(feed.get("site_search")) and bool(JAPANESE_RE.search(my_topic))
     # 鮮度上限はフィード個別に上書き可（ブログ層は古い深掘り記事にも価値があるため）
     max_age = feed.get("max_age_days", MAX_AGE_DAYS)
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=max_age)
@@ -807,6 +892,8 @@ def fetch_feed(feed):
             continue  # ショート版は本編と内容が重なるので落とす
         if other_topics and my_topic not in title and any(n in title for n in other_topics):
             continue  # 別テーマの記事の紛れ込み（サイト指定検索のみ）
+        if japanese_topic and is_foreign_title(title):
+            continue  # 日本語のテーマに混じった外国語の記事（サイト指定検索のみ）
         text = title + " " + summary_raw
         require_hay = text if require_in == "text" else title
         if not passes_keywords(require_hay, text, require, exclude):
@@ -892,6 +979,7 @@ def main():
     # テーマごとの並べ替え規則（feeds.json の prefer / demote）を集める。
     # 同じテーマに複数のフィードがぶら下がることがあるので、すべて足し合わせる。
     rank_rules = {}
+    blog_last = {}
     for feeds in feeds_by_cat.values():
         for f in feeds:
             g = f.get("group") or f.get("name")
@@ -899,6 +987,10 @@ def main():
                 continue
             pr, dm = rank_rules.get(g, ([], []))
             rank_rules[g] = (pr + (f.get("prefer") or []), dm + (f.get("demote") or []))
+            # 個人ブログを末尾に回すか。既定は回す（報道と素人記事を区別するため）。
+            # ただしAIの使いこなしのように、ブログこそが本命のテーマもある。
+            if f.get("blog_last") is False:
+                blog_last[g] = False
 
     # 既に貯めてある記事にも、今の基準を当て直す。
     # 設定を直しても過去分が古いままだと、ラベル漏れや変な並びが残り続けるため。
@@ -924,6 +1016,56 @@ def main():
             if not a.get("blog") and looks_like_blog(a.get("link", ""), a.get("via_host", "")):
                 a["blog"] = True
                 reblogged += 1
+    # 見出しに含むべき語（require）を、貯めてある記事にも当て直す。
+    # 設定を直しても過去分が残っていては、無関係な記事が消えないため。
+    # ただしサイト指定検索を使うテーマは対象外。あちらは「見出しに名前が無くても
+    # 本文で語っている記事」を意図して拾っているので、当てると正しい記事まで消える。
+    require_rules = {}
+    for feeds in feeds_by_cat.values():
+        for f in feeds:
+            g = f.get("group") or f.get("name")
+            if not g:
+                continue
+            words, has_site = require_rules.get(g, ([], False))
+            require_rules[g] = (words + (f.get("require") or []),
+                                has_site or bool(f.get("site_search")))
+    off_topic = 0
+    for g, items in archive.items():
+        words, has_site = require_rules.get(g, ([], True))
+        if has_site or not words:
+            continue
+        keep = [a for a in items if any(w in (a.get("title") or "") for w in words)]
+        off_topic += len(items) - len(keep)
+        archive[g] = keep
+    if off_topic:
+        line = f"整理: 見出しが条件に合わない{off_topic}件を削除"
+        log_lines.append(line)
+        print(line)
+
+    # 記事ではないページと、日本語テーマに混じった韓国語の記事を取り除く。
+    # （サイト指定検索を入れる前に貯めた分の手当て。ここだけは移動ではなく削除する）
+    JUNK_TITLE_WORDS = ["タグ記事一覧", "関連画像", "フォトギャラリー"]
+    dropped = 0
+    for g in list(archive):
+        items = archive[g]
+        # そのテーマが「日本語で読むテーマ」かどうか。
+        # アーミル・カーンのように英語の現地報道を集めるテーマまで巻き込まないため、
+        # テーマ名が日本語で、かつ実際に日本語の記事が大半のときだけ外国語を外す。
+        ja = sum(1 for x in items if JAPANESE_RE.search((x.get("title") or "")[:30]))
+        ja_theme = bool(JAPANESE_RE.search(g)) and items and ja / len(items) >= 0.8
+        keep = []
+        for a in items:
+            t = a.get("title") or ""
+            if any(w in t for w in JUNK_TITLE_WORDS) or (ja_theme and is_foreign_title(t)):
+                dropped += 1
+                continue
+            keep.append(a)
+        archive[g] = keep
+    if dropped:
+        line = f"整理: 記事でないページ等 {dropped}件を削除"
+        log_lines.append(line)
+        print(line)
+
     # 別テーマの記事が紛れ込んでいたら、消さずに本来のテーマへ移す。
     # （サイト指定検索を入れる前に貯めた分の手当て。記事自体には読む価値がある）
     theme_names = set(archive)
@@ -1078,7 +1220,8 @@ def main():
             # 先に読める報道を持ってくることで、冒頭が有料記事だらけになるのを防ぐ。
             items = sorted(merged, key=lambda a: a.get("dt") or "", reverse=True)
             items.sort(key=lambda a: a.get("rank", 0))       # 話題性の低いものを後ろへ
-            items.sort(key=lambda a: bool(a.get("blog")))
+            if blog_last.get(g, True):
+                items.sort(key=lambda a: bool(a.get("blog")))
             items.sort(key=lambda a: a.get("paywall") in ("paid", "member", "partial"))
             groups_out.append({"name": g, "items": items[:MAX_ITEMS_PER_GROUP]})
         categories_out.append({"name": cat, "groups": groups_out})
