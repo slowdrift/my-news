@@ -51,7 +51,7 @@
   header .age.stale { color: #d08700; font-weight: 600; }
   header .unread { font-weight: 700; color: var(--accent); }
   header .newcount {
-    font-weight: 700; color: #fff; background: #e11d48;
+    font-weight: 800; color: #111827; background: #f59e0b;
     border-radius: 999px; padding: 0 7px; font-size: calc(10.5px * var(--fs));
   }
   .tools { margin: 8px 0 2px; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -101,7 +101,7 @@
   .ghead .gname { border-left: 3px solid var(--cat); padding-left: 8px; }
   .ghead .gcount { font-size: calc(11px * var(--fs)); color: var(--sub); font-weight: 400; }
   .ghead .gnew {
-    font-size: calc(10px * var(--fs)); font-weight: 700; color: #fff; background: #e11d48;
+    font-size: calc(10px * var(--fs)); font-weight: 800; color: #111827; background: #f59e0b;
     border-radius: 999px; padding: 0 6px;
   }
   .ghead .read-all {
@@ -111,11 +111,26 @@
   }
   .ghead .read-all:active { color: var(--accent); border-color: var(--accent); }
 
+  .tool-btn.star.on { border-color: #f59e0b; color: #b45309; }
+  :root[data-theme="dark"] .tool-btn.star.on,
+  :root[data-theme="auto"] .tool-btn.star.on { color: #fbbf24; }
+
   /* 記事カード */
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 10px;
     padding: 9px 12px; margin-bottom: 6px;
+    position: relative;   /* ★ボタンを右上に置くため */
   }
+
+  /* ★お気に入り。リンクの外側に置くので、押しても記事は開かない */
+  .fav {
+    position: absolute; top: 4px; right: 4px; width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; border: 0; background: transparent; cursor: pointer;
+    color: var(--sub); font-size: calc(15px * var(--fs)); line-height: 1;
+  }
+  .fav.on { color: #f59e0b; }
+  .card a.title, .card.video .vtext .title { padding-right: 26px; }
   .card a.title {
     color: var(--ink); text-decoration: none; font-size: calc(13.5px * var(--fs));
     font-weight: 600; display: block; letter-spacing: .01em; line-height: 1.4;
@@ -133,7 +148,7 @@
     border-radius: 5px; padding: 1px 6px; font-weight: 600; white-space: nowrap;
   }
   .new {
-    font-size: calc(9.5px * var(--fs)); font-weight: 800; color: #fff; background: #e11d48;
+    font-size: calc(9.5px * var(--fs)); font-weight: 800; color: #111827; background: #f59e0b;
     border-radius: 4px; padding: 1px 5px; letter-spacing: .04em;
   }
   .views { font-size: calc(10px * var(--fs)); color: var(--sub); white-space: nowrap; }
@@ -149,6 +164,11 @@
   .pw { font-size: calc(10px * var(--fs)); border-radius: 5px; padding: 1px 6px; font-weight: 700; white-space: nowrap; }
   .pw.paid { color: #9a3412; background: #ffedd5; border: 1px solid #fed7aa; }
   .pw.partial { color: var(--sub); background: var(--chip-bg); border: 1px solid var(--line); font-weight: 600; }
+  /* 会員限定：お金は要らないが、登録しないと本文が読めないもの */
+  .pw.member { color: #1d4ed8; background: #dbeafe; border: 1px solid #bfdbfe; }
+  :root[data-theme="dark"] .pw.member, :root[data-theme="auto"] .pw.member {
+    color: #93c5fd; background: #1e2a44; border-color: #2f3f66;
+  }
   .card .time { font-size: calc(10.5px * var(--fs)); color: var(--sub); }
   .card:has(.pw.paid) a.title { color: var(--sub); }
 
@@ -183,6 +203,10 @@
     background: transparent; border: 1px dashed var(--line); border-radius: 9px;
     color: var(--cat); font-size: calc(12px * var(--fs)); font-weight: 700; cursor: pointer;
   }
+
+  /* 動画ブロック（記事と分けて最下部に置く） */
+  details.cat.videos { margin-top: 22px; }
+  details.cat.videos > summary { border-bottom-style: dashed; }
 
   footer { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 12px; }
   footer details.diag > summary { cursor: pointer; font-size: 12px; color: var(--sub); }

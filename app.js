@@ -20,12 +20,19 @@ const DEBUG = /[?&]debug\b/.test(location.search);
 
 // ---- 設定の保存（localStorage）------------------------------------------
 // 使えない環境（プライベートモード等）でも画面が壊れないよう、必ず try/catch で包む。
-const READ_KEY = "mynews_read";        // { 記事URL: 既読にした時刻(ms) }
+const READ_KEY = "mynews_read";        // { 記事の鍵: 既読にした時刻(ms) }
+const FAV_KEY = "mynews_fav";          // { 記事の鍵: 記事そのもの } お気に入り
 const SHOWALL_KEY = "mynews_showall";  // "1" なら既読も表示
+const SHOWFAV_KEY = "mynews_showfav";  // "1" ならお気に入りだけ表示
 const THEME_KEY = "mynews_theme";      // "auto" | "light" | "dark"
 const FONT_KEY = "mynews_font";        // "s" | "m" | "l"
-const LASTSEEN_KEY = "mynews_lastseen"; // 前回このページを開いた時刻(ms)
-const READ_KEEP_DAYS = 180;            // これより古い既読は捨てて容量を抑える
+const LASTOPEN_KEY = "mynews_lastseen"; // 前回このページを開いた時刻(ms)
+const BUILD_KEY = "mynews_lastbuild";   // 前回開いたデータの生成時刻（NEWを据え置くための鍵）
+const NEWBASE_KEY = "mynews_newbase";   // NEW判定の基準時刻(ms)。データが変わるまで動かさない
+
+// 既読の記録は「日付では消さない」。一度読んだ記事は、ずっと既読のままにする。
+// 増えすぎたときだけ、古い記録から減らして容量を抑える。
+const READ_MAX = 5000;
 
 function lsGet(key, fallback) {
   try {
@@ -41,14 +48,14 @@ function lsSet(key, value) {
 function loadRead() {
   try {
     const obj = JSON.parse(lsGet(READ_KEY, "{}") || "{}");
-    // 古い既読を掃除（記事が入れ替わっても記録だけ残り続けるのを防ぐ）
-    const limit = Date.now() - READ_KEEP_DAYS * 86400000;
-    let changed = false;
-    for (const k of Object.keys(obj)) {
-      if (!(obj[k] > limit)) { delete obj[k]; changed = true; }
-    }
-    if (changed) saveRead(obj);
-    return obj;
+    const keys = Object.keys(obj);
+    if (keys.length <= READ_MAX) return obj;
+    // 新しく既読にしたものを優先して残す
+    keys.sort(function (a, b) { return (obj[b] || 0) - (obj[a] || 0); });
+    const kept = {};
+    keys.slice(0, READ_MAX).forEach(function (k) { kept[k] = obj[k]; });
+    saveRead(kept);
+    return kept;
   } catch (e) {
     return {};  // 読めなければ「既読ゼロ」とみなし、全件表示で動き続ける
   }
@@ -56,28 +63,109 @@ function loadRead() {
 
 function saveRead(obj) { lsSet(READ_KEY, JSON.stringify(obj)); }
 
+function loadFav() {
+  try { return JSON.parse(lsGet(FAV_KEY, "{}") || "{}"); } catch (e) { return {}; }
+}
+
+function saveFav() { lsSet(FAV_KEY, JSON.stringify(FAV)); }
+
 let READ = loadRead();
+let FAV = loadFav();
 let SHOW_ALL = lsGet(SHOWALL_KEY, "0") === "1";
+let SHOW_FAV = lsGet(SHOWFAV_KEY, "0") === "1";
 let THEME = lsGet(THEME_KEY, "auto");
 let FONT = lsGet(FONT_KEY, "m");
 
-// 前回開いた時刻。これより後に配信された記事に NEW を付ける。
-// 描画に使うため先に読み出し、更新は描画後に行う（同じ訪問中はNEWが消えないように）。
-const LAST_SEEN = Number(lsGet(LASTSEEN_KEY, "0")) || 0;
+// NEW判定の基準時刻。
+// 以前は「描画のたびに今の時刻へ更新」していたため、一度開くと基準が“たった今”になり、
+// 再読み込み（スマホの引っぱって更新）でバッジが必ず消えていた。
+// そこで基準を、データ（generated_at）が入れ替わるまで動かさないようにする。
+//   基準 = 「新しいデータが届く前に、最後にアプリを開いた時刻」
+// これなら同じデータを何度読み込んでも NEW は据え置かれる。
+const BUILD_ID = String((window.NEWS_DATA || {}).generated_at || "");
+let NEW_BASE = Number(lsGet(NEWBASE_KEY, "0")) || 0;
+if (BUILD_ID && BUILD_ID !== lsGet(BUILD_KEY, "")) {
+  NEW_BASE = Number(lsGet(LASTOPEN_KEY, "0")) || 0;  // 前回開いた時刻まで基準を進める
+  lsSet(NEWBASE_KEY, String(NEW_BASE));
+  lsSet(BUILD_KEY, BUILD_ID);
+}
+lsSet(LASTOPEN_KEY, String(Date.now()));
 
-function isRead(a) { return !!READ[a.link]; }
-function markRead(link) { READ[link] = Date.now(); saveRead(READ); }
-function countUnread(list) { return (list || []).filter((a) => !isRead(a)).length; }
+// ---- 記事の「鍵」-----------------------------------------------------------
+// 同じ記事でも、検索の経路が違うとURLが変わることがある。URLだけを鍵にすると、
+// 一度読んだ記事が翌日また未読として出てきてしまう。
+// そこで見出しからも鍵を作り、どちらかが一致すれば「読んだ記事」とみなす。
+
+// 記号・空白を取り除くための正規表現。Unicode指定が使えない古い端末向けに控えも用意する。
+let PUNCT_RE;
+try {
+  PUNCT_RE = new RegExp("[\\p{P}\\p{S}\\s]", "gu");
+} catch (e) {
+  PUNCT_RE = /[\s!-\/:-@\[-`{-~、。・「」『』（）［］…—–〜！？：；]/g;
+}
+
+const TITLE_KEY_MIN = 14;   // これ未満の短い見出しは、別記事と衝突しうるので鍵にしない
+const TITLE_KEY_LEN = 30;   // 鍵に使う文字数（末尾の飾り違いを吸収する）
+
+function normTitle(t) {
+  // 全角と半角を揃えてから記号を落とす（「２０２６年」と「2026年」を同じ扱いに）
+  return String(t == null ? "" : t).normalize("NFKC").replace(PUNCT_RE, "").toLowerCase();
+}
+
+function titleKey(a) {
+  const n = normTitle(a && a.title);
+  return n.length >= TITLE_KEY_MIN ? "t:" + n.slice(0, TITLE_KEY_LEN) : "";
+}
+
+function isRead(a) {
+  if (a.link && READ[a.link]) return true;
+  const k = titleKey(a);
+  return !!(k && READ[k]);
+}
+
+function markRead(a) {
+  const now = Date.now();
+  if (a.link) READ[a.link] = now;
+  const k = titleKey(a);
+  if (k) READ[k] = now;   // 経路違いで同じ記事が再登場しても既読のまま
+  saveRead(READ);
+}
+
+function countUnread(list) {
+  return (list || []).filter(function (a) { return !isRead(a); }).length;
+}
+
+// ---- お気に入り ------------------------------------------------------------
+// 一覧から消えても読み返せるよう、記事の中身ごと端末に保存する。
+
+function favKey(a) { return a.link || titleKey(a); }
+function isFav(a) { const k = favKey(a); return !!(k && FAV[k]); }
+
+function toggleFav(a) {
+  const k = favKey(a);
+  if (!k) return;
+  if (FAV[k]) {
+    delete FAV[k];
+  } else {
+    const copy = {};
+    for (const p in a) {
+      if (Object.prototype.hasOwnProperty.call(a, p)) copy[p] = a[p];
+    }
+    copy.saved_at = Date.now();
+    FAV[k] = copy;
+  }
+  saveFav();
+}
 
 // 前回の訪問より後に「アプリへ入ってきた」記事か（NEWバッジの判定）
 // 記事の配信日で判定すると、過去の記事しか無い日は永久にNEWが付かないため、
 // 収集側が記録した first_seen（初めて見つけた日時）と比べる。
 function isNew(a) {
-  if (!LAST_SEEN) return false;
+  if (!NEW_BASE) return false;  // 初回訪問は全部が新着になってしまうので付けない
   const src = a.first_seen || a.dt;
   if (!src) return false;
   const t = new Date(src).getTime();
-  return !isNaN(t) && t > LAST_SEEN;
+  return !isNaN(t) && t > NEW_BASE;
 }
 
 // ---- 表示用の小さな道具 --------------------------------------------------
@@ -122,6 +210,7 @@ function fmtViews(n) {
 
 function payBadge(a) {
   if (a.paywall === "paid") return '<span class="pw paid">🔒 有料</span>';
+  if (a.paywall === "member") return '<span class="pw member">会員限定</span>';
   if (a.paywall === "partial") return '<span class="pw partial">一部有料</span>';
   return "";
 }
@@ -136,6 +225,15 @@ function metaRow(a) {
     + (a.views ? '<span class="views">▶ ' + fmtViews(a.views) + "</span>" : "")
     + (t ? '<span class="time">' + esc(t) + "</span>" : "");
   return inner ? '<div class="meta">' + inner + "</div>" : "";
+}
+
+// ★ボタン。リンクの外側に置くので、押しても記事は開かない。
+function favBtn(a) {
+  const on = isFav(a);
+  return '<button class="fav' + (on ? " on" : "") + '" type="button"'
+    + ' data-fav="' + esc(favKey(a)) + '"'
+    + ' aria-label="' + (on ? "お気に入りから外す" : "お気に入りに入れる") + '">'
+    + (on ? "★" : "☆") + "</button>";
 }
 
 function renderCard(a, hidden, lead) {
@@ -155,13 +253,14 @@ function renderCard(a, hidden, lead) {
         + '<span class="play">▶</span></span>';
     }
     h += '<span class="vtext"><span class="title">' + title + "</span>" + metaRow(a) + "</span>"
-      + "</a></div>";
+      + "</a>" + favBtn(a) + "</div>";
     return h;
   }
 
   let h = '<div class="' + cls + '">'
     + '<a class="title" href="' + link + '" target="_blank" rel="noopener" data-link="' + link + '">'
     + title + "</a>"
+    + favBtn(a)
     + metaRow(a);
   if (lead && a.summary) h += '<div class="summary">' + esc(a.summary) + "</div>";
   h += "</div>";
@@ -213,52 +312,123 @@ function applyPrefs() {
   root.setAttribute("data-font", FONT);
 }
 
-function render(data) {
-  const cats = data.categories || [];
-  const parts = [];
+// ---- テーマ一覧の平坦化 ----------------------------------------------------
+// 「まとめて既読」などが使う通し番号を、画面の並び順から切り離して固定するための表。
+// 動画を別ブロックへ移しても番号がずれないようにする。
 
-  let totalUnread = 0, totalNew = 0;
+function isVideoGroup(g) {
+  const items = g.items || [];
+  return items.length > 0 && items.every(function (a) { return a.kind === "video"; });
+}
+
+const ALL_GROUPS = [];   // [{cat, group, video}, ...] data.js の並び順そのまま
+const BY_LINK = {};      // リンク → 記事（押された記事を引くため）
+
+(function indexData() {
+  const cats = (window.NEWS_DATA || {}).categories || [];
   cats.forEach(function (c) {
     (c.groups || []).forEach(function (g) {
-      totalUnread += countUnread(g.items);
-      totalNew += (g.items || []).filter(isNew).length;
+      ALL_GROUPS.push({ cat: c.name, group: g, video: isVideoGroup(g) });
+      (g.items || []).forEach(function (a) { if (a.link) BY_LINK[a.link] = a; });
     });
   });
+  // お気に入りは一覧から消えても引けるようにしておく
+  Object.keys(FAV).forEach(function (k) {
+    const a = FAV[k];
+    if (a && a.link && !BY_LINK[a.link]) BY_LINK[a.link] = a;
+  });
+})();
 
+function toolbar() {
   const themeLabel = { auto: "🌓 自動", light: "☀ 明るい", dark: "🌙 暗い" }[THEME] || "🌓 自動";
   const fontLabel = { s: "小", m: "中", l: "大" }[FONT] || "中";
+  const favCount = Object.keys(FAV).length;
+  return '<div class="tools">'
+    + '<button class="tool-btn star' + (SHOW_FAV ? " on" : "") + '" type="button" id="toggle-fav">'
+    + "★ お気に入り" + (favCount ? " " + favCount : "") + "</button>"
+    + '<button class="tool-btn' + (SHOW_ALL ? " on" : "") + '" type="button" id="toggle-read">'
+    + (SHOW_ALL ? "☑ 既読も表示" : "☐ 既読も表示") + "</button>"
+    + '<button class="tool-btn" type="button" id="toggle-theme">' + themeLabel + "</button>"
+    + '<button class="tool-btn" type="button" id="toggle-font">文字 ' + fontLabel + "</button>"
+    + (SHOW_FAV ? "" : '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button>')
+    + "</div>";
+}
+
+// ---- お気に入りだけの画面 --------------------------------------------------
+
+function renderFavView(data) {
+  const items = Object.keys(FAV).map(function (k) { return FAV[k]; })
+    .sort(function (x, y) { return (y.saved_at || 0) - (x.saved_at || 0); });
+
+  const parts = ["<header><h1>★ お気に入り</h1>"
+    + '<div class="meta-head">' + headUpdated(data.generated_at)
+    + '<span class="unread">' + items.length + "件を保存中</span></div>"
+    + toolbar() + "</header>"];
+
+  if (!items.length) {
+    parts.push('<div class="empty">まだありません。記事の右上の ☆ を押すと、'
+      + "ここに残せます（一覧から消えても、既読にしても残ります）。</div>");
+  } else {
+    parts.push('<section class="group"><div class="gitems expanded">');
+    items.forEach(function (a) { parts.push(renderCard(a, false, false)); });
+    parts.push("</div></section>");
+  }
+  APP.innerHTML = parts.join("\n");
+}
+
+// ---- 通常の画面 ------------------------------------------------------------
+
+function render(data) {
+  if (SHOW_FAV) { renderFavView(data); return; }
+
+  const parts = [];
+  // 動画は記事と分けて扱う（見る時間帯が違うため）
+  const articleGroups = ALL_GROUPS.filter(function (x) { return !x.video; });
+  const videoGroups = ALL_GROUPS.filter(function (x) { return x.video; });
+
+  let totalUnread = 0, totalNew = 0;
+  articleGroups.forEach(function (x) {
+    totalUnread += countUnread(x.group.items);
+    totalNew += (x.group.items || []).filter(isNew).length;
+  });
+  let videoUnread = 0;
+  videoGroups.forEach(function (x) { videoUnread += countUnread(x.group.items); });
 
   parts.push("<header><h1>📰 マイニュース</h1>"
     + '<div class="meta-head">' + headUpdated(data.generated_at)
     + '<span class="unread">未読 ' + totalUnread + "件</span>"
     + (totalNew ? '<span class="newcount">NEW ' + totalNew + "</span>" : "")
     + "</div>"
-    + '<div class="tools">'
-    + '<button class="tool-btn' + (SHOW_ALL ? " on" : "") + '" type="button" id="toggle-read">'
-    + (SHOW_ALL ? "☑ 既読も表示" : "☐ 既読も表示") + "</button>"
-    + '<button class="tool-btn" type="button" id="toggle-theme">' + themeLabel + "</button>"
-    + '<button class="tool-btn" type="button" id="toggle-font">文字 ' + fontLabel + "</button>"
-    + '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button>'
-    + "</div></header>");
+    + toolbar() + "</header>");
 
-  const navs = cats.map(function (c, i) {
+  const cats = (data.categories || []).map(function (c) { return c.name; });
+  const navs = cats.map(function (name, i) {
     let u = 0;
-    (c.groups || []).forEach(function (g) { u += countUnread(g.items); });
+    articleGroups.forEach(function (x) { if (x.cat === name) u += countUnread(x.group.items); });
+    const mine = articleGroups.some(function (x) { return x.cat === name; });
+    if (!mine) return "";   // 動画だけのカテゴリは、下の動画ブロックに現れる
     return '<a class="nav-chip" href="#cat' + i + '" style="--cat:'
-      + CAT_COLORS[i % CAT_COLORS.length] + '">' + esc(c.name) + "<span>" + u + "</span></a>";
+      + CAT_COLORS[i % CAT_COLORS.length] + '">' + esc(name) + "<span>" + u + "</span></a>";
   }).join("");
-  parts.push('<nav class="catnav">' + navs + "</nav>");
+  parts.push('<nav class="catnav">' + navs
+    + (videoGroups.length
+      ? '<a class="nav-chip" href="#videos" style="--cat:#dc2626">🎬 動画<span>'
+        + videoUnread + "</span></a>"
+      : "")
+    + "</nav>");
 
-  let gi = 0;
-  cats.forEach(function (cat, ci) {
-    const groups = cat.groups || [];
-    const body = groups.map(function (g) { return renderGroup(g, gi++); }).join("");
+  cats.forEach(function (name, ci) {
+    const mine = articleGroups.filter(function (x) { return x.cat === name; });
+    if (!mine.length) return;   // 動画だけのカテゴリは下の動画ブロックへ
+    const body = mine.map(function (x) {
+      return renderGroup(x.group, ALL_GROUPS.indexOf(x));
+    }).join("");
     let unread = 0;
-    groups.forEach(function (g) { unread += countUnread(g.items); });
+    mine.forEach(function (x) { unread += countUnread(x.group.items); });
 
     parts.push('<details class="cat" open id="cat' + ci + '" style="--cat:'
       + CAT_COLORS[ci % CAT_COLORS.length] + '">');
-    parts.push("<summary><h2>" + esc(cat.name)
+    parts.push("<summary><h2>" + esc(name)
       + '<span class="catcount">' + unread + "件</span></h2></summary>");
     parts.push('<div class="body">');
     parts.push(body || (SHOW_ALL
@@ -266,6 +436,19 @@ function render(data) {
       : '<div class="empty">すべて読み終えました 🎉</div>'));
     parts.push("</div></details>");
   });
+
+  // 動画は最下部の独立ブロックへ。まとめて見るものなので、既定は閉じておく。
+  if (videoGroups.length) {
+    const body = videoGroups.map(function (x) {
+      return renderGroup(x.group, ALL_GROUPS.indexOf(x));
+    }).join("");
+    parts.push('<details class="cat videos" id="videos" style="--cat:#dc2626">');
+    parts.push('<summary><h2>🎬 動画（あとで見る）'
+      + '<span class="catcount">' + videoUnread + "件</span></h2></summary>");
+    parts.push('<div class="body">');
+    parts.push(body || '<div class="empty">すべて見終えました 🎉</div>');
+    parts.push("</div></details>");
+  }
 
   if (window.console && console.table) {
     console.groupCollapsed("マイニュース 取得サマリー");
@@ -285,27 +468,33 @@ function render(data) {
   APP.innerHTML = parts.join("\n");
 }
 
-// 表示中のグループから、対応する記事一覧を取り出す
-function groupItemsByIndex(gi) {
-  let n = 0;
-  const cats = (window.NEWS_DATA || {}).categories || [];
-  for (const c of cats) {
-    for (const g of (c.groups || [])) {
-      if (n === gi) return g.items || [];
-      n++;
-    }
-  }
-  return [];
-}
-
 function rerender() {
   render(window.NEWS_DATA);
   applyPrefs();
 }
 
+// テーマ内の記事をまとめて既読にする
+function markGroupRead(items) {
+  const now = Date.now();
+  (items || []).forEach(function (a) {
+    if (a.link) READ[a.link] = now;
+    const k = titleKey(a);
+    if (k) READ[k] = now;
+  });
+}
+
 // ---- 操作 ---------------------------------------------------------------
 
 APP.addEventListener("click", function (ev) {
+  // ★お気に入りの登録・解除（記事は開かない）
+  const fav = ev.target.closest(".fav");
+  if (fav) {
+    ev.preventDefault();
+    const key = fav.dataset.fav;
+    const a = BY_LINK[key] || FAV[key];
+    if (a) { toggleFav(a); rerender(); }
+    return;
+  }
   // 「もっと見る」/「閉じる」
   const more = ev.target.closest(".more-btn");
   if (more) {
@@ -318,21 +507,27 @@ APP.addEventListener("click", function (ev) {
   const readAll = ev.target.closest(".read-all");
   if (readAll) {
     const gi = Number(readAll.closest(".group").dataset.group);
-    groupItemsByIndex(gi).forEach(function (a) { if (a.link) READ[a.link] = Date.now(); });
-    saveRead(READ);
-    rerender();
+    const entry = ALL_GROUPS[gi];
+    if (entry) {
+      markGroupRead(entry.group.items);
+      saveRead(READ);
+      rerender();
+    }
     return;
   }
   // すべて既読（取り返しがつかないので確認する）
   if (ev.target.closest("#read-everything")) {
     if (!confirm("表示中のすべての記事を既読にします。よろしいですか？")) return;
-    const cats = (window.NEWS_DATA || {}).categories || [];
-    cats.forEach(function (c) {
-      (c.groups || []).forEach(function (g) {
-        (g.items || []).forEach(function (a) { if (a.link) READ[a.link] = Date.now(); });
-      });
-    });
+    ALL_GROUPS.forEach(function (x) { markGroupRead(x.group.items); });
     saveRead(READ);
+    rerender();
+    window.scrollTo(0, 0);
+    return;
+  }
+  // 「お気に入りだけ表示」の切り替え
+  if (ev.target.closest("#toggle-fav")) {
+    SHOW_FAV = !SHOW_FAV;
+    lsSet(SHOWFAV_KEY, SHOW_FAV ? "1" : "0");
     rerender();
     window.scrollTo(0, 0);
     return;
@@ -362,7 +557,8 @@ APP.addEventListener("click", function (ev) {
   // 記事を開いたら既読にする（その場では消さず、次に開いたときに消える）
   const link = ev.target.closest("a[data-link]");
   if (link) {
-    markRead(link.dataset.link);
+    const a = BY_LINK[link.dataset.link] || { link: link.dataset.link, title: "" };
+    markRead(a);
     const card = link.closest(".card");
     if (card) card.classList.add("read");
   }
@@ -374,8 +570,8 @@ try {
   if (!data) throw new Error("data.js が読み込まれていません（build_news.py を実行してください）");
   applyPrefs();
   render(data);
-  // 描画が終わってから「最後に見た時刻」を更新する（今回のNEWは残したいため）
-  lsSet(LASTSEEN_KEY, String(Date.now()));
+  // ※「最後に開いた時刻」の記録は上（NEW_BASE の算出直後）で済ませている。
+  //   ここで更新すると、再読み込みのたびに基準が動いて NEW が消えてしまう。
 } catch (err) {
   APP.innerHTML = '<div class="loaderr">ニュースデータを読み込めませんでした。'
     + "<br><small>" + esc(String(err)) + "</small></div>";

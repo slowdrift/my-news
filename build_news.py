@@ -123,10 +123,11 @@ def load_paywall(path: Path):
     返り値: {"paid": [語句...], "partial": [語句...]}
     """
     if not path.exists():
-        return {"paid": [], "partial": []}
+        return {"paid": [], "member": [], "partial": []}
     data = json.loads(path.read_text(encoding="utf-8"))
     return {
         "paid": [s.lower() for s in data.get("paid", [])],
+        "member": [s.lower() for s in data.get("member", [])],
         "partial": [s.lower() for s in data.get("partial", [])],
     }
 
@@ -140,24 +141,34 @@ VERIFY_TIMEOUT = 8        # 1記事あたりの待ち時間（秒）
 VERIFY_WORKERS = 8        # 同時に確かめる数
 VERIFY_MAX_BYTES = 400_000  # 読み込む最大バイト数（重いページ対策）
 
-# 「この記事は有料」と断定できる文言（誤検出を避けるため強い表現だけ）
-PAYWALL_TEXT_MARKERS = [
-    "有料会員限定", "有料記事です", "この記事は有料", "会員限定記事",
-    "続きは会員登録", "続きを読むには会員",
-    # 「有料」ではないが、登録やログインをしないと読めないもの
-    "無料会員登録", "会員登録が必要", "会員登録すると",
-    "続きを読むにはログイン", "ログインが必要です", "登録して続きを読む",
-    "この記事は会員限定", "会員限定コンテンツです",
+# 「お金を払わないと読めない」と断定できる文言（誤検出を避けるため強い表現だけ）
+PAID_TEXT_MARKERS = [
+    "有料会員限定", "有料記事です", "この記事は有料", "有料会員になると",
+    "続きは有料", "有料プラン", "定期購読", "購読者限定",
+    "プレミアム会員限定", "有料版",
+]
+
+# 「登録・ログインすれば読める」もの。無料だが、そのままでは本文が読めない。
+MEMBER_TEXT_MARKERS = [
+    "会員限定記事", "この記事は会員限定", "会員限定コンテンツ",
+    "無料会員登録", "会員登録が必要", "会員登録すると", "会員登録して",
+    "続きは会員登録", "続きを読むには会員", "続きを読むにはログイン",
+    "ログインが必要です", "登録して続きを読む", "ログインしてください",
+    "読者会員", "登録会員限定", "メンバーシップ限定",
 ]
 
 
 def verify_paywall(link: str):
-    """記事ページを実際に取得して有料かを判定する。
+    """記事ページを実際に取得して、本文が読めるかを判定する。
 
-    返り値: "paid"（有料）/ ""（無料と確認）/ None（判定できず＝媒体リストに任せる）
+    返り値: "paid"（有料）/ "member"（登録すれば読める）/ ""（無料と確認）
+            / None（判定できず＝媒体リストに任せる）
 
     Googleニュースの中継URLは実記事に解決できないので対象外。
-    schema.org の isAccessibleForFree が最も信頼できる手がかり。
+
+    ※以前は isAccessibleForFree が true なら即「無料」と決めていたが、
+      申告は true のまま本文を隠す媒体があり、会員限定の取りこぼしが出ていた。
+      そこで文言の検査を先に行い、そちらを優先する。
     """
     if not link:
         return None
@@ -172,29 +183,33 @@ def verify_paywall(link: str):
     except Exception:
         return None  # 取れなければ判定せず、媒体リストの推測に任せる
 
+    # 1) 断定できる文言を最優先（サイトの申告より、実際に出ている表示を信じる）
+    if any(k in html_text for k in PAID_TEXT_MARKERS):
+        return "paid"
+    if any(k in html_text for k in MEMBER_TEXT_MARKERS):
+        return "member"
+    # 2) 文言が無ければ schema.org の申告を使う
     m = re.search(r'isAccessibleForFree"?\s*:\s*"?(\w+)', html_text)
     if m:
         return "" if m.group(1).lower() == "true" else "paid"
-    if any(k in html_text for k in PAYWALL_TEXT_MARKERS):
-        return "paid"
     return None
 
 
-def classify_paywall(via: str, link: str) -> str:
-    """記事が有料媒体かを判定して "paid" / "partial" / "" を返す。
+def classify_paywall(via: str, link: str, via_host: str = "") -> str:
+    """記事が読めない媒体かを判定して "paid" / "member" / "partial" / "" を返す。
 
-    Googleニュース経由の記事はリンクが中継URLで実サイトが分からないため、
-    配信元名（via）で判定する。直リンクの記事はドメインで判定する。
+    Googleニュース経由の記事はリンクが中継URLで実サイトが分からない。
+    ただしRSSの source タグには発信元サイト（例: https://mainichi.jp）が入っているので、
+    そのドメイン（via_host）も判定材料に加える。
+    配信元名だけに頼ると「日経」と「日本経済新聞」のような表記違いで取りこぼすため。
     """
-    hay = ((via or "") + " " + (link or "")).lower()
+    hay = " ".join([via or "", link or "", via_host or ""]).lower()
     if not hay.strip():
         return ""
-    for word in PAYWALL["paid"]:
-        if word and word in hay:
-            return "paid"
-    for word in PAYWALL["partial"]:
-        if word and word in hay:
-            return "partial"
+    for key in ("paid", "member", "partial"):  # 重い順に見る
+        for word in PAYWALL[key]:
+            if word and word in hay:
+                return key
     return ""
 
 
@@ -209,6 +224,7 @@ SOURCE_TEMPLATES = {
     "gnews_ja": {
         "url": "https://news.google.com/rss/search?q={q}&hl=ja&gl=JP&ceid=JP:ja",
         "label": "Googleニュース",
+        "backfill": True,   # after:/before: で過去に遡れる
         "opts": {"gnews": True, "ng_only": True},
     },
     # Googleニュース検索（インド英語版）。海外テーマの現地報道用。
@@ -217,6 +233,7 @@ SOURCE_TEMPLATES = {
         "url": "https://news.google.com/rss/search?q={q}&hl=en-IN&gl=IN&ceid=IN:en",
         "label": "海外報道",
         "english": True,
+        "backfill": True,
         "opts": {"gnews": True},
     },
     # はてなブックマーク「タイトル」検索（新着順）。個人ブログ/note の深掘り層。
@@ -297,6 +314,13 @@ def expand_topic(entry):
             feed["require"] = [plain_for_require]
         if entry.get("exclude"):
             feed["exclude"] = entry["exclude"]
+        # 記事の重み付け（⑥）：優先したい語・後ろに回したい語
+        for key in ("prefer", "demote"):
+            if entry.get(key):
+                feed[key] = entry[key]
+        # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
+        if tpl.get("backfill"):
+            feed["backfill"] = {"url": tpl["url"], "q": q}
         # 鮮度の上限。テーマ側の指定はソース既定より優先する
         # （例: 近藤紘一のように新着が少ない人物は長めにする）
         if "max_age_days" in entry:
@@ -361,7 +385,7 @@ NG_WORDS = [
     "＜画像",  # Googleニュースの画像ギャラリー別ページ（同一記事の分身）
     # 記事本体ではなく写真・プロフィールのページに飛ぶもの
     "の画像", "（写真・画像", "| 写真 |", "｜写真｜", "写真提供＝",
-    "のプロフィール", "フォトギャラリー",
+    "のプロフィール", "フォトギャラリー", "関連画像",
 ]
 
 # 配信元名（via）で除外する低品質なサイト。
@@ -370,6 +394,33 @@ BLOCK_SOURCES = [
     "mshale",              # 動画転載のスパム的サイト（無関係な語がタイトルに混じる）
     "pasquale pillitteri",
 ]
+
+# 話題性が低くなりがちな記事を「消さずに後ろへ回す」ための語。
+# 例：楽曲がテレビ番組で流れただけの記事は、本人の出演やインタビューより価値が低い。
+# 消すと拾い漏れが怖いので、順番を下げるだけにする（テーマごとに demote で追加できる）。
+DEMOTE_WORDS = [
+    "BGM", "挿入歌", "主題歌", "劇中歌", "使用曲", "テーマソング",
+    "エンディングテーマ", "オープニングテーマ", "セットリスト",
+    "流れた曲", "今日の一曲", "今日の1曲", "カラオケランキング", "着信音",
+    # 本人ではなく、他人が演奏・歌唱しただけのもの
+    "演奏してみた", "弾いてみた", "歌ってみた", "ものまね", "アマチュア",
+    # 写真ページなど（今後は取り込まないが、既に貯まっている分を後ろへ回すため）
+    "関連画像", "フォトギャラリー", "写真・画像",
+]
+
+
+def compute_rank(text: str, prefer, demote) -> int:
+    """記事の並び順の重みを返す（-1 前へ / 0 普通 / 1 後ろへ）。
+
+    後回しの語を優先の語より強くしている。
+    「コンサート」のような語は本人の出演でも他人の演奏会でも当たってしまい、
+    優先を強くすると『アマチュア音楽家が名曲を披露』のような記事が先頭に来るため。
+    """
+    if any(w in text for w in demote):
+        return 1
+    if prefer and any(w in text for w in prefer):
+        return -1
+    return 0
 
 # タイトル末尾に「(英数字10文字前後)」が付くもの（転載サイト特有のID）
 JUNK_TITLE_PATTERN = re.compile(r"\([0-9A-Za-z_-]{8,14}\)\s*$")
@@ -382,6 +433,27 @@ MAX_AGE_DAYS = 365
 # （例：故人の作家など新着が出ない相手でも、未読なら古い記事を読みたいため）
 THIN_THRESHOLD = 3       # これ未満しか取れなかったら「少ない」とみなす
 THIN_MAX_AGE_DAYS = 3650  # そのとき遡る日数（約10年）
+
+# ---- 過去へ遡って補充する（バックフィル）----
+# 検索は「最近のもの」しか返さないため、期間を区切って何度も聞き直さないと
+# 昔の記事は出てこない。Googleニュース検索は after:/before: に対応している
+# （実測：「沢木耕太郎 after:2010-01-01 before:2013-01-01」で2010〜2012年の記事を取得）。
+# 蓄積が少ないテーマだけを対象にするので、毎朝の取得が重くなりすぎることはない。
+BACKFILL_TARGET = 40   # 蓄積がこの件数に届かないテーマは過去を掘る
+BACKFILL_YEARS = 20    # 何年前まで遡るか
+BACKFILL_SLICE = 4     # 何年ずつ区切って聞くか
+
+
+def backfill_ranges(now_year: int):
+    """過去へ遡るための期間（新しい区間から順）を作る。"""
+    ranges = []
+    end = now_year
+    oldest = now_year - BACKFILL_YEARS
+    while end > oldest:
+        start = max(end - BACKFILL_SLICE, oldest)
+        ranges.append((f"{start}-01-01", f"{end}-01-01"))
+        end = start
+    return ranges
 
 # 一部サーバ対策のためブラウザ風 User-Agent を名乗る
 USER_AGENT = (
@@ -644,6 +716,11 @@ def fetch_feed(feed):
     # ショート動画を除くか。既定で除外する（本編と内容が重なりやすく、一覧も長くなるため）。
     # 特定チャンネルだけ残したい場合は feeds.json で "skip_shorts": false と書く。
     skip_shorts = feed.get("skip_shorts", True)
+    # 記事の重み付け（消さずに並び順だけ変える）
+    #   prefer … 読みたい種類の記事（例: 出演・インタビュー）→ 前へ
+    #   demote … 話題性の低い記事（例: BGMに使われただけ）→ 後ろへ
+    prefer = feed.get("prefer") or []
+    demote = DEMOTE_WORDS + (feed.get("demote") or [])
     # 鮮度上限はフィード個別に上書き可（ブログ層は古い深掘り記事にも価値があるため）
     max_age = feed.get("max_age_days", MAX_AGE_DAYS)
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=max_age)
@@ -657,9 +734,14 @@ def fetch_feed(feed):
 
         # Googleニュース：真の配信元（朝日新聞等）を via に取り、タイトル末尾の「 - 配信元」を除去
         via = ""
+        via_host = ""
         if is_gnews:
             src = e.get("source") or {}
-            via = (src.get("title") or "") if hasattr(src, "get") else ""
+            if hasattr(src, "get"):
+                via = src.get("title") or ""
+                # source の href は発信元サイト（例: https://mainichi.jp）。
+                # 中継URLからは分からない「本当の媒体」を知る唯一の手がかり。
+                via_host = urlparse(src.get("href") or "").netloc.lower()
             if via and title.endswith(" - " + via):
                 title = title[: -(len(via) + 3)].rstrip()
 
@@ -677,6 +759,8 @@ def fetch_feed(feed):
         if dt and dt < cutoff:
             continue  # 古すぎる記事を除外（日時不明は残す）
 
+        rank = compute_rank(text, prefer, demote)
+
         # 動画はリード文を出さない（見出し＋サムネイル＋リンクで見せる）
         summary = "" if kind == "video" else truncate(summary_raw, SUMMARY_MAX_LEN)
         articles.append({
@@ -686,9 +770,11 @@ def fetch_feed(feed):
             "thumb": extract_thumbnail(e) if kind == "video" else "",
             "views": extract_views(e) if kind == "video" else None,
             "blog": is_personal_blog(feed, link),
+            "rank": rank,   # 並び順の重み（-1 優先 / 0 普通 / 1 後回し）
             "kind": kind,
             "via": via,
-            "paywall": classify_paywall(via, link),  # "paid" / "partial" / ""
+            "via_host": via_host,  # 発信元サイトのドメイン（Googleニュース経由のみ）
+            "paywall": classify_paywall(via, link, via_host),  # paid / member / partial / ""
             "dt": dt,
             "group": feed.get("group") or name,  # 表示上のテーマ見出し
         })
@@ -711,10 +797,13 @@ def to_json_item(a):
         "thumb": a["thumb"],
         "views": a.get("views"),   # 動画の再生回数（記事は None）
         "blog": a.get("blog", False),  # 個人ブログ・note等（報道と区別する印）
+        "rank": a.get("rank", 0),  # 並び順の重み（-1 優先 / 0 普通 / 1 後回し）
         "first_seen": a.get("first_seen"),  # アプリに初めて入ってきた日時（NEW判定用）
         "kind": a["kind"],
         "via": a.get("via", ""),  # 実際の配信元（Googleニュース経由の記事のみ）
-        "paywall": a.get("paywall", ""),  # "paid"（ほぼ全文有料）/ "partial"（一部有料）/ ""
+        "via_host": a.get("via_host", ""),  # 発信元サイトのドメイン（判定の見直しに使う）
+        "pwv": a.get("pwv", False),  # 実ページで確かめた判定か（Trueなら推測で上書きしない）
+        "paywall": a.get("paywall", ""),  # paid / member（登録で読める）/ partial / ""
         "dt": a["dt"].isoformat() if a["dt"] else None,  # 例: 2026-06-04T10:12:35+00:00（UTC）
     }
 
@@ -739,6 +828,58 @@ def main():
     seen_links = set()
     seen_titles = []  # 先頭一致の判定に使うため list
 
+    # これまでに見つけた記事の蓄積。どのテーマが手薄かを知るため、取得の前に読む。
+    archive = load_archive(ARCHIVE_FILE)
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    # テーマごとの並べ替え規則（feeds.json の prefer / demote）を集める。
+    # 同じテーマに複数のフィードがぶら下がることがあるので、すべて足し合わせる。
+    rank_rules = {}
+    for feeds in feeds_by_cat.values():
+        for f in feeds:
+            g = f.get("group") or f.get("name")
+            if not g:
+                continue
+            pr, dm = rank_rules.get(g, ([], []))
+            rank_rules[g] = (pr + (f.get("prefer") or []), dm + (f.get("demote") or []))
+
+    # 既に貯めてある記事にも、今の基準を当て直す。
+    # 設定を直しても過去分が古いままだと、ラベル漏れや変な並びが残り続けるため。
+    relabeled = 0
+    reranked = 0
+    for g, items in archive.items():
+        prefer, demote_extra = rank_rules.get(g, ([], []))
+        demote = DEMOTE_WORDS + demote_extra
+        for a in items:
+            if not a.get("pwv"):  # 実ページで確かめた結果は動かさない
+                new_pw = classify_paywall(a.get("via", ""), a.get("link", ""), a.get("via_host", ""))
+                if new_pw != a.get("paywall", ""):
+                    a["paywall"] = new_pw
+                    relabeled += 1
+            text = (a.get("title") or "") + " " + (a.get("summary") or "")
+            new_rank = compute_rank(text, prefer, demote)
+            if new_rank != a.get("rank", 0):
+                a["rank"] = new_rank
+                reranked += 1
+    if relabeled or reranked:
+        line = f"蓄積分の見直し: ラベル{relabeled}件 / 並び順{reranked}件を更新"
+        log_lines.append(line)
+        print(line)
+
+    def take(articles, collected):
+        """重複を除いて採用する。同じURL・似た見出しは1つだけ残す。"""
+        added = 0
+        for a in articles:
+            norm = normalize_title(a["title"])
+            if (a["link"] and a["link"] in seen_links) or is_duplicate_title(norm, seen_titles):
+                continue
+            seen_links.add(a["link"])
+            if norm:
+                seen_titles.append(norm)
+            collected.append(a)
+            added += 1
+        return added
+
     for cat, feeds in feeds_by_cat.items():
         collected = []
         for feed in feeds:
@@ -751,18 +892,41 @@ def main():
                 more, more_status = fetch_feed(wide)
                 if len(more) > len(articles):
                     articles, status = more, more_status + "（期間を拡大）"
-            for a in articles:
-                norm = normalize_title(a["title"])
-                if (a["link"] and a["link"] in seen_links) or is_duplicate_title(norm, seen_titles):
-                    continue  # 既出（同一URL or 似た見出し）はスキップ
-                seen_links.add(a["link"])
-                if norm:
-                    seen_titles.append(norm)
-                collected.append(a)
+            take(articles, collected)
             summary_rows.append({"name": feed["name"], "status": status})
             line = f"[{cat}] {feed['name']}: {status}"
             log_lines.append(line)
             print(line)  # コンソールにも進捗を出す
+        # --- 蓄積が手薄なテーマは、期間を区切って過去へ遡り補充する ---
+        # 検索は既定では最近の記事しか返さない。「何十年前でも読みたい」を叶えるには、
+        # 年で区切って何度も聞き直す必要がある。手薄なテーマだけが対象なので負荷は小さい。
+        for feed in feeds:
+            bf = feed.get("backfill")
+            if not bf:
+                continue
+            g = feed.get("group") or feed["name"]
+            # 「実際に貯まっている件数」だけで判断する。
+            # 今回取得した分を足すと、その大半は蓄積済みの記事と重複しているため、
+            # 二重に数えて「足りている」と誤判定してしまう（沢木耕太郎が補充されなかった原因）。
+            have = len(archive.get(g, []))
+            if have >= BACKFILL_TARGET:
+                continue
+            gained = 0
+            for start, end in backfill_ranges(now.year):
+                if have + gained >= BACKFILL_TARGET:
+                    break
+                past = dict(feed)
+                past.pop("backfill", None)
+                past["url"] = bf["url"].format(q=quote(f'{bf["q"]} after:{start} before:{end}'))
+                past["max_age_days"] = 36500  # 期間は検索側で絞るので、こちらでは切らない
+                arts, _ = fetch_feed(past)
+                gained += take(arts, collected)
+            if gained:
+                line = f"[{cat}] {g}: 過去から{gained}件を補充（{have}件 → {have + gained}件）"
+                summary_rows.append({"name": f"{g}（過去の補充）", "status": f"OK {gained}件"})
+                log_lines.append(line)
+                print(line)
+
         cat_items.append((cat, collected))
 
     # --- 有料かどうかを実際に確かめる（直リンクの記事だけ・並行処理） ---
@@ -776,15 +940,13 @@ def main():
             checked = sum(1 for r in results if r is not None)
             for a, r in zip(targets, results):
                 if r is not None:
-                    a["paywall"] = r  # "paid" か ""（無料と確認できた）
+                    a["paywall"] = r   # paid / member / ""（無料と確認できた）
+                    a["pwv"] = True    # 実ページで確かめた事実。以後、推測で上書きしない
             line = f"有料判定: {checked}/{len(targets)}件を実ページで確認"
             log_lines.append(line)
             print(line)
 
     # これまでに見つけた記事の蓄積を読み込む（未読のまま消えないようにするため）
-    archive = load_archive(ARCHIVE_FILE)
-    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
-
     # カテゴリごとにテーマ(group)へ束ねる。group の初出順を保つ。
     for cat, collected in cat_items:
         order = []
@@ -804,8 +966,9 @@ def main():
             # 並べ替え：新しい順 →「読めないもの・個人ブログは後ろ」の順に安定ソート。
             # 先に読める報道を持ってくることで、冒頭が有料記事だらけになるのを防ぐ。
             items = sorted(merged, key=lambda a: a.get("dt") or "", reverse=True)
+            items.sort(key=lambda a: a.get("rank", 0))       # 話題性の低いものを後ろへ
             items.sort(key=lambda a: bool(a.get("blog")))
-            items.sort(key=lambda a: a.get("paywall") in ("paid", "partial"))
+            items.sort(key=lambda a: a.get("paywall") in ("paid", "member", "partial"))
             groups_out.append({"name": g, "items": items[:MAX_ITEMS_PER_GROUP]})
         categories_out.append({"name": cat, "groups": groups_out})
 
