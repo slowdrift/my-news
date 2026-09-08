@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.4.0";
+const APP_VERSION = "v1.5.0";
 const CHANGELOG = [
+  ["v1.5.0", "2026-09-08", "上部を4つに整理して設定を新設、テーマごとの一括既読、グロービスとAmazonのセールを追加、収集の精度を改善"],
   ["v1.4.0", "2026-09-08", "NHKを有料扱いに、読めない記事をまとめて既読に、「もっと見る」を1つに統合、本文で触れただけの記事に「関連」の印"],
   ["v1.3.0", "2026-09-08", "天気に時間帯の降水確率、株価を最下部へ、まとめて既読を分かりやすく、1か月以上前の記事に区切り"],
   ["v1.2.0", "2026-09-08", "ニュース以外（note・ほぼ日・出版社）からも収集。貯めた記事を全部表示し、読み切ると次が出るように"],
@@ -36,6 +37,7 @@ const OLD_DAYS = 30;
 // 「テーマごと全部」と「1件ずつ」の中間が無かったので、選んでから消せるようにする。
 let SELECT_MODE = false;
 let SELECTED = new Set();
+let SETTINGS_OPEN = false;
 
 // カテゴリごとのアクセント色（見出し・リード・件数に薄く効かせる）
 const CAT_COLORS = ["#7c3aed", "#2563eb", "#059669", "#ea580c", "#ca8a04", "#db2777", "#0891b2"];
@@ -306,11 +308,20 @@ function renderCard(a, hidden, lead) {
 }
 
 // テーマの見出し（名前・件数・NEW・まとめて既読ボタン）
+function lockedIn(all) {
+  return (all || []).filter(function (a) {
+    return !isRead(a) && (a.paywall === "paid" || a.paywall === "member" || a.paywall === "partial");
+  });
+}
+
 function groupHead(g, gi, all) {
   const newCount = all.filter(isNew).length;
+  const locked = lockedIn(all).length;
   return '<h3 class="ghead"><span class="gname">' + esc(g.name) + "</span>"
     + '<span class="gcount">' + countUnread(all) + "件</span>"
     + (newCount ? '<span class="gnew">NEW ' + newCount + "</span>" : "")
+    + (locked ? '<button class="lock-btn" type="button" data-lock="' + gi
+      + '" title="このテーマの読めない記事を既読にする">🔒 ' + locked + "</button>" : "")
     + '<button class="read-all" type="button" title="このテーマをまとめて既読にする">✓ 既読に</button>'
     + "</h3>";
 }
@@ -459,22 +470,33 @@ const BY_LINK = {};      // リンク → 記事（押された記事を引く�
   });
 })();
 
+// 上部に出すのは毎日使う4つだけ。
+// 配色や文字サイズは一度決めたら変えないので、設定の中に畳む。
+// 「すべて既読」は取り返しがつかないので、押し間違えない場所へ移す。
 function toolbar() {
   const themeLabel = { auto: "🌓 自動", light: "☀ 明るい", dark: "🌙 暗い" }[THEME] || "🌓 自動";
   const fontLabel = { s: "小", m: "中", l: "大" }[FONT] || "中";
   const favCount = Object.keys(FAV).length;
-  return '<div class="tools">'
-    + '<button class="tool-btn' + (SELECT_MODE ? " on" : "") + '" type="button" id="toggle-select">'
-    + (SELECT_MODE ? "✓ 選択をやめる" : "✓ まとめて既読") + "</button>"
+  let h = '<div class="tools">'
     + '<button class="tool-btn star' + (SHOW_FAV ? " on" : "") + '" type="button" id="toggle-fav">'
     + "★ お気に入り" + (favCount ? " " + favCount : "") + "</button>"
     + '<button class="tool-btn' + (SHOW_ALL ? " on" : "") + '" type="button" id="toggle-read">'
     + (SHOW_ALL ? "☑ 既読も表示" : "☐ 既読も表示") + "</button>"
-    + '<button class="tool-btn" type="button" id="toggle-theme">' + themeLabel + "</button>"
-    + '<button class="tool-btn" type="button" id="toggle-font">文字 ' + fontLabel + "</button>"
-    + (SHOW_FAV ? "" : '<button class="tool-btn" type="button" id="read-locked">🔒 読めない記事を既読に</button>')
-    + (SHOW_FAV ? "" : '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button>')
+    + (SHOW_FAV ? "" : '<button class="tool-btn' + (SELECT_MODE ? " on" : "") + '" type="button" id="toggle-select">'
+      + (SELECT_MODE ? "✓ 選択をやめる" : "✓ まとめて既読") + "</button>")
+    + '<button class="tool-btn' + (SETTINGS_OPEN ? " on" : "") + '" type="button" id="toggle-settings">⚙ 設定</button>'
     + "</div>";
+  if (SETTINGS_OPEN) {
+    h += '<div class="settings">'
+      + '<div class="srow"><span>配色</span>'
+      + '<button class="tool-btn" type="button" id="toggle-theme">' + themeLabel + "</button></div>"
+      + '<div class="srow"><span>文字の大きさ</span>'
+      + '<button class="tool-btn" type="button" id="toggle-font">文字 ' + fontLabel + "</button></div>"
+      + '<div class="srow"><span>いま読まないものを片づける</span>'
+      + '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button></div>'
+      + "</div>";
+  }
+  return h;
 }
 
 // ---- お気に入りだけの画面 --------------------------------------------------
@@ -718,19 +740,24 @@ APP.addEventListener("click", function (ev) {
     }
     return;
   }
-  // 有料・会員限定・一部有料の記事をまとめて既読にする
-  if (ev.target.closest("#read-locked")) {
-    const locked = [];
-    ALL_GROUPS.forEach(function (x) {
-      (x.group.items || []).forEach(function (a) {
-        if (!isRead(a) && (a.paywall === "paid" || a.paywall === "member" || a.paywall === "partial")) {
-          locked.push(a);
-        }
-      });
-    });
-    if (!locked.length) { alert("読めない記事は残っていません。"); return; }
-    if (!confirm("有料・会員限定・一部有料の " + locked.length + "件を既読にします。よろしいですか？")) return;
+  // そのテーマの読めない記事（有料・会員限定・一部有料）を既読にする
+  const lock = ev.target.closest(".lock-btn");
+  if (lock) {
+    const entry = ALL_GROUPS[Number(lock.dataset.lock)];
+    if (!entry) return;
+    const locked = lockedIn(entry.group.items);
+    if (!locked.length) return;
+    if (!confirm("「" + entry.group.name + "」の読めない記事 " + locked.length
+      + "件を既読にします。よろしいですか？")) return;
+    const y = window.scrollY;
     locked.forEach(markRead);
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // 設定の開閉
+  if (ev.target.closest("#toggle-settings")) {
+    SETTINGS_OPEN = !SETTINGS_OPEN;
     rerender();
     return;
   }

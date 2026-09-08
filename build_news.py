@@ -139,29 +139,45 @@ def better_record(a, b):
 
 
 def dedupe_by_title(items):
-    """見出しが同じ記事を1件にまとめる（元の並び順は保つ）。
+    """似た見出しの記事を1件にまとめる。
+
+    完全一致だけでなく、先頭一致と「重なり具合」も見る。
+    同じ催しを複数の媒体が書くと見出しが少しずつ違い、完全一致では残ってしまうため
+    （実測：同じ「すみっコぐらし」の催しが別媒体で二重に貯まっていた）。
 
     初めて見つけた日時は古いほうを引き継ぐ。
-    新しいほうに合わせると、まとめた瞬間にNEWが再点灯してしまうため。
+    新しいほうに合わせると、まとめた瞬間にNEWが再点灯してしまう。
     """
-    best = {}
-    order = []
+    keys = []    # [(正規化した見出し, 2文字ずつの集合)]
+    kept = []    # keys と同じ並びの記事
+    loose = []   # 見出しが取れないものはそのまま残す
     for a in items:
-        key = normalize_title(a.get("title") or "")
-        if not key:
-            order.append((False, a))   # 見出しが取れないものはそのまま残す
+        norm = normalize_title(a.get("title") or "")
+        if not norm:
+            loose.append(a)
             continue
-        if key not in best:
-            best[key] = a
-            order.append((True, key))
+        grams = title_bigrams(norm)
+        hit = -1
+        for i, (n2, g2) in enumerate(keys):
+            same = (norm == n2)
+            prefix = (min(len(norm), len(n2)) >= DUP_PREFIX_MIN
+                      and (norm.startswith(n2) or n2.startswith(norm)))
+            close = (len(norm) >= DUP_PREFIX_MIN and len(n2) >= DUP_PREFIX_MIN
+                     and similarity(grams, g2) >= DUP_SIMILARITY)
+            if same or prefix or close:
+                hit = i
+                break
+        if hit < 0:
+            keys.append((norm, grams))
+            kept.append(a)
         else:
-            cur = best[key]
+            cur = kept[hit]
             seen = [x.get("first_seen") for x in (cur, a) if x.get("first_seen")]
             keep = better_record(cur, a)
             if seen:
                 keep["first_seen"] = min(seen)
-            best[key] = keep
-    return [best[v] if is_key else v for is_key, v in order]
+            kept[hit] = keep
+    return kept + loose
 
 
 def load_paywall(path: Path):
@@ -367,9 +383,13 @@ def expand_topic(entry):
         # Googleニュース検索は「関連記事」として検索語を含まない無関係な記事を
         # 混ぜてくることがあるため、既定で効かせて誤混入を防ぐ。
         # 意図的に無効化したいテーマは feeds.json で "require": [] と書く。
-        if "require" in entry:
-            if entry["require"]:
-                feed["require"] = entry["require"]
+        if "require" in entry or "require_en" in entry:
+            # 英語のソースには英語の必須語を使う。日本語の語をそのまま当てると
+            # 英語の見出しには一つも当たらず、全滅してしまうため。
+            explicit = (entry.get("require_en") if tpl.get("english") and entry.get("require_en")
+                        else entry.get("require"))
+            if explicit:
+                feed["require"] = explicit
         else:
             source_raw = entry["topic_en"] if (tpl.get("english") and entry.get("topic_en"))                 else entry.get("topic", "")
             words = require_words(source_raw)
@@ -378,7 +398,8 @@ def expand_topic(entry):
         if entry.get("exclude"):
             feed["exclude"] = entry["exclude"]
         # 記事の重み付け（⑥）：優先したい語・後ろに回したい語
-        for key in ("prefer", "demote", "blog_last", "keep"):
+        for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
+                    "min_views", "views_exempt"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -992,7 +1013,12 @@ def fetch_feed(feed):
     is_gnews = feed.get("gnews", False)
     require = feed.get("require")
     use_ng = is_alert or feed.get("ng_only", False)
-    exclude = (NG_WORDS + feed.get("exclude", [])) if use_ng else None
+    # テーマ自体が「Amazon」「セール」のようにNGワードと重なるときは、
+    # 全体のNGワードを外し、そのテーマ固有の除外語だけを使う。
+    if feed.get("no_ng"):
+        exclude = feed.get("exclude") or None
+    else:
+        exclude = (NG_WORDS + feed.get("exclude", [])) if use_ng else None
     # require の判定対象："title"（既定）/ "text"（タイトル＋リード文。ブログ向け）
     require_in = feed.get("require_in", "title")
     # ショート動画を除くか。既定で除外する（本編と内容が重なりやすく、一覧も長くなるため）。
@@ -1003,6 +1029,8 @@ def fetch_feed(feed):
     #   demote … 話題性の低い記事（例: BGMに使われただけ）→ 後ろへ
     prefer = feed.get("prefer") or []
     demote = DEMOTE_WORDS + (feed.get("demote") or [])
+    min_views = feed.get("min_views")
+    views_exempt = feed.get("views_exempt") or []
     # サイト指定検索での「別テーマの紛れ込み」を防ぐための材料
     # 実際に使うのはサイト指定検索のときだけ。
     # 通常の検索は見出し一致（require）で守られているため、ここまで絞ると取りこぼす。
@@ -1053,6 +1081,13 @@ def fetch_feed(feed):
             continue  # 古すぎる記事を除外（日時不明は残す）
 
         rank = compute_rank(text, prefer, demote)
+
+        # 再生回数の下限。伸びなかった動画を並べても仕方がないため。
+        # ただし指定した名前（出演者など）が見出しにあれば、回数によらず残す。
+        if min_views and kind == "video":
+            v = extract_views(e)
+            if v is not None and v < min_views and not any(w in title for w in views_exempt):
+                continue
 
         # 動画はリード文を出さない（見出し＋サムネイル＋リンクで見せる）
         summary = "" if kind == "video" else truncate(summary_raw, SUMMARY_MAX_LEN)
@@ -1136,6 +1171,7 @@ def main():
     keep_rules = {}       # テーマごとの蓄積上限（feeds.json の keep）
     topic_words = {}      # テーマごとの検索語（「関連」判定に使う）
     site_groups = set()   # サイト指定検索を使うテーマ
+    view_rules = {}       # テーマごとの再生回数の下限
     exclude_rules = {}    # テーマごとのNG語（貯めてある分にも当て直す）
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1155,6 +1191,8 @@ def main():
                 exclude_rules.setdefault(g, []).extend(f["exclude"])
             if f.get("type") == "video":
                 video_groups.add(g)
+            if f.get("min_views"):
+                view_rules[g] = (int(f["min_views"]), f.get("views_exempt") or [])
             # 「関連」判定に使う語。サイト指定検索は見出し一致を求めないぶん、
             # 本文で触れているだけの記事が混ざる。それを見分けるための手がかり。
             if f.get("require"):
@@ -1210,6 +1248,10 @@ def main():
                 ng_removed += 1
                 continue
             if a.get("kind") == "video" and g not in video_groups:
+                ng_removed += 1
+                continue
+            low, exempt = view_rules.get(g, (0, []))
+            if low and a.get("views") is not None and a["views"] < low                     and not any(w in (a.get("title") or "") for w in exempt):
                 ng_removed += 1
                 continue
             keep.append(a)

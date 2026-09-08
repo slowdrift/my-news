@@ -70,6 +70,25 @@
   :root[data-theme="dark"] .tool-btn.danger,
   :root[data-theme="auto"] .tool-btn.danger { color: #f87171; border-color: #4b2020; }
 
+  /* 設定（毎日は使わないものを畳む） */
+  .settings {
+    margin: 6px 0 2px; padding: 6px 12px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--line);
+  }
+  .settings .srow {
+    display: flex; align-items: center; gap: 10px; padding: 5px 0;
+    font-size: calc(12px * var(--fs)); color: var(--sub);
+  }
+  .settings .srow span { flex: 1 1 auto; }
+
+  /* テーマごとの「読めない記事を既読に」 */
+  .ghead .lock-btn {
+    margin-left: auto; font-size: calc(10.5px * var(--fs)); padding: 3px 8px;
+    border: 1px solid var(--line); background: var(--btn-bg); color: var(--sub);
+    border-radius: 999px; cursor: pointer; font-weight: 600; white-space: nowrap;
+  }
+  .ghead .lock-btn + .read-all { margin-left: 0; }
+
   /* 上部のカテゴリジャンプ */
   .catnav { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 4px; }
   .catnav .nav-chip {
