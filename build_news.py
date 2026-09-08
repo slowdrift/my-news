@@ -680,6 +680,17 @@ BLOG_DOMAINS = [
 ]
 
 
+# 会社が運営しているブログ。個人の書き物と読み方が違うので分けて印を付ける。
+# （並び順は変えない。技術テーマでは企業のテックブログも十分に役立つため）
+CORP_BLOG_PATTERN = re.compile(
+    r"株式会社|有限会社|Tech\s?Blog|テックブログ|開発者ブログ|Engineering|Engineer\s?Blog|"
+    r"公式|Developers|Developer\s?Blog|Corp|Inc\.")
+
+
+def looks_like_corp(via: str, title: str) -> bool:
+    return bool(CORP_BLOG_PATTERN.search((via or "") + " " + (title or "")))
+
+
 def looks_like_blog(link: str, via_host: str = "") -> bool:
     """リンクか発信元ドメインが、個人が書く場のものか。"""
     hay = urlparse(link or "").netloc.lower() + " " + (via_host or "").lower()
@@ -1080,6 +1091,8 @@ def to_json_item(a):
         "views": a.get("views"),   # 動画の再生回数（記事は None）
         "blog": a.get("blog", False),  # 個人ブログ・note等（報道と区別する印）
         "rank": a.get("rank", 0),  # 並び順の重み（-1 優先 / 0 普通 / 1 後回し）
+        "related": a.get("related", False),  # 見出しにテーマ名が無い＝本文で触れただけ
+        "corp": a.get("corp", False),        # 会社が運営するブログ
         "first_seen": a.get("first_seen"),  # アプリに初めて入ってきた日時（NEW判定用）
         "kind": a["kind"],
         "via": a.get("via", ""),  # 実際の配信元（Googleニュース経由の記事のみ）
@@ -1121,6 +1134,8 @@ def main():
     rank_rules = {}
     blog_last = {}
     keep_rules = {}       # テーマごとの蓄積上限（feeds.json の keep）
+    topic_words = {}      # テーマごとの検索語（「関連」判定に使う）
+    site_groups = set()   # サイト指定検索を使うテーマ
     exclude_rules = {}    # テーマごとのNG語（貯めてある分にも当て直す）
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1140,6 +1155,12 @@ def main():
                 exclude_rules.setdefault(g, []).extend(f["exclude"])
             if f.get("type") == "video":
                 video_groups.add(g)
+            # 「関連」判定に使う語。サイト指定検索は見出し一致を求めないぶん、
+            # 本文で触れているだけの記事が混ざる。それを見分けるための手がかり。
+            if f.get("require"):
+                topic_words.setdefault(g, []).extend(f["require"])
+            if f.get("site_search"):
+                site_groups.add(g)
 
     # 既に貯めてある記事にも、今の基準を当て直す。
     # 設定を直しても過去分が古いままだと、ラベル漏れや変な並びが残り続けるため。
@@ -1414,12 +1435,27 @@ def main():
                 continue   # 取れず、蓄積も無いテーマは出さない
             merged = merge_into_archive(archive, g, fresh, now_iso, keep_rules.get(g))
 
+            # 「関連」＝ 見出しにテーマの語が無い記事。本文で触れているだけのものが多い。
+            # 消さずに後ろへ回す（当たりの読み物も混じっているため）。
+            words = topic_words.get(g) or ([g] if g in site_groups else [])
+            for a in merged:
+                if g in site_groups and words:
+                    a["related"] = not any(w in (a.get("title") or "") for w in words)
+                elif "related" in a:
+                    del a["related"]
+                if a.get("blog"):
+                    a["corp"] = looks_like_corp(a.get("via", ""), a.get("title", ""))
+
             # 並べ替え：新しい順 →「読めないもの・個人ブログは後ろ」の順に安定ソート。
             # 先に読める報道を持ってくることで、冒頭が有料記事だらけになるのを防ぐ。
             items = sorted(merged, key=lambda a: a.get("dt") or "", reverse=True)
+            # 安定ソートを重ねる。あとに書いたものほど強く効く。
             items.sort(key=lambda a: a.get("rank", 0))       # 話題性の低いものを後ろへ
             if blog_last.get(g, True):
                 items.sort(key=lambda a: bool(a.get("blog")))
+            # 「関連」はブログかどうかより強く後ろへ回す。
+            # 本人について書かれた個人ブログのほうが、名前に触れただけの報道より読みたいため。
+            items.sort(key=lambda a: bool(a.get("related")))
             items.sort(key=lambda a: a.get("paywall") in ("paid", "member", "partial"))
             groups_out.append({"name": g, "items": items})
         categories_out.append({"name": cat, "groups": groups_out})

@@ -272,6 +272,17 @@
   :root[data-theme="dark"] .blog, :root[data-theme="auto"] .blog {
     color: #c4b5fd; background: #2a2440; border-color: #3f3663;
   }
+  /* 会社が運営するブログ（個人の書き物と読み方が違う） */
+  .blog.corp { color: #0f766e; background: #ccfbf1; border-color: #99f6e4; }
+  :root[data-theme="dark"] .blog.corp, :root[data-theme="auto"] .blog.corp {
+    color: #5eead4; background: #10302e; border-color: #1f4d49;
+  }
+  /* 見出しにテーマ名が無い＝本文で触れているだけの記事 */
+  .rel {
+    font-size: calc(10px * var(--fs)); color: var(--sub); background: var(--chip-bg);
+    border: 1px dashed var(--line); border-radius: 5px; padding: 1px 6px;
+    font-weight: 600; white-space: nowrap;
+  }
   .pw { font-size: calc(10px * var(--fs)); border-radius: 5px; padding: 1px 6px; font-weight: 700; white-space: nowrap; }
   .pw.paid { color: #9a3412; background: #ffedd5; border: 1px solid #fed7aa; }
   .pw.partial { color: var(--sub); background: var(--chip-bg); border: 1px solid var(--line); font-weight: 600; }

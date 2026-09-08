@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.3.0";
+const APP_VERSION = "v1.4.0";
 const CHANGELOG = [
+  ["v1.4.0", "2026-09-08", "NHKを有料扱いに、読めない記事をまとめて既読に、「もっと見る」を1つに統合、本文で触れただけの記事に「関連」の印"],
   ["v1.3.0", "2026-09-08", "天気に時間帯の降水確率、株価を最下部へ、まとめて既読を分かりやすく、1か月以上前の記事に区切り"],
   ["v1.2.0", "2026-09-08", "ニュース以外（note・ほぼ日・出版社）からも収集。貯めた記事を全部表示し、読み切ると次が出るように"],
   ["v1.1.0", "2026-09-07", "未読バッジの不具合を修正、会員限定の判定を強化、既読を永続化、動画を分離、お気に入り"],
@@ -247,7 +248,9 @@ function metaRow(a) {
   const t = relTime(a.dt);
   const inner = (isNew(a) ? '<span class="new">NEW</span>' : "")
     + payBadge(a)
-    + (a.blog ? '<span class="blog">個人ブログ</span>' : "")
+    + (a.blog ? '<span class="blog' + (a.corp ? " corp" : "") + '">'
+        + (a.corp ? "企業ブログ" : "個人ブログ") + "</span>" : "")
+    + (a.related ? '<span class="rel" title="見出しにテーマ名が無い記事">関連</span>' : "")
     + (a.via ? '<span class="chip">' + esc(a.via) + "</span>" : "")
     + (a.views ? '<span class="views">▶ ' + fmtViews(a.views) + "</span>" : "")
     + (t ? '<span class="time">' + esc(t) + "</span>" : "");
@@ -328,16 +331,16 @@ function renderGroup(g, gi) {
       + "</div></section>";
   }
 
-  const limit = SHOWN[gi] || RENDER_CHUNK;
+  // 表示は「先頭から limit 件」だけ。ボタンを押すたびに増える。
+  // 以前は「もっと見る」と「さらに古い記事」の2つが縦に並んでいたが、
+  // 内部の仕組みの違いであって、読む側には区別が要らないので1つにまとめた。
+  const limit = SHOWN[gi] || INITIAL_VISIBLE;
   const items = list.slice(0, limit);
-  const older = list.length - items.length;   // まだ描いていない古い記事
-  const opened = !!SHOWN[gi];                 // 一度伸ばしたら畳まない
-  const hiddenCount = opened ? 0 : Math.max(0, items.length - INITIAL_VISIBLE);
-  const newCount = all.filter(isNew).length;
+  const rest = list.length - items.length;
 
   let h = '<section class="group" data-group="' + gi + '">'
     + groupHead(g, gi, all)
-    + '<div class="gitems' + (opened ? " expanded" : "") + '">';
+    + '<div class="gitems expanded">';
   // 配信日が古い記事との境目に区切りを入れる。
   // NEWバッジは「アプリに入ってきた新しさ」、この区切りは「記事自体の古さ」。
   let dividerDone = false;
@@ -345,19 +348,14 @@ function renderGroup(g, gi) {
     const t = a.dt ? new Date(a.dt).getTime() : 0;
     if (!dividerDone && t && (Date.now() - t) > OLD_DAYS * 86400000) {
       dividerDone = true;
-      h += '<div class="agesep' + (!opened && i >= INITIAL_VISIBLE ? " extra" : "")
-        + '"><span>ここから1か月以上前の記事</span></div>';
+      h += '<div class="agesep"><span>ここから1か月以上前の記事</span></div>';
     }
-    h += renderCard(a, !opened && i >= INITIAL_VISIBLE, i === 0);
+    h += renderCard(a, false, i === 0);
   });
   h += "</div>";
-  if (hiddenCount > 0) {
-    h += '<button class="more-btn" type="button" data-more="' + hiddenCount + '">'
-      + "もっと見る（+" + hiddenCount + "）</button>";
-  }
-  if (older > 0) {
-    h += '<button class="older-btn" type="button" data-older="' + gi + '">'
-      + "さらに古い記事（+" + Math.min(older, RENDER_CHUNK) + "／残り" + older + "）</button>";
+  if (rest > 0) {
+    h += '<button class="more-btn" type="button" data-older="' + gi + '">'
+      + "もっと見る（残り" + rest + "件）</button>";
   }
   h += "</section>";
   return h;
@@ -474,6 +472,7 @@ function toolbar() {
     + (SHOW_ALL ? "☑ 既読も表示" : "☐ 既読も表示") + "</button>"
     + '<button class="tool-btn" type="button" id="toggle-theme">' + themeLabel + "</button>"
     + '<button class="tool-btn" type="button" id="toggle-font">文字 ' + fontLabel + "</button>"
+    + (SHOW_FAV ? "" : '<button class="tool-btn" type="button" id="read-locked">🔒 読めない記事を既読に</button>')
     + (SHOW_FAV ? "" : '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button>')
     + "</div>";
 }
@@ -687,6 +686,16 @@ APP.addEventListener("click", function (ev) {
     if (a) { toggleFav(a); rerender(); }
     return;
   }
+  // 「もっと見る」：そのテーマだけ表示件数を増やす
+  const more = ev.target.closest(".more-btn");
+  if (more) {
+    const gi = Number(more.dataset.older);
+    SHOWN[gi] = (SHOWN[gi] || INITIAL_VISIBLE) + RENDER_CHUNK;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
   // 「読み返す」：そのテーマだけ既読も表示する
   const reread = ev.target.closest(".reread-btn");
   if (reread) {
@@ -695,24 +704,6 @@ APP.addEventListener("click", function (ev) {
     const y = window.scrollY;
     rerender();
     window.scrollTo(0, y);
-    return;
-  }
-  // 「さらに古い記事」：そのテーマだけ描く件数を増やす
-  const older = ev.target.closest(".older-btn");
-  if (older) {
-    const gi = Number(older.dataset.older);
-    SHOWN[gi] = (SHOWN[gi] || RENDER_CHUNK) + RENDER_CHUNK;
-    const y = window.scrollY;   // 描き直しで位置が飛ばないように戻す
-    rerender();
-    window.scrollTo(0, y);
-    return;
-  }
-  // 「もっと見る」/「閉じる」
-  const more = ev.target.closest(".more-btn");
-  if (more) {
-    const items = more.previousElementSibling;
-    const expanded = items.classList.toggle("expanded");
-    more.textContent = expanded ? "閉じる" : "もっと見る（+" + more.dataset.more + "）";
     return;
   }
   // テーマ単位のまとめて既読
@@ -725,6 +716,22 @@ APP.addEventListener("click", function (ev) {
       saveRead(READ);
       rerender();
     }
+    return;
+  }
+  // 有料・会員限定・一部有料の記事をまとめて既読にする
+  if (ev.target.closest("#read-locked")) {
+    const locked = [];
+    ALL_GROUPS.forEach(function (x) {
+      (x.group.items || []).forEach(function (a) {
+        if (!isRead(a) && (a.paywall === "paid" || a.paywall === "member" || a.paywall === "partial")) {
+          locked.push(a);
+        }
+      });
+    });
+    if (!locked.length) { alert("読めない記事は残っていません。"); return; }
+    if (!confirm("有料・会員限定・一部有料の " + locked.length + "件を既読にします。よろしいですか？")) return;
+    locked.forEach(markRead);
+    rerender();
     return;
   }
   // すべて既読（取り返しがつかないので確認する）
