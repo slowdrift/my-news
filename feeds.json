@@ -27,95 +27,280 @@
     "  GitHub上のこのファイルが本番で使われます。編集して Commit すると数分で公開ページに反映されます。",
     "  書式を間違えた場合は自動更新が止まるだけで、公開中のページは無事です（GitHubから失敗メールが届きます）。"
   ],
-
   "_天気と株価": [
     "weather の area は気象庁の地域コード（080000＝茨城県）。point は気温を出す地点名。",
     "stocks に銘柄を並べると、記事とは別のブロックに表示します。",
     "  code は Yahoo Finance の記号（東証は 数字.T、日経平均は ^N225、ドル円は JPY=X）。",
     "※株価の取得先は公式に開放されたものではないため、使えなくなったら黙って消えます。"
   ],
-
-  "weather": { "area": "080000", "point": "水戸" },
-
+  "weather": {
+    "area": "080000",
+    "point": "水戸"
+  },
   "stocks": [
-    { "code": "2726.T", "name": "パルグループHD" }
+    {
+      "code": "2726.T",
+      "name": "パルグループHD"
+    }
   ],
-
   "categories": [
     {
-      "name": "趣味",
+      "name": "人物・作家",
       "feeds": [
-        { "topic": "沢木耕太郎", "sites": ["1101.com"] },
-        { "topic": "吉村昭" },
-        { "topic": "井上陽水",
-          "prefer": ["出演", "インタビュー", "対談", "ライブ", "コンサート", "ツアー",
-                     "新曲", "アルバム", "語る", "公演", "受賞", "特集"],
-          "demote": ["歌唱", "披露", "熱唱", "カバー", "cover", "Cover",
-                     "話題の曲", "あの曲", "歌う"] },
-        { "topic": "近藤紘一",
-          "sites": ["1101.com", "note.com", "hatenablog.com", "bunshun.jp"] },
-        { "topic": "アーミル・カーン", "topic_en": "\"Aamir Khan\"", "sources": ["gnews_ja", "gnews_in"], "require": [] },
-        { "topic": "アクアワールド 大洗", "name": "アクアワールド大洗", "sources": ["gnews_ja"] },
-        { "name": "沢木耕太郎（アラート）", "group": "沢木耕太郎", "url_env": "ALERT_SAWAKI_URL", "alert": true, "require": ["沢木耕太郎"] },
-        { "name": "アクアワールド大洗（アラート）", "group": "アクアワールド大洗", "url_env": "ALERT_AQUA_URL", "alert": true, "require": ["アクアワールド"], "exclude": ["口コミ", "アクアプレイ"] }
+        {
+          "topic": "沢木耕太郎",
+          "sites": [
+            "1101.com"
+          ]
+        },
+        {
+          "topic": "吉村昭"
+        },
+        {
+          "topic": "井上陽水",
+          "prefer": [
+            "出演",
+            "インタビュー",
+            "対談",
+            "ライブ",
+            "コンサート",
+            "ツアー",
+            "新曲",
+            "アルバム",
+            "語る",
+            "公演",
+            "受賞",
+            "特集"
+          ],
+          "demote": [
+            "歌唱",
+            "披露",
+            "熱唱",
+            "カバー",
+            "cover",
+            "Cover",
+            "話題の曲",
+            "あの曲",
+            "歌う"
+          ]
+        },
+        {
+          "topic": "近藤紘一",
+          "sites": [
+            "1101.com",
+            "note.com",
+            "hatenablog.com",
+            "bunshun.jp"
+          ]
+        },
+        {
+          "topic": "アーミル・カーン",
+          "topic_en": "\"Aamir Khan\"",
+          "sources": [
+            "gnews_ja",
+            "gnews_in"
+          ],
+          "require": []
+        },
+        {
+          "name": "沢木耕太郎（アラート）",
+          "group": "沢木耕太郎",
+          "url_env": "ALERT_SAWAKI_URL",
+          "alert": true,
+          "require": [
+            "沢木耕太郎"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "地元",
+      "feeds": [
+        {
+          "name": "茨城新聞 県内ニュース",
+          "url": "https://ibarakinews.jp/news/hphead.rss"
+        },
+        {
+          "topic": "アクアワールド 大洗",
+          "name": "アクアワールド大洗",
+          "sources": [
+            "gnews_ja"
+          ]
+        },
+        {
+          "name": "アクアワールド大洗（アラート）",
+          "group": "アクアワールド大洗",
+          "url_env": "ALERT_AQUA_URL",
+          "alert": true,
+          "require": [
+            "アクアワールド"
+          ],
+          "exclude": [
+            "口コミ",
+            "アクアプレイ"
+          ]
+        }
       ]
     },
     {
       "name": "仕事・AI",
       "feeds": [
-        { "topic": "\"Claude Code\"", "sources": ["gnews_ja", "hatebu"], "require": [],
-          "sites": ["zenn.dev", "note.com", "qiita.com"],
+        {
+          "topic": "\"Claude Code\"",
+          "sources": [
+            "gnews_ja",
+            "hatebu"
+          ],
+          "require": [],
+          "sites": [
+            "zenn.dev",
+            "note.com",
+            "qiita.com"
+          ],
           "blog_last": false,
-          "prefer": ["使い方", "コツ", "実践", "入門", "効率化", "自動化",
-                     "ワークフロー", "設定", "やってみた", "試した", "運用", "工夫"],
-          "demote": ["資金調達", "決算", "株価", "上場", "提携", "業務提携",
-                     "導入支援", "法人向け", "エンタープライズ", "調査", "講演",
-                     "協会", "自治体", "行政", "ソリューション", "提供開始"],
-          "exclude": ["セミナー", "ウェビナー", "説明会", "無料相談", "受講", "申し込み", "講座"] },
-        { "name": "Claude Code（アラート）", "group": "Claude Code", "url_env": "ALERT_CLAUDE_URL", "alert": true },
-        { "topic": "生成AI 活用", "name": "生成AIの使いこなし",
-          "require": ["生成AI", "ChatGPT", "Claude", "Gemini", "Copilot", "AIエージェント"],
-          "sources": ["gnews_ja", "hatebu"],
-          "sites": ["zenn.dev", "note.com", "qiita.com"],
+          "prefer": [
+            "使い方",
+            "コツ",
+            "実践",
+            "入門",
+            "効率化",
+            "自動化",
+            "ワークフロー",
+            "設定",
+            "やってみた",
+            "試した",
+            "運用",
+            "工夫"
+          ],
+          "demote": [
+            "資金調達",
+            "決算",
+            "株価",
+            "上場",
+            "提携",
+            "業務提携",
+            "導入支援",
+            "法人向け",
+            "エンタープライズ",
+            "調査",
+            "講演",
+            "協会",
+            "自治体",
+            "行政",
+            "ソリューション",
+            "提供開始"
+          ],
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "受講",
+            "申し込み",
+            "講座"
+          ]
+        },
+        {
+          "name": "Claude Code（アラート）",
+          "group": "Claude Code",
+          "url_env": "ALERT_CLAUDE_URL",
+          "alert": true
+        },
+        {
+          "topic": "生成AI 活用",
+          "name": "生成AIの使いこなし",
+          "require": [
+            "生成AI",
+            "ChatGPT",
+            "Claude",
+            "Gemini",
+            "Copilot",
+            "AIエージェント"
+          ],
+          "sources": [
+            "gnews_ja",
+            "hatebu"
+          ],
+          "sites": [
+            "zenn.dev",
+            "note.com",
+            "qiita.com"
+          ],
           "blog_last": false,
-          "prefer": ["使い方", "コツ", "実践", "入門", "効率化", "自動化",
-                     "ワークフロー", "やってみた", "試した", "工夫", "プロンプト"],
-          "demote": ["資金調達", "決算", "株価", "上場", "提携", "市場規模",
-                     "導入事例", "法人向け", "エンタープライズ", "調査", "講演",
-                     "協会", "自治体", "行政", "ソリューション", "提供開始", "様にて"],
-          "exclude": ["セミナー", "ウェビナー", "説明会", "無料相談", "受講", "申し込み",
-                      "講座", "資料ダウンロード", "ホワイトペーパー"] }
+          "prefer": [
+            "使い方",
+            "コツ",
+            "実践",
+            "入門",
+            "効率化",
+            "自動化",
+            "ワークフロー",
+            "やってみた",
+            "試した",
+            "工夫",
+            "プロンプト"
+          ],
+          "demote": [
+            "資金調達",
+            "決算",
+            "株価",
+            "上場",
+            "提携",
+            "市場規模",
+            "導入事例",
+            "法人向け",
+            "エンタープライズ",
+            "調査",
+            "講演",
+            "協会",
+            "自治体",
+            "行政",
+            "ソリューション",
+            "提供開始",
+            "様にて"
+          ],
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "受講",
+            "申し込み",
+            "講座",
+            "資料ダウンロード",
+            "ホワイトペーパー"
+          ]
+        }
       ]
     },
     {
-      "name": "地域",
+      "name": "動画",
       "feeds": [
-        { "name": "茨城新聞 県内ニュース", "url": "https://ibarakinews.jp/news/hphead.rss" }
-      ]
-    },
-    {
-      "name": "料理",
-      "feeds": [
-        { "name": "リュウジのバズレシピ", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCW01sMEVYQdhcvkrhbxdBpw", "type": "video" }
-      ]
-    },
-    {
-      "name": "お金",
-      "feeds": [
-        { "name": "両学長 リベラルアーツ大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC67Wr_9pA4I0glIxDt_Cpyw", "type": "video" }
-      ]
-    },
-    {
-      "name": "学び",
-      "feeds": [
-        { "name": "中田敦彦のYouTube大学", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCFo4kqllbcQ4nV83WCyraiw", "type": "video" },
-        { "name": "安野貴博の自由研究", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiMwbmcCSMORJ-85XWhStBw", "type": "video" }
-      ]
-    },
-    {
-      "name": "政治・チームみらい",
-      "feeds": [
-        { "name": "チームみらい公式", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC72A_x2FKHkJ8Nc2eIzqj8Q", "type": "video" }
+        {
+          "name": "リュウジのバズレシピ",
+          "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCW01sMEVYQdhcvkrhbxdBpw",
+          "type": "video"
+        },
+        {
+          "name": "両学長 リベラルアーツ大学",
+          "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC67Wr_9pA4I0glIxDt_Cpyw",
+          "type": "video"
+        },
+        {
+          "name": "中田敦彦のYouTube大学",
+          "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCFo4kqllbcQ4nV83WCyraiw",
+          "type": "video"
+        },
+        {
+          "name": "安野貴博の自由研究",
+          "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiMwbmcCSMORJ-85XWhStBw",
+          "type": "video"
+        },
+        {
+          "name": "チームみらい公式",
+          "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC72A_x2FKHkJ8Nc2eIzqj8Q",
+          "type": "video"
+        }
       ]
     }
   ]

@@ -819,6 +819,26 @@ def get_json(url: str, timeout: int = 12):
         return json.loads(r.read().decode("utf-8"))
 
 
+def weather_icon(text: str) -> str:
+    """天気の文章から絵文字を選ぶ。
+
+    気象庁は時間帯別の天気を出していないので、アイコンは1日単位。
+    「くもり時々雨」のように複数入るため、影響の大きいものから順に見る。
+    """
+    t = text or ""
+    if "雪" in t:
+        return "❄️"
+    if "雷" in t:
+        return "⛈"
+    if "雨" in t:
+        return "☔"
+    if "くもり" in t or "曇" in t:
+        return "☁️"
+    if "晴" in t:
+        return "☀️"
+    return "🌤"
+
+
 def fetch_weather(cfg):
     """気象庁の公開データから、今日と明日の天気を取る。
 
@@ -841,6 +861,15 @@ def fetch_weather(cfg):
         w_times = wx["timeDefines"]
         w_texts = wx["areas"][0]["weathers"]
         out["office"] = data[0].get("publishingOffice", "")
+        w_codes = wx["areas"][0].get("weatherCodes") or []
+        # 降水確率は6時間ごと（00-06 / 06-12 / 12-18 / 18-24）。
+        # 時間帯別の天気は公開されていないので、通勤・退勤の目安はこれで補う。
+        pops = {}
+        for t in series:
+            if "pops" not in t["areas"][0]:
+                continue
+            for when, val in zip(t["timeDefines"], t["areas"][0]["pops"]):
+                pops.setdefault(when[:10], {})[when[11:13]] = val
         # 気温。地点名（水戸など）が一致するものを選ぶ
         temps_by_time = {}
         for t in series:
@@ -863,8 +892,10 @@ def fetch_weather(cfg):
                 "date": day,
                 "text": full,
                 "short": short[:14],
+                "icon": weather_icon(full),
                 "max": hi,
                 "min": lo if (lo is not None and hi is not None and lo != hi) else None,
+                "pops": pops.get(day, {}),   # {"06": "60", "12": "70", ...}
             })
     except Exception as e:
         print(f"天気: 形が読めず（{type(e).__name__}）")

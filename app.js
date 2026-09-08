@@ -9,6 +9,15 @@
 
 const APP = document.getElementById("app");
 
+// 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
+const APP_VERSION = "v1.3.0";
+const CHANGELOG = [
+  ["v1.3.0", "2026-09-08", "天気に時間帯の降水確率、株価を最下部へ、まとめて既読を分かりやすく、1か月以上前の記事に区切り"],
+  ["v1.2.0", "2026-09-08", "ニュース以外（note・ほぼ日・出版社）からも収集。貯めた記事を全部表示し、読み切ると次が出るように"],
+  ["v1.1.0", "2026-09-07", "未読バッジの不具合を修正、会員限定の判定を強化、既読を永続化、動画を分離、お気に入り"],
+  ["v1.0.0", "2026-08-03", "GitHub Pagesで公開。有料記事の判定と読みやすさの改善"],
+];
+
 // テーマごとに初期表示する件数
 const INITIAL_VISIBLE = 3;
 
@@ -16,7 +25,11 @@ const INITIAL_VISIBLE = 3;
 // 収集側は貯めた全件を渡してくる（数百件になるテーマもある）ので、
 // 描く量はこちらで抑える。足りなければ「さらに古い記事」で伸ばす。
 const RENDER_CHUNK = 30;
-let SHOWN = {};   // テーマの通し番号 → いま何件まで描いているか
+let SHOWN = {};    // テーマの通し番号 → いま何件まで描いているか
+let REREAD = {};   // 「読み返す」を押したテーマ（そのテーマだけ既読も出す）
+
+// 記事そのものが古いと感じる境目（日）。ここに区切りを入れる。
+const OLD_DAYS = 30;
 
 // 選んでまとめて既読にするための状態。
 // 「テーマごと全部」と「1件ずつ」の中間が無かったので、選んでから消せるようにする。
@@ -37,8 +50,9 @@ const SHOWALL_KEY = "mynews_showall";  // "1" なら既読も表示
 const SHOWFAV_KEY = "mynews_showfav";  // "1" ならお気に入りだけ表示
 const THEME_KEY = "mynews_theme";      // "auto" | "light" | "dark"
 const FONT_KEY = "mynews_font";        // "s" | "m" | "l"
-const BUILD_KEY = "mynews_lastbuild";   // 前回あなたが見たデータの生成時刻
-const NEWBASE_KEY = "mynews_newbase";   // NEW判定の基準時刻(ms)
+// NEWバッジを何日光らせるか。読めば消えるので、長すぎなければ邪魔にならない。
+const NEW_DAYS = 7;
+const FIRSTOPEN_KEY = "mynews_firstopen";  // このアプリを初めて開いた時刻
 
 // 既読の記録は「日付では消さない」。一度読んだ記事は、ずっと既読のままにする。
 // 増えすぎたときだけ、古い記録から減らして容量を抑える。
@@ -81,31 +95,18 @@ function saveFav() { lsSet(FAV_KEY, JSON.stringify(FAV)); }
 
 let READ = loadRead();
 let FAV = loadFav();
+
+// 初めて開いた時刻を覚えておく（NEWの基準に使う）
+let FIRST_OPEN = Number(lsGet(FIRSTOPEN_KEY, "0")) || 0;
+if (!FIRST_OPEN) {
+  FIRST_OPEN = Date.now();
+  lsSet(FIRSTOPEN_KEY, String(FIRST_OPEN));
+}
 let SHOW_ALL = lsGet(SHOWALL_KEY, "0") === "1";
 let SHOW_FAV = lsGet(SHOWFAV_KEY, "0") === "1";
 let THEME = lsGet(THEME_KEY, "auto");
 let FONT = lsGet(FONT_KEY, "m");
 
-// NEW判定の基準時刻 =「前回あなたが見たデータ（毎朝の更新分）が作られた時刻」。
-//
-// 最初は「描画のたびに今の時刻へ更新」していたため、一度開くと必ず消えた。
-// 次に「前回アプリを開いた時刻」にしたが、これは開いた回数で結果が変わってしまう
-// （日中に更新が何度も入ると、そのたびに新着の窓が塞がる）。
-// データの時刻を基準にすれば、何度開いても、何日ぶりに開いても、
-// 「前に見たニュースより後に入ってきた記事」だけが正しく光る。
-function buildTime(s) {
-  const m = String(s || "").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime() : 0;
-}
-
-const BUILD_ID = String((window.NEWS_DATA || {}).generated_at || "");
-const PREV_BUILD = lsGet(BUILD_KEY, "");
-let NEW_BASE = Number(lsGet(NEWBASE_KEY, "0")) || 0;
-if (BUILD_ID && BUILD_ID !== PREV_BUILD) {
-  NEW_BASE = buildTime(PREV_BUILD);   // 初回訪問は 0（＝NEWを付けない）
-  lsSet(NEWBASE_KEY, String(NEW_BASE));
-  lsSet(BUILD_KEY, BUILD_ID);
-}
 
 // ---- 記事の「鍵」-----------------------------------------------------------
 // 同じ記事でも、検索の経路が違うとURLが変わることがある。URLだけを鍵にすると、
@@ -173,15 +174,23 @@ function toggleFav(a) {
   saveFav();
 }
 
-// 前回の訪問より後に「アプリへ入ってきた」記事か（NEWバッジの判定）
-// 記事の配信日で判定すると、過去の記事しか無い日は永久にNEWが付かないため、
-// 収集側が記録した first_seen（初めて見つけた日時）と比べる。
+// NEW＝「まだ読んでいない、最近アプリへ入ってきた記事」。
+//
+// 以前は「前回見たデータより後に入ってきたか」で判定していたが、
+// それだと一度画面に出ただけで消えてしまい、読む前に印が無くなっていた。
+// 日数で見るようにすれば、何度開いても NEW_DAYS 日は光り、読めば消える。
+// 記事の配信日ではなく first_seen（アプリに入ってきた日）で見るのは、
+// 昔の記事を新しく見つけた日にも新着として知らせるため。
 function isNew(a) {
-  if (!NEW_BASE) return false;  // 初回訪問は全部が新着になってしまうので付けない
+  if (isRead(a)) return false;
   const src = a.first_seen || a.dt;
   if (!src) return false;
   const t = new Date(src).getTime();
-  return !isNaN(t) && t > NEW_BASE;
+  if (isNaN(t)) return false;
+  // 初めて開いた日より前に集まっていた記事には付けない。
+  // 付けてしまうと、初回や情報源を増やした日に全件が光って意味をなさなくなる。
+  // 7日たてば初回の時刻より「7日前」のほうが新しくなり、この縛りは自然に外れる。
+  return t > Math.max(Date.now() - NEW_DAYS * 86400000, FIRST_OPEN);
 }
 
 // ---- 表示用の小さな道具 --------------------------------------------------
@@ -194,10 +203,12 @@ function esc(s) {
 
 function fmtDate(iso) {
   const d = new Date(iso);
-  const p = new Intl.DateTimeFormat("ja-JP", {
-    timeZone: "Asia/Tokyo", month: "numeric", day: "numeric",
-  }).formatToParts(d).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
-  return p.month + "/" + p.day;
+  // 年をまたぐ記事は年も出す。月日だけだと2019年の記事が今年に見えてしまう。
+  const opt = { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" };
+  if (d.getFullYear() !== new Date().getFullYear()) opt.year = "numeric";
+  const p = new Intl.DateTimeFormat("ja-JP", opt)
+    .formatToParts(d).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
+  return (p.year ? p.year + "/" : "") + p.month + "/" + p.day;
 }
 
 function relTime(iso) {
@@ -291,10 +302,31 @@ function renderCard(a, hidden, lead) {
   return h;
 }
 
+// テーマの見出し（名前・件数・NEW・まとめて既読ボタン）
+function groupHead(g, gi, all) {
+  const newCount = all.filter(isNew).length;
+  return '<h3 class="ghead"><span class="gname">' + esc(g.name) + "</span>"
+    + '<span class="gcount">' + countUnread(all) + "件</span>"
+    + (newCount ? '<span class="gnew">NEW ' + newCount + "</span>" : "")
+    + '<button class="read-all" type="button" title="このテーマをまとめて既読にする">✓ 既読に</button>'
+    + "</h3>";
+}
+
 function renderGroup(g, gi) {
   const all = g.items || [];
-  const list = SHOW_ALL ? all : all.filter(function (a) { return !isRead(a); });
-  if (!list.length) return "";
+  const showRead = SHOW_ALL || REREAD[gi];
+  const list = showRead ? all : all.filter(function (a) { return !isRead(a); });
+
+  // 読み終えてもテーマは消さない。消えるとカテゴリごと画面から無くなり、
+  // 読み返す手段も分からなくなるため、見出しと戻り道は必ず残す。
+  if (!list.length) {
+    return '<section class="group done" data-group="' + gi + '">'
+      + groupHead(g, gi, all)
+      + '<div class="empty">すべて読み終えました 🎉'
+      + (all.length ? '<button class="reread-btn" type="button" data-reread="' + gi + '">'
+        + "読み返す（" + all.length + "件）</button>" : "")
+      + "</div></section>";
+  }
 
   const limit = SHOWN[gi] || RENDER_CHUNK;
   const items = list.slice(0, limit);
@@ -304,13 +336,18 @@ function renderGroup(g, gi) {
   const newCount = all.filter(isNew).length;
 
   let h = '<section class="group" data-group="' + gi + '">'
-    + '<h3 class="ghead"><span class="gname">' + esc(g.name) + "</span>"
-    + '<span class="gcount">' + countUnread(all) + "件</span>"
-    + (newCount ? '<span class="gnew">NEW ' + newCount + "</span>" : "")
-    + '<button class="read-all" type="button" title="このテーマをまとめて既読にする">✓ 既読に</button>'
-    + "</h3>"
+    + groupHead(g, gi, all)
     + '<div class="gitems' + (opened ? " expanded" : "") + '">';
+  // 配信日が古い記事との境目に区切りを入れる。
+  // NEWバッジは「アプリに入ってきた新しさ」、この区切りは「記事自体の古さ」。
+  let dividerDone = false;
   items.forEach(function (a, i) {
+    const t = a.dt ? new Date(a.dt).getTime() : 0;
+    if (!dividerDone && t && (Date.now() - t) > OLD_DAYS * 86400000) {
+      dividerDone = true;
+      h += '<div class="agesep' + (!opened && i >= INITIAL_VISIBLE ? " extra" : "")
+        + '"><span>ここから1か月以上前の記事</span></div>';
+    }
     h += renderCard(a, !opened && i >= INITIAL_VISIBLE, i === 0);
   });
   h += "</div>";
@@ -340,17 +377,30 @@ function headUpdated(generatedAt) {
 // ---- 天気と株価 ------------------------------------------------------------
 // どちらも取れなかったときは何も出さない（1つ落ちても全体は止めない方針）。
 
+// 気象庁は時間帯別の天気（晴/曇/雨）を出していない。取れるのは1日単位の天気と、
+// 6時間ごとの降水確率。そこでアイコンは1日単位にし、通勤（朝）と退勤（夕）は
+// その時間帯の降水確率で補う。
+function popPart(d, hour, label) {
+  const v = d.pops && d.pops[hour];
+  if (v == null) return "";
+  const strong = Number(v) >= 50 ? " strong" : "";
+  return '<span class="wpop' + strong + '">' + label + " ☔" + v + "%</span>";
+}
+
 function weatherLine(w) {
   if (!w || !w.days || !w.days.length) return "";
-  const parts = w.days.slice(0, 2).map(function (d, i) {
+  const rows = w.days.slice(0, 2).map(function (d, i) {
     const temp = (d.max != null ? d.max + "℃" : "")
-      + (d.min != null ? " / " + d.min + "℃" : "");
-    return '<span class="wday"><b>' + (i === 0 ? "今日" : "明日") + "</b> "
-      + esc(d.short || d.text) + (temp ? ' <span class="wtemp">' + temp + "</span>" : "")
-      + "</span>";
+      + (d.min != null ? "／" + d.min + "℃" : "");
+    return '<div class="wrow"><b>' + (i === 0 ? "今日" : "明日") + "</b>"
+      + '<span class="wicon">' + (d.icon || "") + "</span>"
+      + '<span class="wtext">' + esc(d.short || d.text) + "</span>"
+      + (temp ? '<span class="wtemp">' + temp + "</span>" : "")
+      + popPart(d, "06", "朝") + popPart(d, "12", "夕")
+      + "</div>";
   }).join("");
   return '<div class="weather" title="' + esc(w.days[0].text) + '">'
-    + '<span class="wplace">' + esc(w.place || "") + "</span>" + parts + "</div>";
+    + '<div class="wplace">' + esc(w.place || "") + "</div>" + rows + "</div>";
 }
 
 function stockBlock(list) {
@@ -366,6 +416,15 @@ function stockBlock(list) {
       + Math.abs(s.pct).toFixed(2) + "%）</span></div>";
   }).join("");
   return '<section class="stocks"><h2>📈 株価</h2>' + rows + "</section>";
+}
+
+function versionBlock(generatedAt) {
+  const rows = CHANGELOG.map(function (c) {
+    return "<tr><td>" + esc(c[0]) + "</td><td>" + esc(c[1]) + "</td><td>" + esc(c[2]) + "</td></tr>";
+  }).join("");
+  return '<footer class="ver"><details><summary>マイニュース <b>' + esc(APP_VERSION)
+    + "</b>　更新: " + esc(generatedAt || "") + "</summary>"
+    + '<table class="vlog">' + rows + "</table></details></footer>";
 }
 
 // 見た目の設定（テーマ・文字サイズ）をページ全体に反映する
@@ -408,7 +467,7 @@ function toolbar() {
   const favCount = Object.keys(FAV).length;
   return '<div class="tools">'
     + '<button class="tool-btn' + (SELECT_MODE ? " on" : "") + '" type="button" id="toggle-select">'
-    + (SELECT_MODE ? "☑ 選択中" : "☐ 選ぶ") + "</button>"
+    + (SELECT_MODE ? "✓ 選択をやめる" : "✓ まとめて既読") + "</button>"
     + '<button class="tool-btn star' + (SHOW_FAV ? " on" : "") + '" type="button" id="toggle-fav">'
     + "★ お気に入り" + (favCount ? " " + favCount : "") + "</button>"
     + '<button class="tool-btn' + (SHOW_ALL ? " on" : "") + '" type="button" id="toggle-read">'
@@ -467,8 +526,6 @@ function render(data) {
     + weatherLine(data.weather)
     + toolbar() + "</header>");
 
-  parts.push(stockBlock(data.stocks));
-
   const cats = (data.categories || []).map(function (c) { return c.name; });
   const navs = cats.map(function (name, i) {
     let u = 0;
@@ -519,6 +576,9 @@ function render(data) {
     parts.push("</div></details>");
   }
 
+  parts.push(stockBlock(data.stocks));
+  parts.push(versionBlock(data.generated_at));
+
   if (window.console && console.table) {
     console.groupCollapsed("マイニュース 取得サマリー");
     console.table(data.sources || []);
@@ -537,12 +597,20 @@ function render(data) {
   // 選択中は画面下に操作バーを出す
   if (SELECT_MODE) {
     parts.push('<div class="pickspacer"></div>');   // 固定バーで最後の記事が隠れないように
-    parts.push('<div class="pickbar"><span id="pick-count">' + SELECTED.size + "件を選択</span>"
-      + '<button class="tool-btn" type="button" id="pick-clear">解除</button>'
-      + '<button class="tool-btn on" type="button" id="pick-read">選んだ分を既読に</button></div>');
+    parts.push('<div class="pickbar">'
+      + '<span id="pick-count">' + pickLabel() + "</span>"
+      + '<button class="pick-btn" type="button" id="pick-clear">やめる</button>'
+      + '<button class="pick-btn go" type="button" id="pick-read">既読にする</button></div>');
   }
 
   APP.innerHTML = parts.join("\n");
+}
+
+// 下のバーの文言。0件のときは何をすればよいかを書く。
+function pickLabel() {
+  return SELECTED.size
+    ? SELECTED.size + "件を選択中"
+    : "読んだ記事を押してください";
 }
 
 function rerender() {
@@ -599,7 +667,7 @@ APP.addEventListener("click", function (ev) {
       }
       // 数だけ書き換える（全体を描き直すと選ぶたびに重くなる）
       const n = document.getElementById("pick-count");
-      if (n) n.textContent = SELECTED.size + "件を選択";
+      if (n) n.textContent = pickLabel();
       return;
     }
   }
@@ -617,6 +685,16 @@ APP.addEventListener("click", function (ev) {
     const key = fav.dataset.fav;
     const a = BY_LINK[key] || FAV[key];
     if (a) { toggleFav(a); rerender(); }
+    return;
+  }
+  // 「読み返す」：そのテーマだけ既読も表示する
+  const reread = ev.target.closest(".reread-btn");
+  if (reread) {
+    const gi = Number(reread.dataset.reread);
+    REREAD[gi] = true;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
     return;
   }
   // 「さらに古い記事」：そのテーマだけ描く件数を増やす

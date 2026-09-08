@@ -13,6 +13,7 @@
     --chip-bg:#eef0f3; --chip-ink:#374151; --btn-bg:#fff;
     --read-opacity:.5;
     --videos-bg:#fdf2f2;   /* 動画ブロックの下地（記事と見分けるため） */
+    --pick-bg:#eff6ff;     /* 選択中のカード */
     --fs:1;           /* 文字サイズの倍率 */
   }
   /* 端末が暗い設定のとき（手動指定が無い＝自動のとき）だけ暗くする */
@@ -23,6 +24,7 @@
       --btn-bg:#1b1f27;
       --read-opacity:.8;
       --videos-bg:#1a1416;
+      --pick-bg:#16233a;
     }
   }
   /* 手動で「暗い」を選んだとき */
@@ -32,6 +34,7 @@
     --btn-bg:#1b1f27;
     --read-opacity:.8;
     --videos-bg:#1a1416;
+    --pick-bg:#16233a;
   }
   /* 文字サイズ */
   :root[data-font="s"] { --fs:.92; }
@@ -118,14 +121,59 @@
   :root[data-theme="dark"] .tool-btn.star.on,
   :root[data-theme="auto"] .tool-btn.star.on { color: #fbbf24; }
 
-  /* 天気（ヘッダーの1行） */
+  /* 天気（見出しの下） */
   .weather {
-    display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline;
-    margin-top: 6px; font-size: calc(12px * var(--fs)); color: var(--ink);
+    margin-top: 8px; padding: 7px 10px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--line);
+    font-size: calc(12.5px * var(--fs)); color: var(--ink);
   }
-  .weather .wplace { font-weight: 700; color: var(--sub); }
-  .weather .wday b { font-weight: 700; color: var(--sub); margin-right: 3px; }
-  .weather .wtemp { font-weight: 700; }
+  .weather .wplace {
+    font-size: calc(10.5px * var(--fs)); font-weight: 800;
+    letter-spacing: .08em; color: var(--sub); margin-bottom: 2px;
+  }
+  .weather .wrow { display: flex; align-items: center; gap: 7px; padding: 2px 0; flex-wrap: wrap; }
+  .weather .wrow b { font-weight: 700; color: var(--sub); min-width: 2.4em; }
+  .weather .wicon { font-size: calc(15px * var(--fs)); line-height: 1; }
+  .weather .wtext { flex: 1 1 auto; min-width: 6em; }
+  .weather .wtemp { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .weather .wpop {
+    font-size: calc(11px * var(--fs)); color: var(--sub); white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .weather .wpop.strong { color: #1d4ed8; font-weight: 700; }
+  :root[data-theme="dark"] .weather .wpop.strong,
+  :root[data-theme="auto"] .weather .wpop.strong { color: #93c5fd; }
+
+  /* 記事の古さの区切り（NEWバッジとは役割が違う） */
+  .agesep {
+    display: flex; align-items: center; gap: 8px;
+    margin: 10px 2px 8px; color: var(--sub); font-size: calc(10.5px * var(--fs));
+  }
+  .agesep::before, .agesep::after {
+    content: ""; flex: 1; height: 1px; background: var(--line);
+  }
+  .agesep span { white-space: nowrap; letter-spacing: .04em; }
+
+  /* 読み終えたテーマ（消さずに戻り道を残す） */
+  .group.done .empty { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .reread-btn {
+    padding: 4px 10px; border-radius: 999px; cursor: pointer; font-weight: 600;
+    border: 1px solid var(--line); background: var(--btn-bg); color: var(--cat);
+    font-size: calc(11.5px * var(--fs));
+  }
+
+  /* 版と更新履歴 */
+  footer.ver { margin-top: 30px; border-top: 1px solid var(--line); padding-top: 10px; }
+  footer.ver summary {
+    cursor: pointer; font-size: calc(11.5px * var(--fs)); color: var(--sub);
+  }
+  footer.ver table.vlog { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  footer.ver table.vlog td {
+    padding: 4px 6px; border-bottom: 1px dashed var(--line);
+    color: var(--sub); font-size: calc(11px * var(--fs)); vertical-align: top;
+  }
+  footer.ver table.vlog td:first-child { font-weight: 700; white-space: nowrap; }
+  footer.ver table.vlog td:nth-child(2) { white-space: nowrap; }
 
   /* 株価（記事とは別のブロック） */
   .stocks {
@@ -155,20 +203,28 @@
 
   /* 選んでまとめて既読にする */
   .card.picking { cursor: pointer; }
-  .card.picked { outline: 2px solid var(--accent); outline-offset: -1px; }
   .pick {
     position: absolute; top: 4px; right: 6px;
-    font-size: calc(15px * var(--fs)); color: var(--sub); line-height: 1;
+    font-size: calc(17px * var(--fs)); color: var(--sub); line-height: 1;
   }
   .pick.on { color: var(--accent); }
   .pickspacer { height: 56px; }
   .pickbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-    display: flex; align-items: center; gap: 8px; justify-content: center;
-    padding: 8px 12px; background: var(--card);
-    border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(0,0,0,.12);
-    font-size: calc(12px * var(--fs)); font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: var(--card);
+    border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(0,0,0,.14);
+    font-size: calc(12.5px * var(--fs)); font-weight: 700;
   }
+  .pickbar #pick-count { flex: 1 1 auto; color: var(--sub); }
+  .pick-btn {
+    padding: 9px 14px; border-radius: 10px; cursor: pointer; font-weight: 700;
+    border: 1px solid var(--line); background: var(--btn-bg); color: var(--sub);
+    font-size: calc(12.5px * var(--fs)); white-space: nowrap;
+  }
+  .pick-btn.go { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* 選択中であることが一目で分かるように、カード全体に色を敷く */
+  .card.picked { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--pick-bg); }
 
   /* 記事カード */
   .card {
