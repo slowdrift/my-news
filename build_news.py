@@ -64,8 +64,10 @@ OUTPUT_DATA = BASE_DIR / "data.js"       # 生成物（表示用データを JS 
 LOG_FILE = BASE_DIR / "fetch.log"        # 取得ログ（追記）
 ARCHIVE_FILE = BASE_DIR / "archive.json"  # これまでに見つけた記事の蓄積（消さずに貯める）
 
-# 1テーマあたり蓄積しておく上限。超えたら古いものから捨てる。
-ARCHIVE_MAX_PER_GROUP = 300
+# 1テーマあたり蓄積しておく上限。超えたら配信日の古いものから捨てる。
+# ※ 既読かどうかは収集側から分からないため、未読でも古ければ捨てられる。
+#    テーマごとに feeds.json の "keep" で変更できる（人物テーマは到達しないことが多い）。
+ARCHIVE_MAX_PER_GROUP = 500
 
 
 def load_archive(path: Path):
@@ -86,7 +88,7 @@ def save_archive(path: Path, archive) -> None:
     path.write_text(json.dumps(archive, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
-def merge_into_archive(archive, group_name, items, now_iso):
+def merge_into_archive(archive, group_name, items, now_iso, cap=None):
     """今回取得した記事を蓄積へ統合する。
 
     - すでにある記事（同じURL）は残し、first_seen を保つ
@@ -116,7 +118,7 @@ def merge_into_archive(archive, group_name, items, now_iso):
     merged = dedupe_by_title(list(by_link.values()))
     # 新しい順に整え、上限を超えた分は古いものから捨てる
     merged.sort(key=lambda x: x.get("dt") or "", reverse=True)
-    archive[group_name] = merged[:ARCHIVE_MAX_PER_GROUP]
+    archive[group_name] = merged[:(cap or ARCHIVE_MAX_PER_GROUP)]
     return archive[group_name]
 
 
@@ -376,7 +378,7 @@ def expand_topic(entry):
         if entry.get("exclude"):
             feed["exclude"] = entry["exclude"]
         # 記事の重み付け（⑥）：優先したい語・後ろに回したい語
-        for key in ("prefer", "demote", "blog_last"):
+        for key in ("prefer", "demote", "blog_last", "keep"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -403,7 +405,7 @@ def expand_topic(entry):
             **news_tpl.get("opts", {}),
             "backfill": {"url": news_tpl["url"], "q": q_site},
         }
-        for key in ("exclude", "prefer", "demote", "blog_last"):
+        for key in ("exclude", "prefer", "demote", "blog_last", "keep"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
         # 自動で作る必須語は使わないが、明示された必須語は効かせる
@@ -457,7 +459,9 @@ def load_feeds(path: Path):
 # 取得・表示に関する調整値
 TIMEOUT_SEC = 10        # 1フィードあたりの取得タイムアウト
 MAX_ITEMS_PER_FEED = 60   # 1フィードから取り込む上限（重複除去の前に切らないため多めに）
-MAX_ITEMS_PER_GROUP = 30  # 1テーマから data.js に載せる件数（重複を除いた後の値）
+# ※ 以前は1テーマ30件だけを data.js に載せていた。その結果、貯めた記事の
+#    73%が画面に届かず、読み切っても「すべて読み終えました」と出ていた。
+#    収集側は選ばず全件を渡し、出す量は表示側（既読を知っている側）が決める。
 SUMMARY_MAX_LEN = 120   # リード文の最大文字数
 
 # ----------------------------------------------------------------------------
@@ -980,6 +984,9 @@ def main():
     # 同じテーマに複数のフィードがぶら下がることがあるので、すべて足し合わせる。
     rank_rules = {}
     blog_last = {}
+    keep_rules = {}       # テーマごとの蓄積上限（feeds.json の keep）
+    exclude_rules = {}    # テーマごとのNG語（貯めてある分にも当て直す）
+    video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
         for f in feeds:
             g = f.get("group") or f.get("name")
@@ -991,6 +998,12 @@ def main():
             # ただしAIの使いこなしのように、ブログこそが本命のテーマもある。
             if f.get("blog_last") is False:
                 blog_last[g] = False
+            if f.get("keep"):
+                keep_rules[g] = int(f["keep"])
+            if f.get("exclude"):
+                exclude_rules.setdefault(g, []).extend(f["exclude"])
+            if f.get("type") == "video":
+                video_groups.add(g)
 
     # 既に貯めてある記事にも、今の基準を当て直す。
     # 設定を直しても過去分が古いままだと、ラベル漏れや変な並びが残り続けるため。
@@ -1016,6 +1029,39 @@ def main():
             if not a.get("blog") and looks_like_blog(a.get("link", ""), a.get("via_host", "")):
                 a["blog"] = True
                 reblogged += 1
+    # 設定から外したテーマの蓄積を捨てる（残しても表示されず、保存だけが膨らむ）
+    live_groups = {f.get("group") or f.get("name")
+                   for feeds in feeds_by_cat.values() for f in feeds}
+    gone = [g for g in archive if g not in live_groups]
+    if gone:
+        n = sum(len(archive[g]) for g in gone)
+        for g in gone:
+            del archive[g]
+        line = f"整理: 設定から外したテーマ {', '.join(gone)} の{n}件を削除"
+        log_lines.append(line)
+        print(line)
+
+    # NG語（exclude）を貯めてある記事にも当て直す。設定を直しても過去分が残るため。
+    # あわせて、動画フィードを持たないテーマに紛れ込んだ動画も外す。
+    ng_removed = 0
+    for g, items in archive.items():
+        ng = exclude_rules.get(g) or []
+        keep = []
+        for a in items:
+            text = (a.get("title") or "") + " " + (a.get("summary") or "")
+            if ng and any(w in text for w in ng):
+                ng_removed += 1
+                continue
+            if a.get("kind") == "video" and g not in video_groups:
+                ng_removed += 1
+                continue
+            keep.append(a)
+        archive[g] = keep
+    if ng_removed:
+        line = f"整理: NG語・場違いな動画 {ng_removed}件を削除"
+        log_lines.append(line)
+        print(line)
+
     # 見出しに含むべき語（require）を、貯めてある記事にも当て直す。
     # 設定を直しても過去分が残っていては、無関係な記事が消えないため。
     # ただしサイト指定検索を使うテーマは対象外。あちらは「見出しに名前が無くても
@@ -1202,19 +1248,31 @@ def main():
     # これまでに見つけた記事の蓄積を読み込む（未読のまま消えないようにするため）
     # カテゴリごとにテーマ(group)へ束ねる。group の初出順を保つ。
     for cat, collected in cat_items:
-        order = []
         buckets = {}
         for a in collected:
-            g = a.get("group") or "その他"
-            if g not in buckets:
-                buckets[g] = []
+            buckets.setdefault(a.get("group") or "その他", []).append(a)
+
+        # テーマの並びは feeds.json の定義順にする。
+        # 以前は「今回取れた記事」からテーマを組み立てていたため、
+        # 配信側が一時的に落ちるとテーマごと画面から消えていた
+        #（実測：YouTubeが4本エラーになり、蓄積9〜14件があるのに0件表示）。
+        # 貯めてある以上は出す。それがストック型にした意味だから。
+        order = []
+        for f in feeds_by_cat.get(cat, []):
+            g = f.get("group") or f.get("name")
+            if g and g not in order:
                 order.append(g)
-            buckets[g].append(a)
+        for g in buckets:
+            if g not in order:
+                order.append(g)
+
         groups_out = []
         for g in order:
             # 今回の取得分を蓄積へ統合し、過去に見つけた記事も一緒に扱う
-            fresh = [to_json_item(a) for a in buckets[g]]
-            merged = merge_into_archive(archive, g, fresh, now_iso)
+            fresh = [to_json_item(a) for a in buckets.get(g, [])]
+            if not fresh and not archive.get(g):
+                continue   # 取れず、蓄積も無いテーマは出さない
+            merged = merge_into_archive(archive, g, fresh, now_iso, keep_rules.get(g))
 
             # 並べ替え：新しい順 →「読めないもの・個人ブログは後ろ」の順に安定ソート。
             # 先に読める報道を持ってくることで、冒頭が有料記事だらけになるのを防ぐ。
@@ -1223,7 +1281,7 @@ def main():
             if blog_last.get(g, True):
                 items.sort(key=lambda a: bool(a.get("blog")))
             items.sort(key=lambda a: a.get("paywall") in ("paid", "member", "partial"))
-            groups_out.append({"name": g, "items": items[:MAX_ITEMS_PER_GROUP]})
+            groups_out.append({"name": g, "items": items})
         categories_out.append({"name": cat, "groups": groups_out})
 
     # 蓄積を保存（次回以降、未読の記事が消えないようにするため）

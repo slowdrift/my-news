@@ -201,11 +201,13 @@
 
   /* skim：初期は隠しておく余剰カード */
   .gitems:not(.expanded) > .card.extra { display: none; }
-  .more-btn {
+  .more-btn, .older-btn {
     display: block; width: 100%; margin: 2px 0 4px; padding: 6px;
     background: transparent; border: 1px dashed var(--line); border-radius: 9px;
     color: var(--cat); font-size: calc(12px * var(--fs)); font-weight: 700; cursor: pointer;
   }
+  /* 「さらに古い記事」は、貯めてある記事へ降りていくボタン。控えめに */
+  .older-btn { border-style: solid; color: var(--sub); font-weight: 600; }
 
   /* 動画ブロック（記事と分けて最下部に置く）
      記事の一覧と地続きに見えないよう、枠で囲んだ別ブロックとして扱う */

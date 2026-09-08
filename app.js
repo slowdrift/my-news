@@ -12,6 +12,12 @@ const APP = document.getElementById("app");
 // テーマごとに初期表示する件数
 const INITIAL_VISIBLE = 3;
 
+// 一度に画面へ描くテーマあたりの件数。
+// 収集側は貯めた全件を渡してくる（数百件になるテーマもある）ので、
+// 描く量はこちらで抑える。足りなければ「さらに古い記事」で伸ばす。
+const RENDER_CHUNK = 30;
+let SHOWN = {};   // テーマの通し番号 → いま何件まで描いているか
+
 // カテゴリごとのアクセント色（見出し・リード・件数に薄く効かせる）
 const CAT_COLORS = ["#7c3aed", "#2563eb", "#059669", "#ea580c", "#ca8a04", "#db2777", "#0891b2"];
 
@@ -26,9 +32,8 @@ const SHOWALL_KEY = "mynews_showall";  // "1" なら既読も表示
 const SHOWFAV_KEY = "mynews_showfav";  // "1" ならお気に入りだけ表示
 const THEME_KEY = "mynews_theme";      // "auto" | "light" | "dark"
 const FONT_KEY = "mynews_font";        // "s" | "m" | "l"
-const LASTOPEN_KEY = "mynews_lastseen"; // 前回このページを開いた時刻(ms)
-const BUILD_KEY = "mynews_lastbuild";   // 前回開いたデータの生成時刻（NEWを据え置くための鍵）
-const NEWBASE_KEY = "mynews_newbase";   // NEW判定の基準時刻(ms)。データが変わるまで動かさない
+const BUILD_KEY = "mynews_lastbuild";   // 前回あなたが見たデータの生成時刻
+const NEWBASE_KEY = "mynews_newbase";   // NEW判定の基準時刻(ms)
 
 // 既読の記録は「日付では消さない」。一度読んだ記事は、ずっと既読のままにする。
 // 増えすぎたときだけ、古い記録から減らして容量を抑える。
@@ -76,20 +81,26 @@ let SHOW_FAV = lsGet(SHOWFAV_KEY, "0") === "1";
 let THEME = lsGet(THEME_KEY, "auto");
 let FONT = lsGet(FONT_KEY, "m");
 
-// NEW判定の基準時刻。
-// 以前は「描画のたびに今の時刻へ更新」していたため、一度開くと基準が“たった今”になり、
-// 再読み込み（スマホの引っぱって更新）でバッジが必ず消えていた。
-// そこで基準を、データ（generated_at）が入れ替わるまで動かさないようにする。
-//   基準 = 「新しいデータが届く前に、最後にアプリを開いた時刻」
-// これなら同じデータを何度読み込んでも NEW は据え置かれる。
+// NEW判定の基準時刻 =「前回あなたが見たデータ（毎朝の更新分）が作られた時刻」。
+//
+// 最初は「描画のたびに今の時刻へ更新」していたため、一度開くと必ず消えた。
+// 次に「前回アプリを開いた時刻」にしたが、これは開いた回数で結果が変わってしまう
+// （日中に更新が何度も入ると、そのたびに新着の窓が塞がる）。
+// データの時刻を基準にすれば、何度開いても、何日ぶりに開いても、
+// 「前に見たニュースより後に入ってきた記事」だけが正しく光る。
+function buildTime(s) {
+  const m = String(s || "").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime() : 0;
+}
+
 const BUILD_ID = String((window.NEWS_DATA || {}).generated_at || "");
+const PREV_BUILD = lsGet(BUILD_KEY, "");
 let NEW_BASE = Number(lsGet(NEWBASE_KEY, "0")) || 0;
-if (BUILD_ID && BUILD_ID !== lsGet(BUILD_KEY, "")) {
-  NEW_BASE = Number(lsGet(LASTOPEN_KEY, "0")) || 0;  // 前回開いた時刻まで基準を進める
+if (BUILD_ID && BUILD_ID !== PREV_BUILD) {
+  NEW_BASE = buildTime(PREV_BUILD);   // 初回訪問は 0（＝NEWを付けない）
   lsSet(NEWBASE_KEY, String(NEW_BASE));
   lsSet(BUILD_KEY, BUILD_ID);
 }
-lsSet(LASTOPEN_KEY, String(Date.now()));
 
 // ---- 記事の「鍵」-----------------------------------------------------------
 // 同じ記事でも、検索の経路が違うとURLが変わることがある。URLだけを鍵にすると、
@@ -269,10 +280,14 @@ function renderCard(a, hidden, lead) {
 
 function renderGroup(g, gi) {
   const all = g.items || [];
-  const items = SHOW_ALL ? all : all.filter(function (a) { return !isRead(a); });
-  if (!items.length) return "";
+  const list = SHOW_ALL ? all : all.filter(function (a) { return !isRead(a); });
+  if (!list.length) return "";
 
-  const hiddenCount = Math.max(0, items.length - INITIAL_VISIBLE);
+  const limit = SHOWN[gi] || RENDER_CHUNK;
+  const items = list.slice(0, limit);
+  const older = list.length - items.length;   // まだ描いていない古い記事
+  const opened = !!SHOWN[gi];                 // 一度伸ばしたら畳まない
+  const hiddenCount = opened ? 0 : Math.max(0, items.length - INITIAL_VISIBLE);
   const newCount = all.filter(isNew).length;
 
   let h = '<section class="group" data-group="' + gi + '">'
@@ -281,14 +296,18 @@ function renderGroup(g, gi) {
     + (newCount ? '<span class="gnew">NEW ' + newCount + "</span>" : "")
     + '<button class="read-all" type="button" title="このテーマをまとめて既読にする">✓ 既読に</button>'
     + "</h3>"
-    + '<div class="gitems">';
+    + '<div class="gitems' + (opened ? " expanded" : "") + '">';
   items.forEach(function (a, i) {
-    h += renderCard(a, i >= INITIAL_VISIBLE, i === 0);
+    h += renderCard(a, !opened && i >= INITIAL_VISIBLE, i === 0);
   });
   h += "</div>";
   if (hiddenCount > 0) {
     h += '<button class="more-btn" type="button" data-more="' + hiddenCount + '">'
       + "もっと見る（+" + hiddenCount + "）</button>";
+  }
+  if (older > 0) {
+    h += '<button class="older-btn" type="button" data-older="' + gi + '">'
+      + "さらに古い記事（+" + Math.min(older, RENDER_CHUNK) + "／残り" + older + "）</button>";
   }
   h += "</section>";
   return h;
@@ -494,6 +513,16 @@ APP.addEventListener("click", function (ev) {
     const key = fav.dataset.fav;
     const a = BY_LINK[key] || FAV[key];
     if (a) { toggleFav(a); rerender(); }
+    return;
+  }
+  // 「さらに古い記事」：そのテーマだけ描く件数を増やす
+  const older = ev.target.closest(".older-btn");
+  if (older) {
+    const gi = Number(older.dataset.older);
+    SHOWN[gi] = (SHOWN[gi] || RENDER_CHUNK) + RENDER_CHUNK;
+    const y = window.scrollY;   // 描き直しで位置が飛ばないように戻す
+    rerender();
+    window.scrollTo(0, y);
     return;
   }
   // 「もっと見る」/「閉じる」
