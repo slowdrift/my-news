@@ -118,6 +118,58 @@
   :root[data-theme="dark"] .tool-btn.star.on,
   :root[data-theme="auto"] .tool-btn.star.on { color: #fbbf24; }
 
+  /* 天気（ヘッダーの1行） */
+  .weather {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline;
+    margin-top: 6px; font-size: calc(12px * var(--fs)); color: var(--ink);
+  }
+  .weather .wplace { font-weight: 700; color: var(--sub); }
+  .weather .wday b { font-weight: 700; color: var(--sub); margin-right: 3px; }
+  .weather .wtemp { font-weight: 700; }
+
+  /* 株価（記事とは別のブロック） */
+  .stocks {
+    margin: 10px 0 4px; padding: 8px 12px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .stocks h2 {
+    margin: 0 0 4px; font-size: calc(11px * var(--fs)); font-weight: 800;
+    letter-spacing: .08em; color: var(--sub);
+  }
+  .stocks .srow {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: calc(13px * var(--fs)); padding: 2px 0;
+  }
+  .stocks .sname { font-weight: 600; }
+  .stocks .sprice { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stocks .sdiff {
+    font-size: calc(11.5px * var(--fs)); font-weight: 700; color: var(--sub);
+    min-width: 8.5em; text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .stocks .sdiff.up { color: #b91c1c; }     /* 日本の慣習に合わせ、上げは赤 */
+  .stocks .sdiff.down { color: #1d4ed8; }
+  :root[data-theme="dark"] .stocks .sdiff.up,
+  :root[data-theme="auto"] .stocks .sdiff.up { color: #f87171; }
+  :root[data-theme="dark"] .stocks .sdiff.down,
+  :root[data-theme="auto"] .stocks .sdiff.down { color: #93c5fd; }
+
+  /* 選んでまとめて既読にする */
+  .card.picking { cursor: pointer; }
+  .card.picked { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .pick {
+    position: absolute; top: 4px; right: 6px;
+    font-size: calc(15px * var(--fs)); color: var(--sub); line-height: 1;
+  }
+  .pick.on { color: var(--accent); }
+  .pickspacer { height: 56px; }
+  .pickbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+    padding: 8px 12px; background: var(--card);
+    border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(0,0,0,.12);
+    font-size: calc(12px * var(--fs)); font-weight: 700;
+  }
+
   /* 記事カード */
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 10px;

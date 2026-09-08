@@ -18,6 +18,11 @@ const INITIAL_VISIBLE = 3;
 const RENDER_CHUNK = 30;
 let SHOWN = {};   // テーマの通し番号 → いま何件まで描いているか
 
+// 選んでまとめて既読にするための状態。
+// 「テーマごと全部」と「1件ずつ」の中間が無かったので、選んでから消せるようにする。
+let SELECT_MODE = false;
+let SELECTED = new Set();
+
 // カテゴリごとのアクセント色（見出し・リード・件数に薄く効かせる）
 const CAT_COLORS = ["#7c3aed", "#2563eb", "#059669", "#ea580c", "#ca8a04", "#db2777", "#0891b2"];
 
@@ -239,7 +244,12 @@ function metaRow(a) {
 }
 
 // ★ボタン。リンクの外側に置くので、押しても記事は開かない。
+// 選択中はチェック印に置き換える（右上に2つ並べると押し間違えるため）。
 function favBtn(a) {
+  if (SELECT_MODE) {
+    const picked = SELECTED.has(favKey(a));
+    return '<span class="pick' + (picked ? " on" : "") + '">' + (picked ? "☑" : "☐") + "</span>";
+  }
   const on = isFav(a);
   return '<button class="fav' + (on ? " on" : "") + '" type="button"'
     + ' data-fav="' + esc(favKey(a)) + '"'
@@ -254,7 +264,10 @@ function renderCard(a, hidden, lead) {
     + (a.kind === "video" ? " video" : "")
     + (lead && a.kind !== "video" ? " lead" : "")
     + (hidden ? " extra" : "")
-    + (isRead(a) ? " read" : "");
+    + (isRead(a) ? " read" : "")
+    + (SELECT_MODE ? " picking" : "")
+    + (SELECT_MODE && SELECTED.has(favKey(a)) ? " picked" : "")
+    + '" data-key="' + esc(favKey(a));
 
   if (a.kind === "video") {
     let h = '<div class="' + cls + '">'
@@ -324,6 +337,37 @@ function headUpdated(generatedAt) {
   return "更新: " + esc(generatedAt) + '<span class="age' + stale + '">' + note + "</span>";
 }
 
+// ---- 天気と株価 ------------------------------------------------------------
+// どちらも取れなかったときは何も出さない（1つ落ちても全体は止めない方針）。
+
+function weatherLine(w) {
+  if (!w || !w.days || !w.days.length) return "";
+  const parts = w.days.slice(0, 2).map(function (d, i) {
+    const temp = (d.max != null ? d.max + "℃" : "")
+      + (d.min != null ? " / " + d.min + "℃" : "");
+    return '<span class="wday"><b>' + (i === 0 ? "今日" : "明日") + "</b> "
+      + esc(d.short || d.text) + (temp ? ' <span class="wtemp">' + temp + "</span>" : "")
+      + "</span>";
+  }).join("");
+  return '<div class="weather" title="' + esc(w.days[0].text) + '">'
+    + '<span class="wplace">' + esc(w.place || "") + "</span>" + parts + "</div>";
+}
+
+function stockBlock(list) {
+  if (!list || !list.length) return "";
+  const rows = list.map(function (s) {
+    const up = s.diff > 0, down = s.diff < 0;
+    const sign = up ? "▲" : (down ? "▼" : "―");
+    const cls = up ? " up" : (down ? " down" : "");
+    return '<div class="srow"><span class="sname">' + esc(s.name) + "</span>"
+      + '<span class="sprice">' + Number(s.price).toLocaleString("ja-JP") + "</span>"
+      + '<span class="sdiff' + cls + '">' + sign + " "
+      + Math.abs(s.diff).toLocaleString("ja-JP") + "（" + (up ? "+" : down ? "-" : "")
+      + Math.abs(s.pct).toFixed(2) + "%）</span></div>";
+  }).join("");
+  return '<section class="stocks"><h2>📈 株価</h2>' + rows + "</section>";
+}
+
 // 見た目の設定（テーマ・文字サイズ）をページ全体に反映する
 function applyPrefs() {
   const root = document.documentElement;
@@ -363,6 +407,8 @@ function toolbar() {
   const fontLabel = { s: "小", m: "中", l: "大" }[FONT] || "中";
   const favCount = Object.keys(FAV).length;
   return '<div class="tools">'
+    + '<button class="tool-btn' + (SELECT_MODE ? " on" : "") + '" type="button" id="toggle-select">'
+    + (SELECT_MODE ? "☑ 選択中" : "☐ 選ぶ") + "</button>"
     + '<button class="tool-btn star' + (SHOW_FAV ? " on" : "") + '" type="button" id="toggle-fav">'
     + "★ お気に入り" + (favCount ? " " + favCount : "") + "</button>"
     + '<button class="tool-btn' + (SHOW_ALL ? " on" : "") + '" type="button" id="toggle-read">'
@@ -418,7 +464,10 @@ function render(data) {
     + '<span class="unread">未読 ' + totalUnread + "件</span>"
     + (totalNew ? '<span class="newcount">NEW ' + totalNew + "</span>" : "")
     + "</div>"
+    + weatherLine(data.weather)
     + toolbar() + "</header>");
+
+  parts.push(stockBlock(data.stocks));
 
   const cats = (data.categories || []).map(function (c) { return c.name; });
   const navs = cats.map(function (name, i) {
@@ -485,6 +534,14 @@ function render(data) {
     parts.push("</table></details></footer>");
   }
 
+  // 選択中は画面下に操作バーを出す
+  if (SELECT_MODE) {
+    parts.push('<div class="pickspacer"></div>');   // 固定バーで最後の記事が隠れないように
+    parts.push('<div class="pickbar"><span id="pick-count">' + SELECTED.size + "件を選択</span>"
+      + '<button class="tool-btn" type="button" id="pick-clear">解除</button>'
+      + '<button class="tool-btn on" type="button" id="pick-read">選んだ分を既読に</button></div>');
+  }
+
   APP.innerHTML = parts.join("\n");
 }
 
@@ -506,6 +563,53 @@ function markGroupRead(items) {
 // ---- 操作 ---------------------------------------------------------------
 
 APP.addEventListener("click", function (ev) {
+  // ---- 選択モード中の操作 ----
+  if (SELECT_MODE) {
+    if (ev.target.closest("#pick-clear")) {
+      SELECTED.clear();
+      rerender();
+      return;
+    }
+    if (ev.target.closest("#pick-read")) {
+      SELECTED.forEach(function (key) {
+        const a = BY_LINK[key] || { link: key, title: "" };
+        markRead(a);
+      });
+      SELECTED.clear();
+      SELECT_MODE = false;
+      rerender();
+      return;
+    }
+    // カードのどこを押しても選択が切り替わる（記事は開かない）
+    const card = ev.target.closest(".card");
+    if (card && card.dataset.key) {
+      ev.preventDefault();
+      const key = card.dataset.key;
+      if (SELECTED.has(key)) {
+        SELECTED.delete(key);
+        card.classList.remove("picked");
+      } else {
+        SELECTED.add(key);
+        card.classList.add("picked");
+      }
+      const mark = card.querySelector(".pick");
+      if (mark) {
+        mark.textContent = SELECTED.has(key) ? "☑" : "☐";
+        mark.classList.toggle("on", SELECTED.has(key));
+      }
+      // 数だけ書き換える（全体を描き直すと選ぶたびに重くなる）
+      const n = document.getElementById("pick-count");
+      if (n) n.textContent = SELECTED.size + "件を選択";
+      return;
+    }
+  }
+  // 「選ぶ」の切り替え
+  if (ev.target.closest("#toggle-select")) {
+    SELECT_MODE = !SELECT_MODE;
+    SELECTED.clear();
+    rerender();
+    return;
+  }
   // ★お気に入りの登録・解除（記事は開かない）
   const fav = ev.target.closest(".fav");
   if (fav) {

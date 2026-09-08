@@ -805,6 +805,110 @@ def is_duplicate_title(norm: str, seen_titles) -> bool:
 
 
 # ----------------------------------------------------------------------------
+# 天気と株価
+#   どちらも「取れなければ黙って消える」。ニュースの取得を止めない。
+# ----------------------------------------------------------------------------
+
+JMA_URL = "https://www.jma.go.jp/bosai/forecast/data/forecast/{area}.json"
+STOCK_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{code}?range=5d&interval=1d"
+
+
+def get_json(url: str, timeout: int = 12):
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def fetch_weather(cfg):
+    """気象庁の公開データから、今日と明日の天気を取る。
+
+    公式が出しているJSONで、APIキーも登録も要らない（継続コストゼロの条件を満たす）。
+    形が変わることもあるので、取れたところだけ返して残りは空にする。
+    """
+    if not cfg or not cfg.get("area"):
+        return None
+    try:
+        data = get_json(JMA_URL.format(area=cfg["area"]))
+    except Exception as e:
+        print(f"天気: 取得できず（{type(e).__name__}）")
+        return None
+
+    out = {"place": cfg.get("point") or "", "days": []}
+    try:
+        series = data[0]["timeSeries"]
+        # 天気の文章（今日・明日・明後日）
+        wx = next(t for t in series if "weathers" in t["areas"][0])
+        w_times = wx["timeDefines"]
+        w_texts = wx["areas"][0]["weathers"]
+        out["office"] = data[0].get("publishingOffice", "")
+        # 気温。地点名（水戸など）が一致するものを選ぶ
+        temps_by_time = {}
+        for t in series:
+            if "temps" not in t["areas"][0]:
+                continue
+            area = next((a for a in t["areas"]
+                         if a["area"]["name"] == out["place"]), t["areas"][0])
+            for when, val in zip(t["timeDefines"], area["temps"]):
+                temps_by_time.setdefault(when[:10], []).append(val)
+        for when, text in list(zip(w_times, w_texts))[:2]:
+            day = when[:10]
+            vals = [int(v) for v in temps_by_time.get(day, []) if str(v).lstrip("-").isdigit()]
+            # 気象庁の文章は区切りに空白が入る（「くもり　時々　雨　所により…」）。
+            # 詰めて1行にし、一目で分かる前半だけ short に持たせる。
+            full = re.sub(r"[\s　]+", "", text)
+            short = re.split(r"所により|ところにより", full)[0] or full
+            hi = max(vals) if vals else None
+            lo = min(vals) if vals else None
+            out["days"].append({
+                "date": day,
+                "text": full,
+                "short": short[:14],
+                "max": hi,
+                "min": lo if (lo is not None and hi is not None and lo != hi) else None,
+            })
+    except Exception as e:
+        print(f"天気: 形が読めず（{type(e).__name__}）")
+        return out if out["days"] else None
+    print(f"天気: {out['place']} {len(out['days'])}日分")
+    return out
+
+
+def fetch_stocks(items):
+    """設定した銘柄の値段と前日比を取る。
+
+    ※取得先は公式に開放されたものではない。使えなくなったら黙って消える作りにする
+      （1つ落ちても全体を止めない、という既存の方針と同じ）。
+    """
+    if not items:
+        return []
+    out = []
+    for it in items:
+        code = it.get("code")
+        if not code:
+            continue
+        try:
+            data = get_json(STOCK_URL.format(code=quote(code)))
+            m = data["chart"]["result"][0]["meta"]
+            price = m.get("regularMarketPrice")
+            prev = m.get("chartPreviousClose") or m.get("previousClose")
+            if price is None or prev in (None, 0):
+                continue
+            out.append({
+                "name": it.get("name") or m.get("shortName") or code,
+                "code": code,
+                "price": price,
+                "diff": round(price - prev, 2),
+                "pct": round((price - prev) / prev * 100, 2),
+                "currency": m.get("currency", ""),
+            })
+        except Exception as e:
+            print(f"株価 {code}: 取得できず（{type(e).__name__}）")
+    if out:
+        print(f"株価: {len(out)}/{len(items)}銘柄を取得")
+    return out
+
+
+# ----------------------------------------------------------------------------
 # 取得
 # ----------------------------------------------------------------------------
 
@@ -1299,8 +1403,15 @@ def main():
     # data.js 書き出し（UTF-8・日本語そのまま）
     #   window.NEWS_DATA にデータを入れる形にすると、<script src> で読めるため
     #   ローカルサーバ無しの file:// でも動く（fetch はブロックされるため使わない）。
+    # 天気と株価（どちらも失敗したら黙って消える）
+    conf = json.loads(FEEDS_FILE.read_text(encoding="utf-8"))
+    weather = fetch_weather(conf.get("weather"))
+    stocks = fetch_stocks(conf.get("stocks"))
+
     data = {
         "generated_at": generated_at,
+        "weather": weather,
+        "stocks": stocks,
         "categories": categories_out,
         "sources": summary_rows,
     }
