@@ -252,6 +252,40 @@
     position: relative;   /* ★ボタンを右上に置くため */
   }
 
+  /* 指で払って仕分ける。
+     touch-action: pan-y は「縦の送りはブラウザに任せ、横はこちらで扱う」の意味。
+     これを書かないと、横に払っても画面が一緒に動いてしまう。 */
+  .card { touch-action: pan-y; }
+  .card.swiping { transition: none; will-change: transform; }
+  .card.sw-out { transition: transform .18s ease, opacity .18s ease; }
+
+  /* いま何が起きるかを画面上部に出す（払っている最中だけ） */
+  #swipe-hint {
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 30;
+    padding: 7px 14px; border-radius: 999px; pointer-events: none;
+    font-size: 12.5px; font-weight: 700;
+    background: var(--card); color: var(--sub); border: 1px solid var(--line);
+    box-shadow: 0 2px 10px rgba(0,0,0,.15);
+  }
+  #swipe-hint.read.ready { background: #15803d; color: #fff; border-color: #15803d; }
+  #swipe-hint.fav.ready { background: #b45309; color: #fff; border-color: #b45309; }
+
+  /* 取り消しの案内。指1本で消せてしまうので、必ず戻り道を出す */
+  #toast {
+    position: fixed; left: 12px; right: 12px; bottom: 14px; z-index: 30;
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-radius: 12px;
+    background: var(--ink); color: var(--bg);
+    font-size: 13px; font-weight: 700;
+    box-shadow: 0 4px 16px rgba(0,0,0,.28);
+  }
+  #toast span { flex: 1 1 auto; }
+  #toast button {
+    padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid currentColor; background: transparent; color: inherit;
+    font-size: 12.5px; font-weight: 700; white-space: nowrap;
+  }
+
   /* ★お気に入り。リンクの外側に置くので、押しても記事は開かない */
   .fav {
     position: absolute; top: 4px; right: 4px; width: 28px; height: 28px;

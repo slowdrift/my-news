@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.5.0";
+const APP_VERSION = "v1.6.0";
 const CHANGELOG = [
+  ["v1.6.0", "2026-09-09", "カードを右へ払うと既読、左へ払うとお気に入り。更新を朝と昼の2回に"],
   ["v1.5.0", "2026-09-08", "上部を4つに整理して設定を新設、テーマごとの一括既読、グロービスとAmazonのセールを追加、収集の精度を改善"],
   ["v1.4.0", "2026-09-08", "NHKを有料扱いに、読めない記事をまとめて既読に、「もっと見る」を1つに統合、本文で触れただけの記事に「関連」の印"],
   ["v1.3.0", "2026-09-08", "天気に時間帯の降水確率、株価を最下部へ、まとめて既読を分かりやすく、1か月以上前の記事に区切り"],
@@ -803,12 +804,129 @@ APP.addEventListener("click", function (ev) {
   // 記事を開いたら既読にする（その場では消さず、次に開いたときに消える）
   const link = ev.target.closest("a[data-link]");
   if (link) {
+    if (swDone) { swDone = false; ev.preventDefault(); return; }
     const a = BY_LINK[link.dataset.link] || { link: link.dataset.link, title: "" };
     markRead(a);
     const card = link.closest(".card");
     if (card) card.classList.add("read");
   }
 });
+
+// ---- 指で払って仕分ける（スワイプ）--------------------------------------
+// 右へ払う＝既読、左へ払う＝お気に入り。
+//
+// 気をつけること3つ:
+//  1) Androidは画面の左右どちらの端からのスワイプも「戻る」になる。
+//     端から始まった指の動きは相手にしない。
+//  2) 縦に送りたいのか横に払いたいのか、動き始めは分からない。
+//     横の動きが縦よりはっきり大きくなってから初めてカードを動かす。
+//  3) 指1本で完結してしまうので誤操作が起きる。必ず「元に戻す」を出す。
+
+const SWIPE_EDGE = 30;        // 画面の端から何pxを「戻る」用に空けるか
+const SWIPE_START = 12;       // これだけ動いたら向きを判定する
+const SWIPE_RATIO = 1.4;      // 横が縦のこの倍を超えたら「横に払った」とみなす
+const SWIPE_MIN = 60;         // 仕分けが成立する最小の距離(px)
+
+let swCard = null, swArticle = null, swX = 0, swY = 0, swDX = 0, swLock = "", swDone = false;
+
+function swipeHint(kind, ready) {
+  let el = document.getElementById("swipe-hint");
+  if (!kind) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "swipe-hint";
+    document.body.appendChild(el);
+  }
+  el.textContent = kind === "read" ? "✓ 既読にする" : "★ お気に入りに入れる";
+  el.className = kind + (ready ? " ready" : "");
+}
+
+function showToast(msg, undo) {
+  const old = document.getElementById("toast");
+  if (old) old.remove();
+  const el = document.createElement("div");
+  el.id = "toast";
+  el.innerHTML = '<span>' + esc(msg) + "</span>"
+    + '<button type="button" id="toast-undo">元に戻す</button>';
+  document.body.appendChild(el);
+  const timer = setTimeout(function () { el.remove(); }, 5000);
+  el.querySelector("#toast-undo").addEventListener("click", function () {
+    clearTimeout(timer);
+    el.remove();
+    undo();
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+  });
+}
+
+function swipeThreshold(card) {
+  return Math.max(SWIPE_MIN, card.getBoundingClientRect().width * 0.25);
+}
+
+APP.addEventListener("touchstart", function (ev) {
+  swCard = null; swLock = ""; swDX = 0; swDone = false;
+  if (SELECT_MODE || ev.touches.length !== 1) return;
+  const t = ev.touches[0];
+  // 画面の端は「戻る」に譲る
+  if (t.clientX < SWIPE_EDGE || t.clientX > window.innerWidth - SWIPE_EDGE) return;
+  const card = ev.target.closest(".card");
+  if (!card || !card.dataset.key) return;
+  swCard = card;
+  swArticle = BY_LINK[card.dataset.key] || FAV[card.dataset.key];
+  swX = t.clientX; swY = t.clientY;
+}, { passive: true });
+
+APP.addEventListener("touchmove", function (ev) {
+  if (!swCard || !swArticle) return;
+  const t = ev.touches[0];
+  const dx = t.clientX - swX, dy = t.clientY - swY;
+  if (!swLock) {
+    if (Math.abs(dy) > SWIPE_START && Math.abs(dy) >= Math.abs(dx)) { swCard = null; return; }
+    if (Math.abs(dx) < SWIPE_START || Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
+    swLock = "x";
+    swCard.classList.add("swiping");
+  }
+  swDX = dx;
+  ev.preventDefault();          // 横に払っている間は画面を動かさない
+  swCard.style.transform = "translateX(" + dx + "px)";
+  swCard.style.opacity = String(Math.max(0.35, 1 - Math.abs(dx) / 320));
+  swipeHint(dx > 0 ? "read" : "fav", Math.abs(dx) >= swipeThreshold(swCard));
+}, { passive: false });
+
+APP.addEventListener("touchend", function () {
+  if (!swCard) { swipeHint(""); return; }
+  const card = swCard, a = swArticle, dx = swDX;
+  swCard = null; swipeHint("");
+  card.classList.remove("swiping");
+  if (!swLock || Math.abs(dx) < swipeThreshold(card)) {
+    card.style.transform = ""; card.style.opacity = "";
+    return;
+  }
+  swDone = true;               // 直後の click で記事を開かないための目印
+  card.classList.add("sw-out");
+  card.style.transform = "translateX(" + (dx > 0 ? 1 : -1) * 400 + "px)";
+  card.style.opacity = "0";
+  setTimeout(function () {
+    const y = window.scrollY;
+    if (dx > 0) {
+      const link = a.link, key = titleKey(a);
+      markRead(a);
+      showToast("既読にしました", function () {
+        if (link) delete READ[link];
+        if (key) delete READ[key];
+        saveRead(READ);
+      });
+    } else {
+      const was = isFav(a);
+      toggleFav(a);
+      showToast(was ? "お気に入りから外しました" : "お気に入りに入れました",
+        function () { toggleFav(a); });
+    }
+    rerender();
+    window.scrollTo(0, y);
+  }, 180);
+}, { passive: true });
 
 // data.js（<script src> で先に読み込まれ window.NEWS_DATA に入っている）を描画。
 try {
