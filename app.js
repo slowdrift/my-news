@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.6.1";
+const APP_VERSION = "v1.6.2";
 const CHANGELOG = [
+  ["v1.6.2", "2026-09-09", "取れなかったフィードを画面に出し、更新が半日あいたら知らせるようにした"],
   ["v1.6.1", "2026-09-09", "カテゴリの開閉と「もっと見る」の位置を覚えるようにした"],
   ["v1.6.0", "2026-09-09", "カードを右へ払うと既読、左へ払うとお気に入り。更新を朝と昼の2回に"],
   ["v1.5.0", "2026-09-08", "上部を4つに整理して設定を新設、テーマごとの一括既読、グロービスとAmazonのセールを追加、収集の精度を改善"],
@@ -56,6 +57,7 @@ const OLD_DAYS = 30;
 let SELECT_MODE = false;
 let SELECTED = new Set();
 let SETTINGS_OPEN = false;
+let TROUBLE_OPEN = false;
 
 // カテゴリごとのアクセント色（見出し・リード・件数に薄く効かせる）
 const CAT_COLORS = ["#7c3aed", "#2563eb", "#059669", "#ea580c", "#ca8a04", "#db2777", "#0891b2"];
@@ -390,14 +392,48 @@ function renderGroup(g, gi) {
   return h;
 }
 
+// 取れなかったフィードだけを拾う。
+// 「0件（フィルタ後）」は絞り込みが効いた正常な結果なので数えない。
+// 何でも警告にすると、本当に困ったときに信用されなくなる。
+function troubled(sources) {
+  return (sources || []).filter(function (s) {
+    const st = String(s.status || "");
+    return st.indexOf("ERROR") === 0 || st.indexOf("0件（取得できず") === 0;
+  });
+}
+
+function troubleBlock(sources) {
+  const bad = troubled(sources);
+  if (!bad.length) return "";
+  let h = '<button class="trouble" type="button" id="show-trouble">⚠ '
+    + bad.length + "件届かず</button>";
+  if (TROUBLE_OPEN) {
+    h += '<div class="trouble-list">'
+      + "<p>いつもの取得先から記事が届きませんでした。"
+      + "貯めてある記事は表示しているので、画面は普段どおりに見えます。</p><table>"
+      + bad.map(function (s) {
+        return "<tr><td>" + esc(s.name) + "</td><td>" + esc(s.status) + "</td></tr>";
+      }).join("")
+      + "</table></div>";
+  }
+  return h;
+}
+
 function headUpdated(generatedAt) {
   if (!generatedAt) return "";
   const m = String(generatedAt).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
   if (!m) return "更新: " + esc(generatedAt);
   const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
-  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
-  const note = days >= 1 ? "（" + days + "日前）" : "";
-  const stale = days >= 2 ? " stale" : "";
+  const hours = (Date.now() - d.getTime()) / 3600000;
+  let note = "";
+  if (hours >= 1) {
+    note = hours < 24
+      ? "（" + Math.floor(hours) + "時間前）"
+      : "（" + Math.floor(hours / 24) + "日前）";
+  }
+  // 朝と昼の2回更新しているので、半日あいたら止まっている可能性がある。
+  // 以前は2日たたないと色が変わらず、半日止まっても気づけなかった。
+  const stale = hours >= 12 ? " stale" : "";
   return "更新: " + esc(generatedAt) + '<span class="age' + stale + '">' + note + "</span>";
 }
 
@@ -561,6 +597,7 @@ function render(data) {
     + '<div class="meta-head">' + headUpdated(data.generated_at)
     + '<span class="unread">未読 ' + totalUnread + "件</span>"
     + (totalNew ? '<span class="newcount">NEW ' + totalNew + "</span>" : "")
+    + troubleBlock(data.sources)
     + "</div>"
     + weatherLine(data.weather)
     + toolbar() + "</header>");
@@ -773,6 +810,12 @@ APP.addEventListener("click", function (ev) {
     locked.forEach(markRead);
     rerender();
     window.scrollTo(0, y);
+    return;
+  }
+  // 届かなかったフィードの内訳
+  if (ev.target.closest("#show-trouble")) {
+    TROUBLE_OPEN = !TROUBLE_OPEN;
+    rerender();
     return;
   }
   // 設定の開閉
