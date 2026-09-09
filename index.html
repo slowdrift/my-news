@@ -55,11 +55,13 @@
     display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
   }
   header .age.stale { color: #d08700; font-weight: 600; }
-  header .unread { font-weight: 700; color: var(--accent); }
+  /* 今日読むべき「新着」を主役に。貯まっている「未読」は控えめに添える。 */
   header .newcount {
     font-weight: 800; color: #111827; background: #f59e0b;
-    border-radius: 999px; padding: 0 7px; font-size: calc(10.5px * var(--fs));
+    border-radius: 999px; padding: 1px 9px; font-size: calc(12.5px * var(--fs));
   }
+  header .nonew { font-weight: 700; color: var(--sub); font-size: calc(12px * var(--fs)); }
+  header .unread { font-weight: 500; color: var(--sub); font-size: calc(11px * var(--fs)); }
   /* 取れなかったフィードの知らせ。目立つが邪魔にならない大きさに留める */
   .trouble {
     font-size: calc(10.5px * var(--fs)); font-weight: 700; cursor: pointer;
@@ -117,7 +119,11 @@
     color: var(--cat); background: var(--card); border: 1px solid var(--line);
     border-radius: 999px; padding: 4px 10px; white-space: nowrap;
   }
-  .catnav .nav-chip span { margin-left: 5px; color: var(--sub); font-weight: 600; }
+  .catnav .nav-chip span { margin-left: 5px; color: var(--sub); font-weight: 500; font-size: calc(10.5px * var(--fs)); }
+  .catnav .nav-chip .navnew {
+    margin-left: 5px; padding: 0 6px; border-radius: 999px;
+    background: #f59e0b; color: #111827; font-weight: 800;
+  }
 
   /* カテゴリ（大見出し・折りたたみ） */
   details.cat { margin: 16px 0 4px; scroll-margin-top: 8px; }
@@ -133,8 +139,14 @@
   details.cat > summary h2::before { content: "▾"; font-size: 11px; }
   details.cat:not([open]) > summary h2::before { content: "▸"; }
   details.cat > summary .catcount {
-    margin-left: auto; font-weight: 700; color: var(--cat);
-    font-size: calc(11px * var(--fs)); letter-spacing: 0;
+    margin-left: auto; font-weight: 500; color: var(--sub);
+    font-size: calc(10.5px * var(--fs)); letter-spacing: 0;
+    display: flex; align-items: center; gap: 6px;
+  }
+  details.cat > summary .catnew {
+    padding: 0 7px; border-radius: 999px;
+    background: #f59e0b; color: #111827; font-weight: 800;
+    font-size: calc(10.5px * var(--fs));
   }
   details.cat > .body { padding-top: 4px; }
 

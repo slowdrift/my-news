@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.6.2";
+const APP_VERSION = "v1.7.0";
 const CHANGELOG = [
+  ["v1.7.0", "2026-09-09", "見出しの数字を「きょうの新着」に。未読の合計は控えめに添えるだけにした"],
   ["v1.6.2", "2026-09-09", "取れなかったフィードを画面に出し、更新が半日あいたら知らせるようにした"],
   ["v1.6.1", "2026-09-09", "カテゴリの開閉と「もっと見る」の位置を覚えるようにした"],
   ["v1.6.0", "2026-09-09", "カードを右へ払うと既読、左へ払うとお気に入り。更新を朝と昼の2回に"],
@@ -204,6 +205,22 @@ function toggleFav(a) {
 // 日数で見るようにすれば、何度開いても NEW_DAYS 日は光り、読めば消える。
 // 記事の配信日ではなく first_seen（アプリに入ってきた日）で見るのは、
 // 昔の記事を新しく見つけた日にも新着として知らせるため。
+// ヘッダーやカテゴリに出す数は「きょう届いた分」に絞る。
+// NEWの印は7日光らせているが、その数を出すと7日分＝約1000件になり、
+// 「今日なにを読めばいいか」の指標として働かない（実測1154件）。
+//   ヘッダーの数字 … きょうやること
+//   カードのNEW印 … 数日空けても見逃さないための印
+const FRESH_HOURS = 24;
+
+function isFresh(a) {
+  if (isRead(a)) return false;
+  const src = a.first_seen || a.dt;
+  if (!src) return false;
+  const t = new Date(src).getTime();
+  if (isNaN(t)) return false;
+  return t > Math.max(Date.now() - FRESH_HOURS * 3600000, FIRST_OPEN);
+}
+
 function isNew(a) {
   if (isRead(a)) return false;
   const src = a.first_seen || a.dt;
@@ -335,11 +352,11 @@ function lockedIn(all) {
 }
 
 function groupHead(g, gi, all) {
-  const newCount = all.filter(isNew).length;
+  const newCount = all.filter(isFresh).length;
   const locked = lockedIn(all).length;
   return '<h3 class="ghead"><span class="gname">' + esc(g.name) + "</span>"
     + '<span class="gcount">' + countUnread(all) + "件</span>"
-    + (newCount ? '<span class="gnew">NEW ' + newCount + "</span>" : "")
+    + (newCount ? '<span class="gnew">新着 ' + newCount + "</span>" : "")
     + (locked ? '<button class="lock-btn" type="button" data-lock="' + gi
       + '" title="このテーマの読めない記事を既読にする">🔒 ' + locked + "</button>" : "")
     + '<button class="read-all" type="button" title="このテーマをまとめて既読にする">✓ 既読に</button>'
@@ -588,15 +605,22 @@ function render(data) {
   let totalUnread = 0, totalNew = 0;
   articleGroups.forEach(function (x) {
     totalUnread += countUnread(x.group.items);
-    totalNew += (x.group.items || []).filter(isNew).length;
+    totalNew += (x.group.items || []).filter(isFresh).length;
   });
-  let videoUnread = 0;
-  videoGroups.forEach(function (x) { videoUnread += countUnread(x.group.items); });
+  let videoUnread = 0, videoNew = 0;
+  videoGroups.forEach(function (x) {
+    videoUnread += countUnread(x.group.items);
+    videoNew += (x.group.items || []).filter(isFresh).length;
+  });
 
   parts.push("<header><h1>📰 マイニュース</h1>"
     + '<div class="meta-head">' + headUpdated(data.generated_at)
+    // 「未読1624件」は読み切れる数ではなく、指標として働かない。
+    // 今日読むべき「新着」を主役にし、貯まっている数は控えめに添える。
+    + (totalNew
+      ? '<span class="newcount">きょうの新着 ' + totalNew + "件</span>"
+      : '<span class="nonew">きょうの新着はありません</span>')
     + '<span class="unread">未読 ' + totalUnread + "件</span>"
-    + (totalNew ? '<span class="newcount">NEW ' + totalNew + "</span>" : "")
     + troubleBlock(data.sources)
     + "</div>"
     + weatherLine(data.weather)
@@ -604,17 +628,24 @@ function render(data) {
 
   const cats = (data.categories || []).map(function (c) { return c.name; });
   const navs = cats.map(function (name, i) {
-    let u = 0;
-    articleGroups.forEach(function (x) { if (x.cat === name) u += countUnread(x.group.items); });
+    let u = 0, n = 0;
+    articleGroups.forEach(function (x) {
+      if (x.cat !== name) return;
+      u += countUnread(x.group.items);
+      n += (x.group.items || []).filter(isFresh).length;
+    });
     const mine = articleGroups.some(function (x) { return x.cat === name; });
     if (!mine) return "";   // 動画だけのカテゴリは、下の動画ブロックに現れる
     return '<a class="nav-chip" href="#cat' + i + '" style="--cat:'
-      + CAT_COLORS[i % CAT_COLORS.length] + '">' + esc(name) + "<span>" + u + "</span></a>";
+      + CAT_COLORS[i % CAT_COLORS.length] + '">' + esc(name)
+      + (n ? '<b class="navnew">' + n + "</b>" : "")
+      + "<span>" + u + "</span></a>";
   }).join("");
   parts.push('<nav class="catnav">' + navs
     + (videoGroups.length
-      ? '<a class="nav-chip" href="#videos" style="--cat:#dc2626">🎬 動画<span>'
-        + videoUnread + "</span></a>"
+      ? '<a class="nav-chip" href="#videos" style="--cat:#dc2626">🎬 動画'
+        + (videoNew ? '<b class="navnew">' + videoNew + "</b>" : "")
+        + "<span>" + videoUnread + "</span></a>"
       : "")
     + "</nav>");
 
@@ -624,14 +655,19 @@ function render(data) {
     const body = mine.map(function (x) {
       return renderGroup(x.group, ALL_GROUPS.indexOf(x));
     }).join("");
-    let unread = 0;
-    mine.forEach(function (x) { unread += countUnread(x.group.items); });
+    let unread = 0, fresh = 0;
+    mine.forEach(function (x) {
+      unread += countUnread(x.group.items);
+      fresh += (x.group.items || []).filter(isFresh).length;
+    });
 
     parts.push('<details class="cat"' + (isOpen(name) ? " open" : "")
       + ' data-cat="' + esc(name) + '" id="cat' + ci + '" style="--cat:'
       + CAT_COLORS[ci % CAT_COLORS.length] + '">');
     parts.push("<summary><h2>" + esc(name)
-      + '<span class="catcount">' + unread + "件</span></h2></summary>");
+      + '<span class="catcount">'
+      + (fresh ? '<b class="catnew">新着 ' + fresh + "</b>" : "")
+      + unread + "件</span></h2></summary>");
     parts.push('<div class="body">');
     parts.push(body || (SHOW_ALL
       ? '<div class="empty">この時間は取得できた記事がありませんでした。</div>'
@@ -648,7 +684,9 @@ function render(data) {
     parts.push('<details class="cat videos"' + (isOpen("__videos") ? " open" : "")
       + ' data-cat="__videos" id="videos" style="--cat:#dc2626">');
     parts.push('<summary><h2>🎬 動画'
-      + '<span class="catcount">' + videoUnread + "件</span></h2></summary>");
+      + '<span class="catcount">'
+      + (videoNew ? '<b class="catnew">新着 ' + videoNew + "</b>" : "")
+      + videoUnread + "件</span></h2></summary>");
     parts.push('<div class="body">');
     parts.push(body || '<div class="empty">すべて見終えました 🎉</div>');
     parts.push("</div></details>");
