@@ -567,6 +567,12 @@ THIN_MAX_AGE_DAYS = 3650  # そのとき遡る日数（約10年）
 # （実測：「"近藤紘一" site:note.com」で54件。ニュース検索だけでは5件だった）。
 DEFAULT_DEEP_SITES = ["note.com", "hatenablog.com", "1101.com"]
 
+# 1テーマが1日に「新着」として名乗れる上限。
+# 実測で1日142〜175件が入ってくるが、その6〜7割をClaude Codeと生成AIが占め、
+# 沢木耕太郎の1件がその中に埋もれていた。
+# 超えた分は捨てない。蓄積には入り、掘れば読める。新着として数えないだけ。
+DAILY_LOUD_MAX = 20
+
 BACKFILL_TARGET = 40   # 蓄積がこの件数に届かないテーマは過去を掘る
 BACKFILL_YEARS = 20    # 何年前まで遡るか
 BACKFILL_SLICE = 4     # 何年ずつ区切って聞くか
@@ -1126,6 +1132,7 @@ def to_json_item(a):
         "views": a.get("views"),   # 動画の再生回数（記事は None）
         "blog": a.get("blog", False),  # 個人ブログ・note等（報道と区別する印）
         "rank": a.get("rank", 0),  # 並び順の重み（-1 優先 / 0 普通 / 1 後回し）
+        "quiet": a.get("quiet", False),      # 1日の上限を超えた分（新着として数えない）
         "related": a.get("related", False),  # 見出しにテーマ名が無い＝本文で触れただけ
         "corp": a.get("corp", False),        # 会社が運営するブログ
         "first_seen": a.get("first_seen"),  # アプリに初めて入ってきた日時（NEW判定用）
@@ -1172,6 +1179,7 @@ def main():
     topic_words = {}      # テーマごとの検索語（「関連」判定に使う）
     site_groups = set()   # サイト指定検索を使うテーマ
     view_rules = {}       # テーマごとの再生回数の下限
+    daily_rules = {}      # テーマごとの「1日に新着として名乗れる数」
     exclude_rules = {}    # テーマごとのNG語（貯めてある分にも当て直す）
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1193,6 +1201,8 @@ def main():
                 video_groups.add(g)
             if f.get("min_views"):
                 view_rules[g] = (int(f["min_views"]), f.get("views_exempt") or [])
+            if f.get("daily_max"):
+                daily_rules[g] = int(f["daily_max"])
             # 「関連」判定に使う語。サイト指定検索は見出し一致を求めないぶん、
             # 本文で触れているだけの記事が混ざる。それを見分けるための手がかり。
             if f.get("require"):
@@ -1499,6 +1509,26 @@ def main():
             # 本人について書かれた個人ブログのほうが、名前に触れただけの報道より読みたいため。
             items.sort(key=lambda a: bool(a.get("related")))
             items.sort(key=lambda a: a.get("paywall") in ("paid", "member", "partial"))
+            # 1日に新着として名乗れる数を超えた分に印を付ける。
+            # 並べ替えた後なので、読みたい順に上から数える。
+            cap = daily_rules.get(g, DAILY_LOUD_MAX)
+            loud = 0
+            for a in items:
+                fresh = False
+                try:
+                    seen = datetime.datetime.fromisoformat(a.get("first_seen") or "")
+                    fresh = (datetime.datetime.now(datetime.timezone.utc) - seen).total_seconds() <= 86400
+                except Exception:
+                    pass
+                if not fresh:
+                    a.pop("quiet", None)
+                    continue
+                loud += 1
+                if loud > cap:
+                    a["quiet"] = True
+                else:
+                    a.pop("quiet", None)
+
             groups_out.append({"name": g, "items": items})
         categories_out.append({"name": cat, "groups": groups_out})
 

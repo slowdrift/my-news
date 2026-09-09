@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.7.1";
+const APP_VERSION = "v1.8.0";
 const CHANGELOG = [
+  ["v1.8.0", "2026-09-09", "広い画面で2列に。1テーマが1日に新着として名乗れる数を20件までにした"],
   ["v1.7.1", "2026-09-09", "見出しの数字を押すと「きょうの新着」だけを見られるようにした"],
   ["v1.7.0", "2026-09-09", "見出しの数字を「きょうの新着」に。未読の合計は控えめに添えるだけにした"],
   ["v1.6.2", "2026-09-09", "取れなかったフィードを画面に出し、更新が半日あいたら知らせるようにした"],
@@ -217,7 +218,7 @@ function toggleFav(a) {
 const FRESH_HOURS = 24;
 
 function isFresh(a) {
-  if (isRead(a)) return false;
+  if (isRead(a) || a.quiet) return false;   // 1日の上限を超えた分は騒がない
   const src = a.first_seen || a.dt;
   if (!src) return false;
   const t = new Date(src).getTime();
@@ -226,7 +227,7 @@ function isFresh(a) {
 }
 
 function isNew(a) {
-  if (isRead(a)) return false;
+  if (isRead(a) || a.quiet) return false;   // 1日の上限を超えた分は騒がない
   const src = a.first_seen || a.dt;
   if (!src) return false;
   const t = new Date(src).getTime();
