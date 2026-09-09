@@ -203,6 +203,20 @@
     font-variant-numeric: tabular-nums;
   }
   .weather .wpop.strong { color: #1d4ed8; font-weight: 700; }
+  /* 天気の下に添える株価のひと目行（本体は最下部） */
+  .weather .wstocks {
+    display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; padding-top: 6px;
+    border-top: 1px dashed var(--line); text-decoration: none; color: var(--ink);
+    font-size: calc(11.5px * var(--fs));
+  }
+  .weather .wst b { font-weight: 600; color: var(--sub); margin-right: 4px; }
+  .weather .wst i { font-style: normal; font-weight: 700; margin-left: 5px; }
+  .weather .wst i.up { color: #b91c1c; }
+  .weather .wst i.down { color: #1d4ed8; }
+  :root[data-theme="dark"] .weather .wst i.up,
+  :root[data-theme="auto"] .weather .wst i.up { color: #f87171; }
+  :root[data-theme="dark"] .weather .wst i.down,
+  :root[data-theme="auto"] .weather .wst i.down { color: #93c5fd; }
   :root[data-theme="dark"] .weather .wpop.strong,
   :root[data-theme="auto"] .weather .wpop.strong { color: #93c5fd; }
 

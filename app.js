@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.8.0";
+const APP_VERSION = "v1.8.1";
 const CHANGELOG = [
+  ["v1.8.1", "2026-09-09", "天気の下に株価を一行添え、新着画面にテーマごとの一括既読を追加"],
   ["v1.8.0", "2026-09-09", "広い画面で2列に。1テーマが1日に新着として名乗れる数を20件までにした"],
   ["v1.7.1", "2026-09-09", "見出しの数字を押すと「きょうの新着」だけを見られるようにした"],
   ["v1.7.0", "2026-09-09", "見出しの数字を「きょうの新着」に。未読の合計は控えめに添えるだけにした"],
@@ -485,7 +486,24 @@ function weatherLine(w) {
       + "</div>";
   }).join("");
   return '<div class="weather" title="' + esc(w.days[0].text) + '">'
-    + '<div class="wplace">' + esc(w.place || "") + "</div>" + rows + "</div>";
+    + '<div class="wplace">' + esc(w.place || "") + "</div>" + rows
+    + stockStrip((window.NEWS_DATA || {}).stocks) + "</div>";
+}
+
+// 天気の下に添える一行。株価そのものは最下部に置いたまま
+// （記事を優先したいというご指示のため）、朝のひと目だけここで済ませる。
+// 押すと最下部の株価ブロックへ飛ぶ。
+function stockStrip(list) {
+  if (!list || !list.length) return "";
+  const cells = list.map(function (s) {
+    const up = s.diff > 0, down = s.diff < 0;
+    return '<span class="wst"><b>' + esc(s.name) + "</b> "
+      + Number(s.price).toLocaleString("ja-JP")
+      + '<i class="' + (up ? "up" : down ? "down" : "") + '">'
+      + (up ? "▲" : down ? "▼" : "―") + Math.abs(s.diff).toLocaleString("ja-JP")
+      + "</i></span>";
+  }).join("");
+  return '<a class="wstocks" href="#stocks">' + cells + "</a>";
 }
 
 function stockBlock(list) {
@@ -500,7 +518,7 @@ function stockBlock(list) {
       + Math.abs(s.diff).toLocaleString("ja-JP") + "（" + (up ? "+" : down ? "-" : "")
       + Math.abs(s.pct).toFixed(2) + "%）</span></div>";
   }).join("");
-  return '<section class="stocks"><h2>📈 株価</h2>' + rows + "</section>";
+  return '<section class="stocks" id="stocks"><h2>📈 株価</h2>' + rows + "</section>";
 }
 
 function versionBlock(generatedAt) {
@@ -623,7 +641,9 @@ function renderFreshView(data) {
       parts.push('<section class="group"><h3 class="ghead">'
         + '<span class="gname">' + esc(b.name) + "</span>"
         + '<span class="gcount">' + b.items.length + "件</span>"
-        + '<span class="gcat">' + esc(b.cat) + "</span></h3>"
+        + '<span class="gcat">' + esc(b.cat) + "</span>"
+        + '<button class="read-all" type="button" data-fresh="' + esc(b.name)
+        + '" title="このテーマの新着をまとめて既読にする">✓ 既読に</button></h3>'
         + '<div class="gitems expanded">'
         + b.items.map(function (a) { return renderCard(a, false, false); }).join("")
         + "</div></section>");
@@ -868,7 +888,8 @@ APP.addEventListener("click", function (ev) {
     return;
   }
   // テーマ単位のまとめて既読
-  const readAll = ev.target.closest(".read-all");
+  // 新着画面のボタンは別に扱うので、ここでは拾わない
+  const readAll = ev.target.closest(".read-all:not([data-fresh])");
   if (readAll) {
     const gi = Number(readAll.closest(".group").dataset.group);
     const entry = ALL_GROUPS[gi];
@@ -890,6 +911,21 @@ APP.addEventListener("click", function (ev) {
       + "件を既読にします。よろしいですか？")) return;
     const y = window.scrollY;
     locked.forEach(markRead);
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // 新着画面で、そのテーマの新着をまとめて既読にする
+  const readFresh = ev.target.closest(".read-all[data-fresh]");
+  if (readFresh) {
+    const entry = ALL_GROUPS.find(function (x) { return x.group.name === readFresh.dataset.fresh; });
+    if (!entry) return;
+    const items = (entry.group.items || []).filter(isFresh);
+    if (!items.length) return;
+    if (!confirm("「" + entry.group.name + "」の新着 " + items.length
+      + "件を既読にします。よろしいですか？")) return;
+    const y = window.scrollY;
+    items.forEach(markRead);
     rerender();
     window.scrollTo(0, y);
     return;
