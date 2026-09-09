@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.6.0";
+const APP_VERSION = "v1.6.1";
 const CHANGELOG = [
+  ["v1.6.1", "2026-09-09", "カテゴリの開閉と「もっと見る」の位置を覚えるようにした"],
   ["v1.6.0", "2026-09-09", "カードを右へ払うと既読、左へ払うとお気に入り。更新を朝と昼の2回に"],
   ["v1.5.0", "2026-09-08", "上部を4つに整理して設定を新設、テーマごとの一括既読、グロービスとAmazonのセールを追加、収集の精度を改善"],
   ["v1.4.0", "2026-09-08", "NHKを有料扱いに、読めない記事をまとめて既読に、「もっと見る」を1つに統合、本文で触れただけの記事に「関連」の印"],
@@ -28,8 +29,24 @@ const INITIAL_VISIBLE = 3;
 // 収集側は貯めた全件を渡してくる（数百件になるテーマもある）ので、
 // 描く量はこちらで抑える。足りなければ「さらに古い記事」で伸ばす。
 const RENDER_CHUNK = 30;
-let SHOWN = {};    // テーマの通し番号 → いま何件まで描いているか
-let REREAD = {};   // 「読み返す」を押したテーマ（そのテーマだけ既読も出す）
+let REREAD = {};   // 「読み返す」を押したテーマ（一時的なので保存しない）
+
+// 画面の開き具合を端末に覚えておく。
+// 設定（配色・文字・既読）は保存していたが、開閉や展開の位置は毎回まっさらに
+// 戻っていた。毎朝「畳み直す」のは手間なので、ここも覚える。
+// 通し番号ではなく名前で覚える。テーマが増減しても位置がずれないようにするため。
+const UI_KEY = "mynews_ui";
+let UI = { cats: {}, shown: {} };
+try {
+  const raw = JSON.parse(lsGet(UI_KEY, "{}") || "{}");
+  UI.cats = raw.cats || {};
+  UI.shown = raw.shown || {};
+} catch (e) { /* 壊れていたら初期値のまま */ }
+
+function saveUI() { lsSet(UI_KEY, JSON.stringify(UI)); }
+
+// 開いているか。覚えが無ければ既定（カテゴリも動画も開いた状態）
+function isOpen(key) { return UI.cats[key] !== false; }
 
 // 記事そのものが古いと感じる境目（日）。ここに区切りを入れる。
 const OLD_DAYS = 30;
@@ -329,7 +346,7 @@ function groupHead(g, gi, all) {
 
 function renderGroup(g, gi) {
   const all = g.items || [];
-  const showRead = SHOW_ALL || REREAD[gi];
+  const showRead = SHOW_ALL || REREAD[g.name];
   const list = showRead ? all : all.filter(function (a) { return !isRead(a); });
 
   // 読み終えてもテーマは消さない。消えるとカテゴリごと画面から無くなり、
@@ -338,7 +355,7 @@ function renderGroup(g, gi) {
     return '<section class="group done" data-group="' + gi + '">'
       + groupHead(g, gi, all)
       + '<div class="empty">すべて読み終えました 🎉'
-      + (all.length ? '<button class="reread-btn" type="button" data-reread="' + gi + '">'
+      + (all.length ? '<button class="reread-btn" type="button" data-reread="' + esc(g.name) + '">'
         + "読み返す（" + all.length + "件）</button>" : "")
       + "</div></section>";
   }
@@ -346,7 +363,7 @@ function renderGroup(g, gi) {
   // 表示は「先頭から limit 件」だけ。ボタンを押すたびに増える。
   // 以前は「もっと見る」と「さらに古い記事」の2つが縦に並んでいたが、
   // 内部の仕組みの違いであって、読む側には区別が要らないので1つにまとめた。
-  const limit = SHOWN[gi] || INITIAL_VISIBLE;
+  const limit = UI.shown[g.name] || INITIAL_VISIBLE;
   const items = list.slice(0, limit);
   const rest = list.length - items.length;
 
@@ -366,7 +383,7 @@ function renderGroup(g, gi) {
   });
   h += "</div>";
   if (rest > 0) {
-    h += '<button class="more-btn" type="button" data-older="' + gi + '">'
+    h += '<button class="more-btn" type="button" data-older="' + esc(g.name) + '">'
       + "もっと見る（残り" + rest + "件）</button>";
   }
   h += "</section>";
@@ -573,7 +590,8 @@ function render(data) {
     let unread = 0;
     mine.forEach(function (x) { unread += countUnread(x.group.items); });
 
-    parts.push('<details class="cat" open id="cat' + ci + '" style="--cat:'
+    parts.push('<details class="cat"' + (isOpen(name) ? " open" : "")
+      + ' data-cat="' + esc(name) + '" id="cat' + ci + '" style="--cat:'
       + CAT_COLORS[ci % CAT_COLORS.length] + '">');
     parts.push("<summary><h2>" + esc(name)
       + '<span class="catcount">' + unread + "件</span></h2></summary>");
@@ -590,7 +608,8 @@ function render(data) {
     const body = videoGroups.map(function (x) {
       return renderGroup(x.group, ALL_GROUPS.indexOf(x));
     }).join("");
-    parts.push('<details class="cat videos" open id="videos" style="--cat:#dc2626">');
+    parts.push('<details class="cat videos"' + (isOpen("__videos") ? " open" : "")
+      + ' data-cat="__videos" id="videos" style="--cat:#dc2626">');
     parts.push('<summary><h2>🎬 動画'
       + '<span class="catcount">' + videoUnread + "件</span></h2></summary>");
     parts.push('<div class="body">');
@@ -712,8 +731,9 @@ APP.addEventListener("click", function (ev) {
   // 「もっと見る」：そのテーマだけ表示件数を増やす
   const more = ev.target.closest(".more-btn");
   if (more) {
-    const gi = Number(more.dataset.older);
-    SHOWN[gi] = (SHOWN[gi] || INITIAL_VISIBLE) + RENDER_CHUNK;
+    const name = more.dataset.older;
+    UI.shown[name] = (UI.shown[name] || INITIAL_VISIBLE) + RENDER_CHUNK;
+    saveUI();
     const y = window.scrollY;
     rerender();
     window.scrollTo(0, y);
@@ -722,8 +742,7 @@ APP.addEventListener("click", function (ev) {
   // 「読み返す」：そのテーマだけ既読も表示する
   const reread = ev.target.closest(".reread-btn");
   if (reread) {
-    const gi = Number(reread.dataset.reread);
-    REREAD[gi] = true;
+    REREAD[reread.dataset.reread] = true;
     const y = window.scrollY;
     rerender();
     window.scrollTo(0, y);
@@ -927,6 +946,17 @@ APP.addEventListener("touchend", function () {
     window.scrollTo(0, y);
   }, 180);
 }, { passive: true });
+
+// 折りたたみの開閉を保存する。
+// toggle は親へ伝わらないイベントなので、捕まえる段階（第3引数 true）で拾う。
+document.addEventListener("toggle", function (ev) {
+  const d = ev.target;
+  if (!d || !d.matches || !d.matches("details.cat")) return;
+  const key = d.dataset.cat;
+  if (!key) return;
+  UI.cats[key] = d.open;
+  saveUI();
+}, true);
 
 // data.js（<script src> で先に読み込まれ window.NEWS_DATA に入っている）を描画。
 try {
