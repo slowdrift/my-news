@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.8.1";
+const APP_VERSION = "v1.9.0";
 const CHANGELOG = [
+  ["v1.9.0", "2026-09-09", "取り消しを5件までさかのぼれるように。ボタンを押しやすくし、設定に使い方を追加"],
   ["v1.8.1", "2026-09-09", "天気の下に株価を一行添え、新着画面にテーマごとの一括既読を追加"],
   ["v1.8.0", "2026-09-09", "広い画面で2列に。1テーマが1日に新着として名乗れる数を20件までにした"],
   ["v1.7.1", "2026-09-09", "見出しの数字を押すと「きょうの新着」だけを見られるようにした"],
@@ -588,6 +589,13 @@ function toolbar() {
       + '<button class="tool-btn" type="button" id="toggle-font">文字 ' + fontLabel + "</button></div>"
       + '<div class="srow"><span>いま読まないものを片づける</span>'
       + '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button></div>'
+      + '<details class="howto"><summary>使い方</summary><ul>'
+      + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
+      + "<li>見出しの<b>「きょうの新着」</b>を押すと、24時間以内に届いた分だけ見られます</li>"
+      + "<li>テーマの<b>🔒</b>は、そのテーマの読めない記事をまとめて既読にします</li>"
+      + "<li>記事右上の<b>☆</b>は、一覧から消えても残る保存です</li>"
+      + "<li>見出しの<b>⚠</b>は、取得できなかった配信元がある印です</li>"
+      + "</ul></details>"
       + "</div>";
   }
   return h;
@@ -601,6 +609,7 @@ function renderFavView(data) {
 
   const parts = ["<header><h1>★ お気に入り</h1>"
     + '<div class="meta-head">' + headUpdated(data.generated_at)
+    + '<button class="newcount on" type="button" id="fav-back">← 全部を見る</button>'
     + '<span class="unread">' + items.length + "件を保存中</span></div>"
     + toolbar() + "</header>"];
 
@@ -930,6 +939,14 @@ APP.addEventListener("click", function (ev) {
     window.scrollTo(0, y);
     return;
   }
+  // お気に入り画面から戻る
+  if (ev.target.closest("#fav-back")) {
+    SHOW_FAV = false;
+    lsSet(SHOWFAV_KEY, "0");
+    rerender();
+    window.scrollTo(0, 0);
+    return;
+  }
   // 「きょうの新着だけ」の切り替え
   if (ev.target.closest("#show-fresh")) {
     SHOW_FRESH = !SHOW_FRESH;
@@ -1030,22 +1047,44 @@ function swipeHint(kind, ready) {
   el.className = kind + (ready ? " ready" : "");
 }
 
-function showToast(msg, undo) {
+// 取り消しは直前の1件だけだと、続けて払ったときに戻せない。
+// 直近5件まで覚えておき、押すたびに1件ずつ戻す。
+const UNDO_MAX = 5;
+let UNDO_STACK = [];
+let UNDO_TIMER = null;
+
+function pushUndo(msg, undo) {
+  UNDO_STACK.push({ msg: msg, undo: undo });
+  if (UNDO_STACK.length > UNDO_MAX) UNDO_STACK.shift();
+  showToast();
+}
+
+function showToast() {
   const old = document.getElementById("toast");
   if (old) old.remove();
+  if (UNDO_TIMER) clearTimeout(UNDO_TIMER);
+  if (!UNDO_STACK.length) return;
+
+  const last = UNDO_STACK[UNDO_STACK.length - 1];
+  const rest = UNDO_STACK.length - 1;
   const el = document.createElement("div");
   el.id = "toast";
-  el.innerHTML = '<span>' + esc(msg) + "</span>"
+  el.innerHTML = "<span>" + esc(last.msg)
+    + (rest ? '<i class="more">あと' + rest + "件戻せます</i>" : "") + "</span>"
     + '<button type="button" id="toast-undo">元に戻す</button>';
   document.body.appendChild(el);
-  const timer = setTimeout(function () { el.remove(); }, 5000);
-  el.querySelector("#toast-undo").addEventListener("click", function () {
-    clearTimeout(timer);
+  UNDO_TIMER = setTimeout(function () {
     el.remove();
-    undo();
+    UNDO_STACK = [];
+  }, 5000);
+
+  el.querySelector("#toast-undo").addEventListener("click", function () {
+    const item = UNDO_STACK.pop();
+    if (item) item.undo();
     const y = window.scrollY;
     rerender();
     window.scrollTo(0, y);
+    showToast();   // まだ残っていれば続けて戻せる
   });
 }
 
@@ -1101,7 +1140,7 @@ APP.addEventListener("touchend", function () {
     if (dx > 0) {
       const link = a.link, key = titleKey(a);
       markRead(a);
-      showToast("既読にしました", function () {
+      pushUndo("既読にしました", function () {
         if (link) delete READ[link];
         if (key) delete READ[key];
         saveRead(READ);
@@ -1109,7 +1148,7 @@ APP.addEventListener("touchend", function () {
     } else {
       const was = isFav(a);
       toggleFav(a);
-      showToast(was ? "お気に入りから外しました" : "お気に入りに入れました",
+      pushUndo(was ? "お気に入りから外しました" : "お気に入りに入れました",
         function () { toggleFav(a); });
     }
     rerender();
