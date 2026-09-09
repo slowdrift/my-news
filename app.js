@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.9.0";
+const APP_VERSION = "v1.10.0";
 const CHANGELOG = [
+  ["v1.10.0", "2026-09-09", "「ときどき見る」テーマを作れるように。BLUE GIANTを追加"],
   ["v1.9.0", "2026-09-09", "取り消しを5件までさかのぼれるように。ボタンを押しやすくし、設定に使い方を追加"],
   ["v1.8.1", "2026-09-09", "天気の下に株価を一行添え、新着画面にテーマごとの一括既読を追加"],
   ["v1.8.0", "2026-09-09", "広い画面で2列に。1テーマが1日に新着として名乗れる数を20件までにした"],
@@ -351,6 +352,24 @@ function renderCard(a, hidden, lead) {
   return h;
 }
 
+// 「ときどき見る」テーマは、カテゴリの中で畳んでおく。
+// 開閉はカテゴリと同じ仕組みで覚える（鍵の名前を theme: で分けるだけ）。
+// 既定は閉じる。毎日は見ないテーマなので、開いていると邪魔になる。
+function renderMinorGroup(g, gi) {
+  const all = g.items || [];
+  const key = "theme:" + g.name;
+  const open = UI.cats[key] === true;
+  const fresh = all.filter(isFresh).length;
+  return '<details class="cat minorbox"' + (open ? " open" : "")
+    + ' data-cat="' + esc(key) + '">'
+    + "<summary><h2>" + esc(g.name)
+    + '<span class="catcount">'
+    + (fresh ? '<b class="catnew">新着 ' + fresh + "</b>" : "")
+    + countUnread(all) + "件</span></h2></summary>"
+    + '<div class="body">' + groupHead(g, gi, all)
+    + renderGroup(g, gi, true) + "</div></details>";
+}
+
 // テーマの見出し（名前・件数・NEW・まとめて既読ボタン）
 function lockedIn(all) {
   return (all || []).filter(function (a) {
@@ -370,7 +389,7 @@ function groupHead(g, gi, all) {
     + "</h3>";
 }
 
-function renderGroup(g, gi) {
+function renderGroup(g, gi, noHead) {
   const all = g.items || [];
   const showRead = SHOW_ALL || REREAD[g.name];
   const list = showRead ? all : all.filter(function (a) { return !isRead(a); });
@@ -379,7 +398,7 @@ function renderGroup(g, gi) {
   // 読み返す手段も分からなくなるため、見出しと戻り道は必ず残す。
   if (!list.length) {
     return '<section class="group done" data-group="' + gi + '">'
-      + groupHead(g, gi, all)
+      + (noHead ? "" : groupHead(g, gi, all))
       + '<div class="empty">すべて読み終えました 🎉'
       + (all.length ? '<button class="reread-btn" type="button" data-reread="' + esc(g.name) + '">'
         + "読み返す（" + all.length + "件）</button>" : "")
@@ -394,7 +413,7 @@ function renderGroup(g, gi) {
   const rest = list.length - items.length;
 
   let h = '<section class="group" data-group="' + gi + '">'
-    + groupHead(g, gi, all)
+    + (noHead ? "" : groupHead(g, gi, all))
     + '<div class="gitems expanded">';
   // 配信日が古い記事との境目に区切りを入れる。
   // NEWバッジは「アプリに入ってきた新しさ」、この区切りは「記事自体の古さ」。
@@ -554,7 +573,8 @@ const BY_LINK = {};      // リンク → 記事（押された記事を引く�
   const cats = (window.NEWS_DATA || {}).categories || [];
   cats.forEach(function (c) {
     (c.groups || []).forEach(function (g) {
-      ALL_GROUPS.push({ cat: c.name, group: g, video: isVideoGroup(g) });
+      ALL_GROUPS.push({ cat: c.name, group: g, video: isVideoGroup(g),
+                        minor: !!g.minor });
       (g.items || []).forEach(function (a) { if (a.link) BY_LINK[a.link] = a; });
     });
   });
@@ -631,6 +651,7 @@ function renderFavView(data) {
 
 function renderFreshView(data) {
   const blocks = ALL_GROUPS.map(function (x) {
+    if (x.minor) return null;   // ときどき見るテーマは新着画面に出さない
     const items = (x.group.items || []).filter(isFresh);
     return items.length ? { name: x.group.name, cat: x.cat, items: items } : null;
   }).filter(Boolean);
@@ -677,7 +698,7 @@ function render(data) {
   let totalUnread = 0, totalNew = 0;
   ALL_GROUPS.forEach(function (x) {
     totalUnread += countUnread(x.group.items);
-    totalNew += (x.group.items || []).filter(isFresh).length;
+    if (!x.minor) totalNew += (x.group.items || []).filter(isFresh).length;
   });
   let videoUnread = 0, videoNew = 0;
   videoGroups.forEach(function (x) {
@@ -705,7 +726,7 @@ function render(data) {
     articleGroups.forEach(function (x) {
       if (x.cat !== name) return;
       u += countUnread(x.group.items);
-      n += (x.group.items || []).filter(isFresh).length;
+      if (!x.minor) n += (x.group.items || []).filter(isFresh).length;
     });
     const mine = articleGroups.some(function (x) { return x.cat === name; });
     if (!mine) return "";   // 動画だけのカテゴリは、下の動画ブロックに現れる
@@ -725,12 +746,21 @@ function render(data) {
   cats.forEach(function (name, ci) {
     const mine = articleGroups.filter(function (x) { return x.cat === name; });
     if (!mine.length) return;   // 動画だけのカテゴリは下の動画ブロックへ
-    const body = mine.map(function (x) {
+    const daily = mine.filter(function (x) { return !x.minor; });
+    const rare = mine.filter(function (x) { return x.minor; });
+    let body = daily.map(function (x) {
       return renderGroup(x.group, ALL_GROUPS.indexOf(x));
     }).join("");
+    if (rare.length) {
+      body += '<div class="minor-sep"><span>ときどき見る</span></div>'
+        + rare.map(function (x) {
+          return renderMinorGroup(x.group, ALL_GROUPS.indexOf(x));
+        }).join("");
+    }
     let unread = 0, fresh = 0;
-    mine.forEach(function (x) {
-      unread += countUnread(x.group.items);
+    mine.forEach(function (x) { unread += countUnread(x.group.items); });
+    // 「ときどき見る」は新着に数えない。毎朝の数字を実態に合わせるため。
+    daily.forEach(function (x) {
       fresh += (x.group.items || []).filter(isFresh).length;
     });
 

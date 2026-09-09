@@ -162,6 +162,24 @@
   }
   details.cat > .body { padding-top: 4px; }
 
+  /* 「ときどき見る」テーマ。カテゴリの下部に、畳んで置く */
+  .minor-sep {
+    display: flex; align-items: center; gap: 8px;
+    margin: 16px 2px 8px; color: var(--sub); font-size: calc(10.5px * var(--fs));
+  }
+  .minor-sep::before, .minor-sep::after {
+    content: ""; flex: 1; height: 1px; background: var(--line);
+  }
+  .minor-sep span { white-space: nowrap; letter-spacing: .06em; }
+  details.cat.minorbox { margin: 6px 0; }
+  details.cat.minorbox > summary { border-bottom: 1px dashed var(--line); padding: 6px 2px; }
+  details.cat.minorbox > summary h2 {
+    font-size: calc(13px * var(--fs)); font-weight: 700; letter-spacing: 0;
+    color: var(--ink);
+  }
+  details.cat.minorbox > summary h2::before { color: var(--sub); }
+  details.cat.minorbox > .body { padding-top: 6px; }
+
   /* テーマ（中見出し） */
   .group { margin: 12px 0 8px; }
   h3.ghead {

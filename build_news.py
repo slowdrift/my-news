@@ -399,7 +399,7 @@ def expand_topic(entry):
             feed["exclude"] = entry["exclude"]
         # 記事の重み付け（⑥）：優先したい語・後ろに回したい語
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
-                    "min_views", "views_exempt"):
+                    "min_views", "views_exempt", "minor"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -1180,6 +1180,7 @@ def main():
     site_groups = set()   # サイト指定検索を使うテーマ
     view_rules = {}       # テーマごとの再生回数の下限
     daily_rules = {}      # テーマごとの「1日に新着として名乗れる数」
+    minor_rules = set()   # ときどき見れば良いテーマ
     exclude_rules = {}    # テーマごとのNG語（貯めてある分にも当て直す）
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1203,6 +1204,9 @@ def main():
                 view_rules[g] = (int(f["min_views"]), f.get("views_exempt") or [])
             if f.get("daily_max"):
                 daily_rules[g] = int(f["daily_max"])
+            # 「ときどき見る」テーマ。新着に数えず、画面では畳んでおく。
+            if f.get("minor"):
+                minor_rules.add(g)
             # 「関連」判定に使う語。サイト指定検索は見出し一致を求めないぶん、
             # 本文で触れているだけの記事が混ざる。それを見分けるための手がかり。
             if f.get("require"):
@@ -1529,7 +1533,8 @@ def main():
                 else:
                     a.pop("quiet", None)
 
-            groups_out.append({"name": g, "items": items})
+            groups_out.append({"name": g, "items": items,
+                               "minor": g in minor_rules})
         categories_out.append({"name": cat, "groups": groups_out})
 
     # 蓄積を保存（次回以降、未読の記事が消えないようにするため）

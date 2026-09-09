@@ -45,7 +45,7 @@
   ],
   "categories": [
     {
-      "name": "人物・作家",
+      "name": "人物・作品",
       "feeds": [
         {
           "topic": "沢木耕太郎",
@@ -98,6 +98,66 @@
           ]
         },
         {
+          "topic": "\"BLUE GIANT\" ジャズ",
+          "name": "BLUE GIANT",
+          "sources": [
+            "gnews_ja",
+            "hatebu"
+          ],
+          "sites": [
+            "natalie.mu",
+            "note.com"
+          ],
+          "require": [
+            "BLUE GIANT",
+            "ブルージャイアント",
+            "ブルー・ジャイアント",
+            "石塚真一"
+          ],
+          "exclude": [
+            "IBM",
+            "メインフレーム",
+            "半導体",
+            "決算",
+            "株価",
+            "四半期",
+            "セミナー",
+            "ウェビナー",
+            "受講"
+          ],
+          "prefer": [
+            "石塚真一",
+            "映画",
+            "アニメ",
+            "続編",
+            "原画",
+            "ライブ",
+            "ジャズ",
+            "連載",
+            "最新刊"
+          ]
+        },
+        {
+          "topic": "\"ブルージャイアント\" 石塚真一",
+          "group": "BLUE GIANT",
+          "name": "BLUE GIANT（作者）",
+          "sources": [
+            "gnews_ja"
+          ],
+          "require": [
+            "BLUE GIANT",
+            "ブルージャイアント",
+            "石塚真一"
+          ],
+          "exclude": [
+            "IBM",
+            "メインフレーム",
+            "半導体",
+            "決算",
+            "株価"
+          ]
+        },
+        {
           "topic": "アーミル・カーン",
           "topic_en": "\"Aamir Khan\"",
           "sources": [
@@ -113,7 +173,8 @@
           "require_en": [
             "Aamir Khan",
             "Aamir"
-          ]
+          ],
+          "minor": true
         },
         {
           "topic": "\"きっとうまくいく\" アーミル",
@@ -126,7 +187,8 @@
             "きっと、うまくいく",
             "きっとうまくいく",
             "アーミル"
-          ]
+          ],
+          "minor": true
         },
         {
           "name": "沢木耕太郎（アラート）",
