@@ -60,7 +60,17 @@
     font-weight: 800; color: #111827; background: #f59e0b;
     border-radius: 999px; padding: 1px 9px; font-size: calc(12.5px * var(--fs));
   }
+  header button.newcount { border: 0; cursor: pointer; }
+  header button.newcount.on {
+    background: var(--btn-bg); color: var(--accent);
+    border: 1px solid var(--accent); font-weight: 700;
+  }
   header .nonew { font-weight: 700; color: var(--sub); font-size: calc(12px * var(--fs)); }
+  /* 新着画面で、そのテーマがどのカテゴリのものか分かるように */
+  .ghead .gcat {
+    margin-left: auto; font-size: calc(10px * var(--fs)); font-weight: 600;
+    color: var(--sub); background: var(--chip-bg); border-radius: 999px; padding: 1px 8px;
+  }
   header .unread { font-weight: 500; color: var(--sub); font-size: calc(11px * var(--fs)); }
   /* 取れなかったフィードの知らせ。目立つが邪魔にならない大きさに留める */
   .trouble {

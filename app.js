@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.7.0";
+const APP_VERSION = "v1.7.1";
 const CHANGELOG = [
+  ["v1.7.1", "2026-09-09", "見出しの数字を押すと「きょうの新着」だけを見られるようにした"],
   ["v1.7.0", "2026-09-09", "見出しの数字を「きょうの新着」に。未読の合計は控えめに添えるだけにした"],
   ["v1.6.2", "2026-09-09", "取れなかったフィードを画面に出し、更新が半日あいたら知らせるようにした"],
   ["v1.6.1", "2026-09-09", "カテゴリの開閉と「もっと見る」の位置を覚えるようにした"],
@@ -59,6 +60,9 @@ let SELECT_MODE = false;
 let SELECTED = new Set();
 let SETTINGS_OPEN = false;
 let TROUBLE_OPEN = false;
+// 「きょうの新着だけ」を見る画面。ボタンを増やさず、見出しの数字を入口にする。
+// 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
+let SHOW_FRESH = false;
 
 // カテゴリごとのアクセント色（見出し・リード・件数に薄く効かせる）
 const CAT_COLORS = ["#7c3aed", "#2563eb", "#059669", "#ea580c", "#ca8a04", "#db2777", "#0891b2"];
@@ -592,18 +596,56 @@ function renderFavView(data) {
   APP.innerHTML = parts.join("\n");
 }
 
+// ---- きょうの新着だけの画面 ------------------------------------------------
+// 新着があっても、どのテーマにあるかスクロールして探すしかなかった。
+// テーマの並びは feeds.json 順のまま動かさず（毎日同じ場所にある安心感を保つ）、
+// 別の入口として「新着だけ」を集める。
+
+function renderFreshView(data) {
+  const blocks = ALL_GROUPS.map(function (x) {
+    const items = (x.group.items || []).filter(isFresh);
+    return items.length ? { name: x.group.name, cat: x.cat, items: items } : null;
+  }).filter(Boolean);
+  const total = blocks.reduce(function (n, b) { return n + b.items.length; }, 0);
+
+  const parts = ["<header><h1>⚡ きょうの新着</h1>"
+    + '<div class="meta-head">' + headUpdated(data.generated_at)
+    + '<button class="newcount on" type="button" id="show-fresh">← 全部を見る</button>'
+    + '<span class="unread">' + total + "件</span></div>"
+    + toolbar() + "</header>"];
+
+  if (!blocks.length) {
+    parts.push('<div class="empty">きょう届いた記事はまだありません。'
+      + "「← 全部を見る」で貯めてある記事を読めます。</div>");
+  } else {
+    blocks.forEach(function (b) {
+      parts.push('<section class="group"><h3 class="ghead">'
+        + '<span class="gname">' + esc(b.name) + "</span>"
+        + '<span class="gcount">' + b.items.length + "件</span>"
+        + '<span class="gcat">' + esc(b.cat) + "</span></h3>"
+        + '<div class="gitems expanded">'
+        + b.items.map(function (a) { return renderCard(a, false, false); }).join("")
+        + "</div></section>");
+    });
+  }
+  APP.innerHTML = parts.join("\n");
+}
+
 // ---- 通常の画面 ------------------------------------------------------------
 
 function render(data) {
   if (SHOW_FAV) { renderFavView(data); return; }
+  if (SHOW_FRESH) { renderFreshView(data); return; }
 
   const parts = [];
   // 動画は記事と分けて扱う（見る時間帯が違うため）
   const articleGroups = ALL_GROUPS.filter(function (x) { return !x.video; });
   const videoGroups = ALL_GROUPS.filter(function (x) { return x.video; });
 
+  // 見出しの数字は記事と動画をまとめた全体。
+  // 記事だけで数えると「きょうの新着」画面（動画も並ぶ）と食い違う。
   let totalUnread = 0, totalNew = 0;
-  articleGroups.forEach(function (x) {
+  ALL_GROUPS.forEach(function (x) {
     totalUnread += countUnread(x.group.items);
     totalNew += (x.group.items || []).filter(isFresh).length;
   });
@@ -618,7 +660,8 @@ function render(data) {
     // 「未読1624件」は読み切れる数ではなく、指標として働かない。
     // 今日読むべき「新着」を主役にし、貯まっている数は控えめに添える。
     + (totalNew
-      ? '<span class="newcount">きょうの新着 ' + totalNew + "件</span>"
+      ? '<button class="newcount" type="button" id="show-fresh">きょうの新着 '
+        + totalNew + "件</button>"
       : '<span class="nonew">きょうの新着はありません</span>')
     + '<span class="unread">未読 ' + totalUnread + "件</span>"
     + troubleBlock(data.sources)
@@ -850,6 +893,14 @@ APP.addEventListener("click", function (ev) {
     window.scrollTo(0, y);
     return;
   }
+  // 「きょうの新着だけ」の切り替え
+  if (ev.target.closest("#show-fresh")) {
+    SHOW_FRESH = !SHOW_FRESH;
+    if (SHOW_FRESH) SHOW_FAV = false;
+    rerender();
+    window.scrollTo(0, 0);
+    return;
+  }
   // 届かなかったフィードの内訳
   if (ev.target.closest("#show-trouble")) {
     TROUBLE_OPEN = !TROUBLE_OPEN;
@@ -874,6 +925,7 @@ APP.addEventListener("click", function (ev) {
   // 「お気に入りだけ表示」の切り替え
   if (ev.target.closest("#toggle-fav")) {
     SHOW_FAV = !SHOW_FAV;
+    if (SHOW_FAV) SHOW_FRESH = false;
     lsSet(SHOWFAV_KEY, SHOW_FAV ? "1" : "0");
     rerender();
     window.scrollTo(0, 0);
