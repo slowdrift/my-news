@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.12.0";
+const APP_VERSION = "v1.13.0";
 const CHANGELOG = [
+  ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
   ["v1.11.0", "2026-09-13", "終わったセールを残さないように。同じ出来事の重複をまとめ、届かず表示を設定へ移動"],
   ["v1.10.0", "2026-09-09", "「ときどき見る」テーマを作れるように。BLUE GIANTを追加"],
@@ -66,9 +67,15 @@ let SELECT_MODE = false;
 let SELECTED = new Set();
 let SETTINGS_OPEN = false;
 let TROUBLE_OPEN = false;
+let BORING_OPEN = false;
 // 「きょうの新着だけ」を見る画面。ボタンを増やさず、見出しの数字を入口にする。
 // 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
 let SHOW_FRESH = false;
+// 蓄積が1900件を超え、「あの記事どこだっけ」を探せなくなった。
+// 既読も含めて見出しから絞り込む（探すのは読んだ記事のことが多いため）。
+let SEARCH = "";
+let SEARCH_OPEN = false;
+const SEARCH_MAX = 200;
 
 // カテゴリごとのアクセント色（見出し・リード・件数に薄く効かせる）
 const CAT_COLORS = ["#7c3aed", "#2563eb", "#059669", "#ea580c", "#ca8a04", "#db2777", "#0891b2"];
@@ -83,6 +90,8 @@ const FAV_KEY = "mynews_fav";          // { 記事の鍵: 記事そのもの } �
 const SHOWALL_KEY = "mynews_showall";  // "1" なら既読も表示
 const SHOWFAV_KEY = "mynews_showfav";  // "1" ならお気に入りだけ表示
 const HIDELOCK_KEY = "mynews_hidelocked";  // "1" なら読めない記事を出さない
+const BORING_KEY = "mynews_boring";    // { 発信元: つまらないと押した回数 }
+const OPENED_KEY = "mynews_opened";    // { 発信元: 実際に開いた回数 }
 const THEME_KEY = "mynews_theme";      // "auto" | "light" | "dark"
 const FONT_KEY = "mynews_font";        // "s" | "m" | "l"
 // NEWバッジを何日光らせるか。読めば消えるので、長すぎなければ邪魔にならない。
@@ -143,6 +152,26 @@ let SHOW_FAV = lsGet(SHOWFAV_KEY, "0") === "1";
 // 以前は「まとめて既読」にしていたが、既読にすると埋もれて取り返せない。
 // 隠すだけなら、設定を戻せばいつでも出てくる。
 let HIDE_LOCKED = lsGet(HIDELOCK_KEY, "0") === "1";
+
+// 個人ブログの9割は、Googleの中継URLのため機械では質を測れない。
+// そこで「つまらない」と押した回数と、実際に開いた回数を発信元ごとに数える。
+// この2つを並べると、切ってよい発信元が見えてくる。
+function loadTally(key) {
+  try { return JSON.parse(lsGet(key, "{}") || "{}"); } catch (e) { return {}; }
+}
+let BORING = loadTally(BORING_KEY);
+let OPENED = loadTally(OPENED_KEY);
+
+function sourceOf(a) {
+  if (a.via) return a.via;
+  try { return new URL(a.link).hostname.replace(/^www\./, ""); } catch (e) { return "不明"; }
+}
+
+function tally(key, store, a) {
+  const k = sourceOf(a);
+  store[k] = (store[k] || 0) + 1;
+  lsSet(key, JSON.stringify(store));
+}
 let THEME = lsGet(THEME_KEY, "auto");
 let FONT = lsGet(FONT_KEY, "m");
 
@@ -319,8 +348,11 @@ function metaRow(a) {
     + (a.related ? '<span class="rel" title="見出しにテーマ名が無い記事">関連</span>' : "")
     + (a.via ? '<span class="chip">' + esc(a.via) + "</span>" : "")
     + (a.views ? '<span class="views">▶ ' + fmtViews(a.views) + "</span>" : "")
+    + (a.hb ? '<span class="hb" title="はてなブックマーク数">🔖' + a.hb + "</span>" : "")
     + (t ? '<span class="time">' + esc(t) + "</span>" : "");
-  return inner ? '<div class="meta">' + inner + "</div>" : "";
+  const boring = '<button class="boring" type="button" data-boring="'
+    + esc(favKey(a)) + '" title="つまらない。以後この発信元を見直す材料にします">👎</button>';
+  return '<div class="meta">' + inner + boring + "</div>";
 }
 
 // ★ボタン。リンクの外側に置くので、押しても記事は開かない。
@@ -466,6 +498,28 @@ function troubled(sources) {
 
 // 取れなかった配信元の知らせは、設定の中に置く。
 // 毎朝見る場所に出しても、読めないことに変わりはなく判断は変わらないため。
+// 「つまらない」と押した回数を、発信元ごとに集計して見せる。
+// 押した数だけでなく「開いた数」も並べる。よく開く発信元なら、
+// たまたま1本つまらなかっただけかもしれないため。
+function boringRow() {
+  const names = Object.keys(BORING);
+  if (!names.length) return "";
+  let h = '<div class="srow"><span>つまらないと押した記録</span>'
+    + '<button class="tool-btn" type="button" id="show-boring">' + names.length
+    + "件の発信元</button></div>";
+  if (BORING_OPEN) {
+    const rows = names.map(function (k) { return { k: k, n: BORING[k], o: OPENED[k] || 0 }; })
+      .sort(function (a, b) { return b.n - a.n; });
+    h += '<div class="trouble-list"><table>'
+      + rows.map(function (r) {
+        return "<tr><td>" + esc(r.k) + "</td><td>👎" + r.n + "</td><td>開いた" + r.o + "</td></tr>";
+      }).join("")
+      + "</table>"
+      + "<p>押した数が多く、開いた数が0に近い発信元は、除外の相談ができます。</p></div>";
+  }
+  return h;
+}
+
 function troubleRow(sources) {
   const bad = troubled(sources);
   if (!bad.length) return "";
@@ -619,8 +673,13 @@ function toolbar(sources) {
     + (SHOW_ALL ? "☑ 既読も表示" : "☐ 既読も表示") + "</button>"
     + (SHOW_FAV ? "" : '<button class="tool-btn' + (SELECT_MODE ? " on" : "") + '" type="button" id="toggle-select">'
       + (SELECT_MODE ? "✓ 選択をやめる" : "✓ まとめて既読") + "</button>")
+    + '<button class="tool-btn' + (SEARCH ? " on" : "") + '" type="button" id="toggle-search">🔍 探す</button>'
     + '<button class="tool-btn' + (SETTINGS_OPEN ? " on" : "") + '" type="button" id="toggle-settings">⚙ 設定</button>'
-    + "</div>";
+    + "</div>"
+    + (SEARCH_OPEN
+      ? '<div class="searchbox"><input type="search" id="search-input" placeholder="見出しから探す（既読も含む）" value="'
+        + esc(SEARCH) + '"></div>'
+      : "");
   if (SETTINGS_OPEN) {
     h += '<div class="settings">'
       + '<div class="srow"><span>配色</span>'
@@ -632,6 +691,7 @@ function toolbar(sources) {
       + (HIDE_LOCKED ? "隠している" : "表示する") + "</button></div>"
       + '<div class="srow"><span>いま読まないものを片づける</span>'
       + '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button></div>'
+      + boringRow()
       + troubleRow(sources)
       + '<details class="howto"><summary>使い方</summary><ul>'
       + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
@@ -706,10 +766,51 @@ function renderFreshView(data) {
   APP.innerHTML = parts.join("\n");
 }
 
+// ---- 探した結果 ------------------------------------------------------------
+
+function normForSearch(t) {
+  return String(t == null ? "" : t).normalize("NFKC").toLowerCase();
+}
+
+function renderSearchView(data) {
+  const q = normForSearch(SEARCH);
+  const hits = [];
+  ALL_GROUPS.forEach(function (x) {
+    (x.group.items || []).forEach(function (a) {
+      if (normForSearch(a.title).indexOf(q) >= 0) hits.push({ theme: x.group.name, a: a });
+    });
+  });
+  hits.sort(function (p, r) { return (r.a.dt || "").localeCompare(p.a.dt || ""); });
+
+  const parts = ["<header><h1>🔍 探す</h1>"
+    + '<div class="meta-head">'
+    + '<button class="newcount on" type="button" id="close-search">← 全部を見る</button>'
+    + '<span class="unread">' + hits.length + "件みつかりました</span></div>"
+    + toolbar(data.sources) + "</header>"];
+
+  if (!hits.length) {
+    parts.push('<div class="empty">' + esc(SEARCH)
+      + "にあてはまる記事はありませんでした。</div>");
+  } else {
+    parts.push('<section class="group"><div class="gitems expanded">');
+    hits.slice(0, SEARCH_MAX).forEach(function (h) {
+      parts.push(renderCard(h.a, false, false));
+    });
+    parts.push("</div>");
+    if (hits.length > SEARCH_MAX) {
+      parts.push('<div class="empty">ほかに ' + (hits.length - SEARCH_MAX)
+        + "件あります。言葉を足すと絞り込めます。</div>");
+    }
+    parts.push("</section>");
+  }
+  APP.innerHTML = parts.join("\n");
+}
+
 // ---- 通常の画面 ------------------------------------------------------------
 
 function render(data) {
   if (SHOW_FAV) { renderFavView(data); return; }
+  if (SEARCH) { renderSearchView(data); return; }
   if (SHOW_FRESH) { renderFreshView(data); return; }
 
   const parts = [];
@@ -920,6 +1021,28 @@ APP.addEventListener("click", function (ev) {
     rerender();
     return;
   }
+  // 👎 つまらない（記事は開かない）
+  const boring = ev.target.closest(".boring");
+  if (boring) {
+    ev.preventDefault();
+    const a = BY_LINK[boring.dataset.boring] || FAV[boring.dataset.boring];
+    if (!a) return;
+    tally(BORING_KEY, BORING, a);
+    markRead(a);
+    pushUndo("つまらないとして片づけました", function () {
+      const k = sourceOf(a);
+      if (BORING[k]) { BORING[k] -= 1; if (!BORING[k]) delete BORING[k]; }
+      lsSet(BORING_KEY, JSON.stringify(BORING));
+      if (a.link) delete READ[a.link];
+      const t = titleKey(a);
+      if (t) delete READ[t];
+      saveRead(READ);
+    });
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
   // ★お気に入りの登録・解除（記事は開かない）
   const fav = ev.target.closest(".fav");
   if (fav) {
@@ -1011,10 +1134,31 @@ APP.addEventListener("click", function (ev) {
     window.scrollTo(0, 0);
     return;
   }
+  // つまらないと押した記録
+  if (ev.target.closest("#show-boring")) {
+    BORING_OPEN = !BORING_OPEN;
+    rerender();
+    return;
+  }
   // 届かなかったフィードの内訳
   if (ev.target.closest("#show-trouble")) {
     TROUBLE_OPEN = !TROUBLE_OPEN;
     rerender();
+    return;
+  }
+  // 探す窓の開閉
+  if (ev.target.closest("#toggle-search")) {
+    SEARCH_OPEN = !SEARCH_OPEN;
+    if (!SEARCH_OPEN) SEARCH = "";
+    rerender();
+    const box = document.getElementById("search-input");
+    if (box) box.focus();
+    return;
+  }
+  if (ev.target.closest("#close-search")) {
+    SEARCH = ""; SEARCH_OPEN = false;
+    rerender();
+    window.scrollTo(0, 0);
     return;
   }
   // 設定の開閉
@@ -1068,6 +1212,7 @@ APP.addEventListener("click", function (ev) {
   if (link) {
     if (swDone) { swDone = false; ev.preventDefault(); return; }
     const a = BY_LINK[link.dataset.link] || { link: link.dataset.link, title: "" };
+    tally(OPENED_KEY, OPENED, a);
     markRead(a);
     const card = link.closest(".card");
     if (card) card.classList.add("read");
@@ -1222,6 +1367,20 @@ document.addEventListener("toggle", function (ev) {
   UI.cats[key] = d.open;
   saveUI();
 }, true);
+
+let SEARCH_TIMER = null;
+APP.addEventListener("input", function (ev) {
+  if (!ev.target.matches("#search-input")) return;
+  const v = ev.target.value;
+  if (SEARCH_TIMER) clearTimeout(SEARCH_TIMER);
+  // 1文字打つたびに1900件を探し直すと指が重くなるので、少し待つ
+  SEARCH_TIMER = setTimeout(function () {
+    SEARCH = v.trim();
+    rerender();
+    const box = document.getElementById("search-input");
+    if (box) { box.focus(); box.setSelectionRange(v.length, v.length); }
+  }, 250);
+});
 
 // data.js（<script src> で先に読み込まれ window.NEWS_DATA に入っている）を描画。
 try {

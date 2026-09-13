@@ -416,6 +416,29 @@
     border-radius: 4px; padding: 1px 5px; letter-spacing: .04em;
   }
   .views { font-size: calc(10px * var(--fs)); color: var(--sub); white-space: nowrap; }
+  /* はてなブックマーク数。直リンクの記事にだけ付く */
+  .hb {
+    font-size: calc(10px * var(--fs)); color: #0f766e; background: #ccfbf1;
+    border-radius: 5px; padding: 1px 5px; font-weight: 700; white-space: nowrap;
+  }
+  :root[data-theme="dark"] .hb, :root[data-theme="auto"] .hb {
+    color: #5eead4; background: #10302e;
+  }
+  /* 👎 つまらない。押しやすく、かつ目立ちすぎない位置に */
+  .boring {
+    margin-left: auto; padding: 3px 8px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--btn-bg);
+    font-size: calc(11px * var(--fs)); line-height: 1.2; opacity: .55;
+  }
+  .boring:active { opacity: 1; border-color: var(--accent); }
+
+  /* 探す窓 */
+  .searchbox { margin: 8px 0 2px; }
+  .searchbox input {
+    width: 100%; padding: 9px 12px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    font-size: calc(13px * var(--fs)); font-family: inherit;
+  }
   /* 個人ブログ・note等（報道と区別するための印） */
   .blog {
     font-size: calc(10px * var(--fs)); color: #7c3aed; background: #f3e8ff;

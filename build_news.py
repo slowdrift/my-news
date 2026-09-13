@@ -976,6 +976,29 @@ def fetch_weather(cfg):
     return out
 
 
+HATENA_COUNT_URL = "https://bookmark.hatenaapis.com/count/entries"
+HATENA_BATCH = 50
+
+
+def fetch_bookmarks(links):
+    """はてなブックマークの件数をまとめて取る（登録もキーも不要の公開API）。
+
+    個人ブログの質を機械で見分ける手がかりがこれしか無かった。
+    ただし使えるのは直リンクの記事だけ。Googleニュース経由の記事は
+    中継URLしか分からないので引けない（全体の約9割がこちら）。
+    """
+    out = {}
+    for i in range(0, len(links), HATENA_BATCH):
+        chunk = links[i:i + HATENA_BATCH]
+        q = "&".join("url=" + quote(u, safe="") for u in chunk)
+        try:
+            out.update(get_json(HATENA_COUNT_URL + "?" + q, timeout=15))
+        except Exception as e:
+            print(f"はてブ件数: 取得できず（{type(e).__name__}）")
+            break
+    return out
+
+
 def fetch_stocks(items):
     """設定した銘柄の値段と前日比を取る。
 
@@ -1166,6 +1189,7 @@ def to_json_item(a):
         "views": a.get("views"),   # 動画の再生回数（記事は None）
         "blog": a.get("blog", False),  # 個人ブログ・note等（報道と区別する印）
         "rank": a.get("rank", 0),  # 並び順の重み（-1 優先 / 0 普通 / 1 後回し）
+        "hb": a.get("hb"),                   # はてなブックマーク件数（直リンクのみ）
         "quiet": a.get("quiet", False),      # 1日の上限を超えた分（新着として数えない）
         "related": a.get("related", False),  # 見出しにテーマ名が無い＝本文で触れただけ
         "corp": a.get("corp", False),        # 会社が運営するブログ
@@ -1598,6 +1622,26 @@ def main():
     # data.js 書き出し（UTF-8・日本語そのまま）
     #   window.NEWS_DATA にデータを入れる形にすると、<script src> で読めるため
     #   ローカルサーバ無しの file:// でも動く（fetch はブロックされるため使わない）。
+    # 個人ブログにはてなブックマークの件数を付ける（直リンクの記事だけ）
+    targets = []
+    for v in archive.values():
+        for a in v:
+            link = a.get("link") or ""
+            if a.get("blog") and link and "news.google.com" not in link:
+                targets.append(link)
+    if targets:
+        counts = fetch_bookmarks(sorted(set(targets)))
+        got = 0
+        for v in archive.values():
+            for a in v:
+                n = counts.get(a.get("link"))
+                if n is not None:
+                    a["hb"] = int(n)
+                    got += 1
+        line = f"はてブ件数: {got}/{len(set(targets))}件に付与（直リンクのみ）"
+        log_lines.append(line)
+        print(line)
+
     # 天気と株価（どちらも失敗したら黙って消える）
     conf = json.loads(FEEDS_FILE.read_text(encoding="utf-8"))
     weather = fetch_weather(conf.get("weather"))
