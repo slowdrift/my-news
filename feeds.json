@@ -173,6 +173,83 @@
           "require_en": [
             "Aamir Khan",
             "Aamir"
+          ],
+          "require_also": [
+            "映画",
+            "公開",
+            "続編",
+            "出演",
+            "監督",
+            "主演",
+            "来日",
+            "上映",
+            "配信",
+            "受賞",
+            "アニメ",
+            "インタビュー",
+            "きっと、うまくいく",
+            "きっとうまくいく",
+            "3 idiots"
+          ],
+          "require_also_en": [
+            "film",
+            "movie",
+            "sequel",
+            "release",
+            "trailer",
+            "shoot",
+            "director",
+            "directs",
+            "box office",
+            "cinema",
+            "starrer",
+            "casting",
+            "teaser",
+            "poster",
+            "award",
+            "3 idiots",
+            "lagaan",
+            "dangal",
+            "taare zameen",
+            "sitaare",
+            "ghajini",
+            "swades"
+          ],
+          "exclude": [
+            "ex-husband",
+            "ex-wife",
+            "divorce",
+            "dating",
+            "girlfriend",
+            "boyfriend",
+            "breaks silence",
+            "slams",
+            "trolled",
+            "spotted",
+            "gossip",
+            "koffee with karan",
+            "birthday",
+            "netizens",
+            "viral",
+            "net worth",
+            "crore",
+            "paparazzi",
+            "roasts",
+            "hits back",
+            "blasted",
+            "slapped",
+            "scolding",
+            "scolded",
+            "熱愛",
+            "破局",
+            "離婚",
+            "不倫",
+            "炎上",
+            "私生活",
+            "responds to",
+            "denies",
+            "reacts to",
+            "row over"
           ]
         },
         {
@@ -638,16 +715,28 @@
             "資金調達",
             "決算",
             "説明会",
-            "出資"
+            "出資",
+            "法人向け研修",
+            "役員研修",
+            "研修サービス"
           ],
           "exclude": [
             "セミナー",
             "ウェビナー",
             "無料相談",
-            "受講",
             "申し込み",
-            "資料請求"
-          ]
+            "資料請求",
+            "学び放題",
+            "ユーザーの声",
+            "連携を開始",
+            "連携開始",
+            "提供開始",
+            "入学説明",
+            "体験クラス",
+            "入学式",
+            "説明会"
+          ],
+          "exclude_in": "title"
         }
       ]
     },
@@ -674,14 +763,23 @@
             "サイバーマンデー",
             "新生活SALE",
             "新生活セール",
-            "初売り"
+            "初売り",
+            "プライム感謝祭",
+            "感謝祭",
+            "Amazon感謝祭",
+            "次のセール",
+            "年間スケジュール",
+            "セール完全攻略",
+            "セール予告"
           ],
           "exclude": [
             "タイムセール",
             "タイムセール祭り"
           ],
           "keep": 40,
-          "fresh_only": 14
+          "fresh_only": 7,
+          "sale_check": true,
+          "require_always": true
         }
       ]
     },

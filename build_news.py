@@ -139,6 +139,68 @@ def better_record(a, b):
     return a if score(a) >= score(b) else b
 
 
+# ---- 終わったセールを見分ける ----------------------------------------------
+# セール情報は「いつまでか」が命で、終わった告知は読んでも仕方がない。
+# 配信からの日数だけでは落とせない（9/12に配信された「7月のプライムデー」の
+# まとめ記事が残っていた）ので、見出しそのものから期日を読む。
+SALE_DATE_RE = re.compile(r"(\d{1,2})\s*[/月]\s*(\d{1,2})")
+SALE_END_HINT = ("まで", "迄", "最終日", "～", "~", "〜", "-")
+# 年に一度のセールは開催月が決まっている。月が離れていれば古い記事とみなす。
+SALE_SEASONS = [
+    (("プライムデー", "prime day"), (6, 8)),
+    (("新生活", "新学期"), (2, 4)),
+    (("初売り", "福袋"), (12, 2)),
+    (("ブラックフライデー", "black friday"), (10, 12)),
+    (("サイバーマンデー", "cyber monday"), (11, 1)),
+]
+
+
+def month_in_range(month: int, lo: int, hi: int) -> bool:
+    """月が範囲に入るか（12月→1月のような年またぎも見る）。"""
+    return lo <= month <= hi if lo <= hi else (month >= lo or month <= hi)
+
+
+def sale_expired(title: str, dt_iso: str, now=None) -> bool:
+    """終わったセールの告知なら True。判断できなければ False（残す）。"""
+    title = title or ""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    try:
+        posted = datetime.datetime.fromisoformat(dt_iso)
+    except Exception:
+        return False
+
+    low = title.lower()
+    for words, (lo, hi) in SALE_SEASONS:
+        if any(w in low for w in words) and not month_in_range(posted.month, lo, hi):
+            return True   # 開催時期から外れた月に書かれた「まとめ・振り返り」
+
+    if not any(h in title for h in SALE_END_HINT):
+        return False
+    ends = SALE_DATE_RE.findall(title)
+    if not ends:
+        return False
+    m, d = int(ends[-1][0]), int(ends[-1][1])   # 最後の日付を終了日とみなす
+    if not (1 <= m <= 12 and 1 <= d <= 31):
+        return False
+    try:
+        end = datetime.datetime(posted.year, m, d, 23, 59, tzinfo=posted.tzinfo)
+    except ValueError:
+        return False
+    if (end - posted).days < -60:      # 12月の記事に「1/3まで」とあれば翌年
+        end = end.replace(year=posted.year + 1)
+    return end < now
+
+
+def days_apart(a: str, b: str) -> float:
+    """2つの配信日時（ISO文字列）が何日離れているか。分からなければ大きな値。"""
+    try:
+        da = datetime.datetime.fromisoformat(a)
+        db = datetime.datetime.fromisoformat(b)
+        return abs((da - db).total_seconds()) / 86400.0
+    except Exception:
+        return 9999.0
+
+
 def dedupe_by_title(items):
     """似た見出しの記事を1件にまとめる。
 
@@ -150,7 +212,7 @@ def dedupe_by_title(items):
     新しいほうに合わせると、まとめた瞬間にNEWが再点灯してしまう。
     """
     common = common_words(items)
-    keys = []    # [(正規化した見出し, 2文字ずつの集合, 目印になる語)]
+    keys = []    # [(正規化した見出し, 2文字ずつの集合, 目印になる語, 配信日)]
     kept = []    # keys と同じ並びの記事
     loose = []   # 見出しが取れないものはそのまま残す
     for a in items:
@@ -160,8 +222,9 @@ def dedupe_by_title(items):
             continue
         grams = title_bigrams(norm)
         marks = title_words(a.get("title")) - common
+        day = a.get("dt") or ""
         hit = -1
-        for i, (n2, g2, m2) in enumerate(keys):
+        for i, (n2, g2, m2, d2) in enumerate(keys):
             same = (norm == n2)
             prefix = (min(len(norm), len(n2)) >= DUP_PREFIX_MIN
                       and (norm.startswith(n2) or n2.startswith(norm)))
@@ -170,11 +233,14 @@ def dedupe_by_title(items):
             # 固有名詞の重なりでも見る（言い回しが違う同じ出来事を拾う）
             event = (len(marks) >= SAME_NEWS_MIN_WORDS and len(m2) >= SAME_NEWS_MIN_WORDS
                      and len(marks & m2) / len(marks | m2) >= SAME_NEWS_OVERLAP)
+            # 割合が届かなくても、珍しい語が何個も一致していて日が近ければ同じ話
+            if not event and len(marks & m2) >= SAME_NEWS_MIN_SHARED:
+                event = days_apart(day, d2) <= SAME_NEWS_DAYS
             if same or prefix or close or event:
                 hit = i
                 break
         if hit < 0:
-            keys.append((norm, grams, marks))
+            keys.append((norm, grams, marks, day))
             kept.append(a)
         else:
             cur = kept[hit]
@@ -403,12 +469,18 @@ def expand_topic(entry):
             words = require_words(source_raw)
             if words:
                 feed["require"] = words
+        # もう一つの必須語も、英語のソースには英語側を渡す
+        also_key = ("require_also_en" if (tpl.get("english") and entry.get("require_also_en"))
+                    else "require_also")
+        if entry.get(also_key):
+            feed["require_also"] = entry[also_key]
         if entry.get("exclude"):
             feed["exclude"] = entry["exclude"]
         # 記事の重み付け（⑥）：優先したい語・後ろに回したい語
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
                     "min_views", "views_exempt", "minor", "fresh_only",
-                    "keep_if", "via_exclude", "daily_max", "foreign_ok"):
+                    "keep_if", "via_exclude", "daily_max", "foreign_ok",
+                    "sale_check", "require_always", "exclude_in"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -439,7 +511,8 @@ def expand_topic(entry):
         }
         for key in ("exclude", "prefer", "demote", "blog_last", "keep",
                     "no_ng", "minor", "fresh_only",
-                    "keep_if", "via_exclude", "daily_max", "foreign_ok"):
+                    "keep_if", "via_exclude", "daily_max", "foreign_ok",
+                    "sale_check", "require_always", "exclude_in", "require_also"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
         if entry.get("fresh_only"):
@@ -818,7 +891,8 @@ def is_blocked_source(via: str, title: str) -> bool:
     return False
 
 
-def passes_keywords(require_hay: str, text: str, require, exclude, keep_if=None) -> bool:
+def passes_keywords(require_hay: str, text: str, require, exclude,
+                    keep_if=None, also=None) -> bool:
     """必須語/NG語による判定。
 
     - require（必須語）は require_hay に対して判定。
@@ -828,10 +902,19 @@ def passes_keywords(require_hay: str, text: str, require, exclude, keep_if=None)
     """
     if require and not any(r in require_hay for r in require):
         return False  # 必須語が無ければ捨てる
-    if exclude and any(ng in text for ng in exclude):
+    # also（もう一つの必須語）：require とは「両方」必要。
+    # 名前だけを条件にすると、その人の名前が出てくるだけの雑談記事が全部入る。
+    # 「アーミル・カーン」かつ「映画・続編・出演…」のように、話題でもう一段絞る。
+    if also:
+        low = require_hay.lower()
+        if not any(w.lower() in low for w in also):
+            return False
+    # NG語は大文字小文字を区別しない（英語の見出しに当てるため）
+    low_text = text.lower()
+    if exclude and any(ng.lower() in low_text for ng in exclude):
         # keep_if（救済語）があれば残す。
         # 「事故」「火災」は普段は要らないが、"連続""爆発" のような重大な報せは読みたい。
-        if not (keep_if and any(k in text for k in keep_if)):
+        if not (keep_if and any(k.lower() in low_text for k in keep_if)):
             return False  # NG語が含まれていれば捨てる
     return True
 
@@ -866,6 +949,13 @@ WORD_RE = re.compile(r"[一-龠]{2,}|[ァ-ヶー]{2,}|[A-Za-z]{3,}|[0-9]{2,}")
 SAME_NEWS_COMMON = 0.25    # テーマの見出しのこの割合を超えて出る語は目印にしない
 SAME_NEWS_MIN_WORDS = 3    # 残った語がこれ未満なら判定しない（短い見出しの誤判定を防ぐ）
 SAME_NEWS_OVERLAP = 0.45   # 残った語の重なりがこれ以上なら同じ出来事とみなす
+# 割合だけでは取りこぼす。実測：同じ「メシドラ」の放送を4媒体が書いたとき、
+# 共通語は4つ（メシドラ・三浦友和・松村北斗・茨城県牛久市）もあったのに、
+# 媒体ごとの味つけ（SixTONES／忌野清志郎／兼近大樹）で割合が0.29まで下がっていた。
+# そこで「珍しい語がいくつ共通か」も見る。ただし日が離れた記事は別物として扱う
+# （同じ人物の記事は、年が違っても語が重なるため）。
+SAME_NEWS_MIN_SHARED = 3   # 珍しい語がこれだけ共通なら同じ出来事とみなす
+SAME_NEWS_DAYS = 7         # ただし配信日がこれ以内のものに限る
 
 
 def title_words(title: str):
@@ -1145,6 +1235,12 @@ def fetch_feed(feed):
     keep_if = feed.get("keep_if") or []          # NG語に当たっても残す救済語
     via_extra = feed.get("via_exclude") or []    # このテーマだけの発信元除外
     foreign_ok = bool(feed.get("foreign_ok") or feed.get("english"))
+    sale_check = bool(feed.get("sale_check"))   # 終わったセールを落とすか
+    also = feed.get("require_also") or None      # 話題でもう一段絞る語
+    # NG語をどこで判定するか。既定はタイトル＋リード文だが、リード文には
+    # サイト共通の宣伝文（「GLOBIS 学び放題」等）が入ることがあり、
+    # それだけでそのサイトの記事が全滅する。"title" なら見出しだけで判定する。
+    ng_in_title = (feed.get("exclude_in") == "title")
     my_topic = feed.get("group") or name
     # 日本語のテーマかどうか。英語圏のソース（海外報道）には効かせない。
     japanese_topic = bool(feed.get("site_search")) and bool(JAPANESE_RE.search(my_topic))
@@ -1187,9 +1283,12 @@ def fetch_feed(feed):
             continue  # 読めない言語（韓国語・ロシア語など）の記事
         if is_pr_source(via, via_host, via_extra):
             continue  # プレスリリース配信・宣伝記事
+        if sale_check and dt and sale_expired(title, dt.isoformat()):
+            continue  # 終わったセールの告知
         text = title + " " + summary_raw
+        ng_hay = title if ng_in_title else text
         require_hay = text if require_in == "text" else title
-        if not passes_keywords(require_hay, text, require, exclude, keep_if):
+        if not passes_keywords(require_hay, ng_hay, require, exclude, keep_if, also):
             continue  # 必須語なし or NG語ありを除外
         if dt and dt < cutoff:
             continue  # 古すぎる記事を除外（日時不明は残す）
@@ -1295,6 +1394,8 @@ def main():
     keepif_rules = {}     # NG語に当たっても残す救済語
     via_rules = {}        # テーマごとの発信元除外
     foreign_groups = set()  # 外国語の記事を許すテーマ（海外報道）
+    sale_groups = set()   # 終わったセールを落とすテーマ
+    ng_title_groups = set()  # NG語を見出しだけで判定するテーマ
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
         for f in feeds:
@@ -1317,6 +1418,10 @@ def main():
                 via_rules.setdefault(g, []).extend(f["via_exclude"])
             if f.get("foreign_ok") or f.get("english"):
                 foreign_groups.add(g)
+            if f.get("sale_check"):
+                sale_groups.add(g)
+            if f.get("exclude_in") == "title":
+                ng_title_groups.add(g)
             if f.get("type") == "video":
                 video_groups.add(g)
             if f.get("min_views"):
@@ -1383,7 +1488,8 @@ def main():
         rescue = keepif_rules.get(g) or []
         keep = []
         for a in items:
-            text = (a.get("title") or "") + " " + (a.get("summary") or "")
+            text = ((a.get("title") or "") if g in ng_title_groups
+                    else (a.get("title") or "") + " " + (a.get("summary") or ""))
             if ng and any(w in text for w in ng) and not (
                     rescue and any(k in text for k in rescue)):
                 ng_removed += 1
@@ -1393,6 +1499,9 @@ def main():
                 continue
             if g not in foreign_groups and FOREIGN_SCRIPT_RE.search(a.get("title") or ""):
                 foreign_removed += 1
+                continue
+            if g in sale_groups and sale_expired(a.get("title") or "", a.get("dt") or ""):
+                ng_removed += 1
                 continue
             if a.get("kind") == "video" and g not in video_groups:
                 ng_removed += 1
@@ -1436,15 +1545,29 @@ def main():
             g = f.get("group") or f.get("name")
             if not g:
                 continue
-            words, has_site = require_rules.get(g, ([], False))
+            words, also, has_site = require_rules.get(g, ([], [], False))
+            # require_always: サイト指定の情報源があっても必須語を当てる。
+            # （Amazonのセールに、昔まぎれ込んだ競馬予想のnote記事が残っていたため）
+            site = bool(f.get("site_search")) and not f.get("require_always")
             require_rules[g] = (words + (f.get("require") or []),
-                                has_site or bool(f.get("site_search")))
+                                also + (f.get("require_also") or []),
+                                has_site or site)
     off_topic = 0
     for g, items in archive.items():
-        words, has_site = require_rules.get(g, ([], True))
+        words, also, has_site = require_rules.get(g, ([], [], True))
         if has_site or not words:
             continue
-        keep = [a for a in items if any(w in (a.get("title") or "") for w in words)]
+
+        def ok(a):
+            t = a.get("title") or ""
+            if not any(w in t for w in words):
+                return False
+            if also:
+                low = (t + " " + (a.get("summary") or "")).lower()
+                return any(w.lower() in low for w in also)
+            return True
+
+        keep = [a for a in items if ok(a)]
         off_topic += len(items) - len(keep)
         archive[g] = keep
     if off_topic:

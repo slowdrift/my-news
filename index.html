@@ -450,6 +450,15 @@
     font-size: calc(11px * var(--fs)); line-height: 1.2; opacity: .55;
   }
   .boring:active { opacity: 1; border-color: var(--accent); }
+  /* 👍 良かった。👎と同じ形にそろえ、右端に2つ並べる */
+  .good {
+    margin-left: auto; padding: 3px 8px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--btn-bg);
+    font-size: calc(11px * var(--fs)); line-height: 1.2; opacity: .55;
+  }
+  .good:active { opacity: 1; border-color: var(--accent); }
+  .good.on { opacity: 1; border-color: var(--accent); background: var(--accent-bg, var(--btn-bg)); }
+  .good + .boring { margin-left: 4px; }
 
   /* 探す窓 */
   .searchbox { margin: 8px 0 2px; }

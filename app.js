@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.14.0";
+const APP_VERSION = "v1.15.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -93,6 +93,8 @@ const SHOWALL_KEY = "mynews_showall";  // "1" なら既読も表示
 const SHOWFAV_KEY = "mynews_showfav";  // "1" ならお気に入りだけ表示
 const HIDELOCK_KEY = "mynews_hidelocked";  // "1" なら読めない記事を出さない
 const ORDER_KEY = "mynews_order";      // { テーマ名: 並び順の数字 }
+const GOOD_KEY = "mynews_good";        // { 発信元: 良かったと押した回数 }
+const GOODED_KEY = "mynews_gooded";    // { 記事の鍵: 1 }（二度押しを避ける印）
 const BORING_KEY = "mynews_boring";    // { 発信元: つまらないと押した回数 }
 const OPENED_KEY = "mynews_opened";    // { 発信元: 実際に開いた回数 }
 const THEME_KEY = "mynews_theme";      // "auto" | "light" | "dark"
@@ -163,6 +165,8 @@ function loadTally(key) {
   try { return JSON.parse(lsGet(key, "{}") || "{}"); } catch (e) { return {}; }
 }
 let ORDER = loadTally(ORDER_KEY);   // 形が同じ（名前→数字）なので同じ読み方で足りる
+let GOOD = loadTally(GOOD_KEY);
+let GOODED = loadTally(GOODED_KEY);
 let BORING = loadTally(BORING_KEY);
 let OPENED = loadTally(OPENED_KEY);
 
@@ -375,9 +379,14 @@ function metaRow(a) {
     + (a.views ? '<span class="views">▶ ' + fmtViews(a.views) + "</span>" : "")
     + (a.hb ? '<span class="hb" title="はてなブックマーク数">🔖' + a.hb + "</span>" : "")
     + (t ? '<span class="time">' + esc(t) + "</span>" : "");
+  const k = favKey(a);
+  // 👍 は「この発信元をもっと」の票。読むつもりの記事なので既読にはしない。
+  // 👎 は「もう要らない」の票。こちらは片づける（既読にする）。
+  const good = '<button class="good' + (GOODED[k] ? " on" : "") + '" type="button" data-good="'
+    + esc(k) + '" title="良かった。この発信元を大事にします">👍</button>';
   const boring = '<button class="boring" type="button" data-boring="'
-    + esc(favKey(a)) + '" title="つまらない。以後この発信元を見直す材料にします">👎</button>';
-  return '<div class="meta">' + inner + boring + "</div>";
+    + esc(k) + '" title="つまらない。以後この発信元を見直す材料にします">👎</button>';
+  return '<div class="meta">' + inner + good + boring + "</div>";
 }
 
 // ★ボタン。リンクの外側に置くので、押しても記事は開かない。
@@ -509,20 +518,27 @@ function troubled(sources) {
 // 押した数だけでなく「開いた数」も並べる。よく開く発信元なら、
 // たまたま1本つまらなかっただけかもしれないため。
 function boringRow() {
-  const names = Object.keys(BORING);
+  const names = [];
+  [GOOD, BORING, OPENED].forEach(function (src) {
+    Object.keys(src).forEach(function (k) { if (names.indexOf(k) < 0) names.push(k); });
+  });
   if (!names.length) return "";
-  let h = '<div class="srow"><span>つまらないと押した記録</span>'
-    + '<button class="tool-btn" type="button" id="show-boring">' + names.length
+  const votes = names.filter(function (k) { return GOOD[k] || BORING[k]; }).length;
+  let h = '<div class="srow"><span>良かった・つまらないの記録</span>'
+    + '<button class="tool-btn" type="button" id="show-boring">' + votes
     + "件の発信元</button></div>";
   if (BORING_OPEN) {
-    const rows = names.map(function (k) { return { k: k, n: BORING[k], o: OPENED[k] || 0 }; })
-      .sort(function (a, b) { return b.n - a.n; });
+    const rows = names.map(function (k) {
+      return { k: k, g: GOOD[k] || 0, n: BORING[k] || 0, o: OPENED[k] || 0 };
+    }).sort(function (a, b) { return (b.g + b.n) - (a.g + a.n) || b.o - a.o; });
     h += '<div class="trouble-list"><table>'
       + rows.map(function (r) {
-        return "<tr><td>" + esc(r.k) + "</td><td>👎" + r.n + "</td><td>開いた" + r.o + "</td></tr>";
+        return "<tr><td>" + esc(r.k) + "</td><td>" + (r.g ? "👍" + r.g : "")
+          + "</td><td>" + (r.n ? "👎" + r.n : "") + "</td><td>開いた" + r.o + "</td></tr>";
       }).join("")
       + "</table>"
-      + "<p>押した数が多く、開いた数が0に近い発信元は、除外の相談ができます。</p></div>";
+      + "<p>👎が多く開いた数が0に近い発信元は、除外の相談ができます。"
+      + "👍が多い発信元は、情報源として増やせないか調べられます。</p></div>";
   }
   return h;
 }
@@ -763,6 +779,8 @@ function toolbar(sources) {
       + "<li>記事右上の<b>☆</b>は、一覧から消えても残る保存です</li>"
       + "<li>テーマ名を押すと<b>畳めます</b>（並び順は設定の「並べ替え」で変えられます）</li>"
       + "<li><b>📖読んだ記事</b>は、読んだ順にさかのぼって見直せます</li>"
+      + "<li>記事の<b>👍</b>は「この発信元をもっと」、<b>👎</b>は「もう要らない」の印です"
+      + "（👍は既読にしません）</li>"
       + "<li>見出しの<b>⚠</b>は、取得できなかった配信元がある印です</li>"
       + "</ul></details>"
       + "</div>";
@@ -1158,10 +1176,29 @@ APP.addEventListener("click", function (ev) {
     }
   }
   // 「選ぶ」の切り替え
-  if (ev.target.closest("#toggle-select")) {
-    SELECT_MODE = !SELECT_MODE;
-    SELECTED.clear();
+  // 👍 良かった（記事は開かない・既読にもしない）
+  const goodBtn = ev.target.closest(".good");
+  if (goodBtn) {
+    ev.preventDefault();
+    const key = goodBtn.dataset.good;
+    const a = BY_LINK[key] || FAV[key];
+    if (!a) return;
+    if (GOODED[key]) {          // もう一度押したら取り消し
+      const k2 = sourceOf(a);
+      if (GOOD[k2]) { GOOD[k2] -= 1; if (!GOOD[k2]) delete GOOD[k2]; }
+      delete GOODED[key];
+      lsSet(GOOD_KEY, JSON.stringify(GOOD));
+      lsSet(GOODED_KEY, JSON.stringify(GOODED));
+      toast("👍 を取り消しました");
+    } else {
+      tally(GOOD_KEY, GOOD, a);
+      GOODED[key] = 1;
+      lsSet(GOODED_KEY, JSON.stringify(GOODED));
+      toast("👍 " + sourceOf(a) + " を覚えました");
+    }
+    const y0 = window.scrollY;
     rerender();
+    window.scrollTo(0, y0);
     return;
   }
   // 👎 つまらない（記事は開かない）
@@ -1433,6 +1470,18 @@ function pushUndo(msg, undo) {
   UNDO_STACK.push({ msg: msg, undo: undo });
   if (UNDO_STACK.length > UNDO_MAX) UNDO_STACK.shift();
   showToast();
+}
+
+// 「元に戻す」の要らない短い知らせ
+function toast(msg) {
+  const old = document.getElementById("toast");
+  if (old) old.remove();
+  if (UNDO_TIMER) clearTimeout(UNDO_TIMER);
+  const el = document.createElement("div");
+  el.id = "toast";
+  el.innerHTML = "<span>" + esc(msg) + "</span>";
+  document.body.appendChild(el);
+  UNDO_TIMER = setTimeout(function () { el.remove(); }, 2500);
 }
 
 function showToast() {
