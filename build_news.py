@@ -361,7 +361,9 @@ def expand_topic(entry):
     """
     quoted, plain = split_topic(entry.get("topic", ""))
     name = entry.get("name") or plain
-    sources = entry.get("sources") or DEFAULT_SOURCES
+    # "sources": [] は「ニュース検索は使わず sites だけで探す」という意味。
+    # （例: ロイターは jp.reuters.com の中だけを見れば十分）
+    sources = entry["sources"] if entry.get("sources") is not None else DEFAULT_SOURCES
 
     feeds = []
     for key in sources:
@@ -405,7 +407,8 @@ def expand_topic(entry):
             feed["exclude"] = entry["exclude"]
         # 記事の重み付け（⑥）：優先したい語・後ろに回したい語
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
-                    "min_views", "views_exempt", "minor", "fresh_only"):
+                    "min_views", "views_exempt", "minor", "fresh_only",
+                    "keep_if", "via_exclude", "daily_max", "foreign_ok"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -435,7 +438,8 @@ def expand_topic(entry):
             "backfill": {"url": news_tpl["url"], "q": q_site},
         }
         for key in ("exclude", "prefer", "demote", "blog_last", "keep",
-                    "no_ng", "minor", "fresh_only"):
+                    "no_ng", "minor", "fresh_only",
+                    "keep_if", "via_exclude", "daily_max", "foreign_ok"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
         if entry.get("fresh_only"):
@@ -462,7 +466,11 @@ def load_feeds(path: Path):
     feeds_by_cat = {}
     for cat in data.get("categories", []):
         items = []
-        for f in cat.get("feeds", []):
+        # カテゴリに "shared" を書くと、その中のフィード全部に同じ設定が乗る。
+        # （例: 地元のニュースは情報源が3つあるが、除外語は1か所に書けば足りる）
+        shared = cat.get("shared") or {}
+        for f0 in cat.get("feeds", []):
+            f = dict(shared, **f0) if shared else f0
             if f.get("topic"):
                 items.extend(expand_topic(f))
                 continue
@@ -528,6 +536,35 @@ BLOCK_SOURCES = [
     "mshale",              # 動画転載のスパム的サイト（無関係な語がタイトルに混じる）
     "pasquale pillitteri",
 ]
+
+# プレスリリース配信・宣伝目的の発信元。見出しは「提供開始」「無料公開」ばかりで、
+# 「個人が生成AIをうまく使う」という目的には役に立たない。
+# 実測：Claude Code＋生成AIの906件のうち、この系統が約70件を占めていた。
+# 発信元名（via）と発信元ドメイン（via_host）の両方に部分一致で当てる。
+PR_SOURCES = [
+    "pr times", "prtimes",
+    "アットプレス", "@press", "atpress",
+    "ニコニコニュース",            # 中身はPR TIMESの転載が大半
+    "newscast", "ニュースキャスト",
+    "valuepress", "バリュープレス", "dreamnews", "ドリームニュース",
+    "digital pr", "pr wire", "prワイヤー",
+    "aismiley", "shift ai", "dxマガジン", "voix",
+]
+
+# 日本語以外の文字。ハングル・キリル・アラビア・タイ・ヘブライ・デーヴァナーガリー。
+# 読めない言語の記事は届いても仕方がないので、見出しに含まれていたら捨てる。
+# 英語だけは落とさない（技術記事の見出しに普通に出てくるため）。
+FOREIGN_SCRIPT_RE = re.compile(
+    "[가-힣Ѐ-ӿ؀-ۿ฀-๿֐-׿ऀ-ॿ]")
+
+
+def is_pr_source(via: str, via_host: str, extra=None) -> bool:
+    """プレスリリース配信・宣伝サイトからの記事か。"""
+    hay = ((via or "") + " " + (via_host or "")).lower()
+    for w in PR_SOURCES + list(extra or []):
+        if w.lower() in hay:
+            return True
+    return False
 
 # 話題性が低くなりがちな記事を「消さずに後ろへ回す」ための語。
 # 例：楽曲がテレビ番組で流れただけの記事は、本人の出演やインタビューより価値が低い。
@@ -781,7 +818,7 @@ def is_blocked_source(via: str, title: str) -> bool:
     return False
 
 
-def passes_keywords(require_hay: str, text: str, require, exclude) -> bool:
+def passes_keywords(require_hay: str, text: str, require, exclude, keep_if=None) -> bool:
     """必須語/NG語による判定。
 
     - require（必須語）は require_hay に対して判定。
@@ -792,7 +829,10 @@ def passes_keywords(require_hay: str, text: str, require, exclude) -> bool:
     if require and not any(r in require_hay for r in require):
         return False  # 必須語が無ければ捨てる
     if exclude and any(ng in text for ng in exclude):
-        return False  # NG語が含まれていれば捨てる
+        # keep_if（救済語）があれば残す。
+        # 「事故」「火災」は普段は要らないが、"連続""爆発" のような重大な報せは読みたい。
+        if not (keep_if and any(k in text for k in keep_if)):
+            return False  # NG語が含まれていれば捨てる
     return True
 
 
@@ -1078,10 +1118,14 @@ def fetch_feed(feed):
     use_ng = is_alert or feed.get("ng_only", False)
     # テーマ自体が「Amazon」「セール」のようにNGワードと重なるときは、
     # 全体のNGワードを外し、そのテーマ固有の除外語だけを使う。
+    # テーマに書いた exclude は、ソースの種類によらず必ず効かせる。
+    # （以前はNGワードを使うフィードでしか見ておらず、RSSで読む新聞社の
+    #   フィードに除外語を書いても、まったく効いていなかった）
+    own_exclude = feed.get("exclude") or []
     if feed.get("no_ng"):
-        exclude = feed.get("exclude") or None
+        exclude = own_exclude or None
     else:
-        exclude = (NG_WORDS + feed.get("exclude", [])) if use_ng else None
+        exclude = ((NG_WORDS if use_ng else []) + own_exclude) or None
     # require の判定対象："title"（既定）/ "text"（タイトル＋リード文。ブログ向け）
     require_in = feed.get("require_in", "title")
     # ショート動画を除くか。既定で除外する（本編と内容が重なりやすく、一覧も長くなるため）。
@@ -1098,6 +1142,9 @@ def fetch_feed(feed):
     # 実際に使うのはサイト指定検索のときだけ。
     # 通常の検索は見出し一致（require）で守られているため、ここまで絞ると取りこぼす。
     other_topics = (feed.get("other_topics") or []) if feed.get("site_search") else []
+    keep_if = feed.get("keep_if") or []          # NG語に当たっても残す救済語
+    via_extra = feed.get("via_exclude") or []    # このテーマだけの発信元除外
+    foreign_ok = bool(feed.get("foreign_ok") or feed.get("english"))
     my_topic = feed.get("group") or name
     # 日本語のテーマかどうか。英語圏のソース（海外報道）には効かせない。
     japanese_topic = bool(feed.get("site_search")) and bool(JAPANESE_RE.search(my_topic))
@@ -1136,9 +1183,13 @@ def fetch_feed(feed):
             continue  # 別テーマの記事の紛れ込み（サイト指定検索のみ）
         if japanese_topic and is_foreign_title(title):
             continue  # 日本語のテーマに混じった外国語の記事（サイト指定検索のみ）
+        if not foreign_ok and FOREIGN_SCRIPT_RE.search(title):
+            continue  # 読めない言語（韓国語・ロシア語など）の記事
+        if is_pr_source(via, via_host, via_extra):
+            continue  # プレスリリース配信・宣伝記事
         text = title + " " + summary_raw
         require_hay = text if require_in == "text" else title
-        if not passes_keywords(require_hay, text, require, exclude):
+        if not passes_keywords(require_hay, text, require, exclude, keep_if):
             continue  # 必須語なし or NG語ありを除外
         if dt and dt < cutoff:
             continue  # 古すぎる記事を除外（日時不明は残す）
@@ -1241,6 +1292,9 @@ def main():
     minor_rules = set()   # ときどき見れば良いテーマ
     fresh_rules = {}      # 期限つき情報のテーマ（何日で捨てるか）
     exclude_rules = {}    # テーマごとのNG語（貯めてある分にも当て直す）
+    keepif_rules = {}     # NG語に当たっても残す救済語
+    via_rules = {}        # テーマごとの発信元除外
+    foreign_groups = set()  # 外国語の記事を許すテーマ（海外報道）
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
         for f in feeds:
@@ -1257,6 +1311,12 @@ def main():
                 keep_rules[g] = int(f["keep"])
             if f.get("exclude"):
                 exclude_rules.setdefault(g, []).extend(f["exclude"])
+            if f.get("keep_if"):
+                keepif_rules.setdefault(g, []).extend(f["keep_if"])
+            if f.get("via_exclude"):
+                via_rules.setdefault(g, []).extend(f["via_exclude"])
+            if f.get("foreign_ok") or f.get("english"):
+                foreign_groups.add(g)
             if f.get("type") == "video":
                 video_groups.add(g)
             if f.get("min_views"):
@@ -1316,13 +1376,23 @@ def main():
     # NG語（exclude）を貯めてある記事にも当て直す。設定を直しても過去分が残るため。
     # あわせて、動画フィードを持たないテーマに紛れ込んだ動画も外す。
     ng_removed = 0
+    pr_removed = 0
+    foreign_removed = 0
     for g, items in archive.items():
         ng = exclude_rules.get(g) or []
+        rescue = keepif_rules.get(g) or []
         keep = []
         for a in items:
             text = (a.get("title") or "") + " " + (a.get("summary") or "")
-            if ng and any(w in text for w in ng):
+            if ng and any(w in text for w in ng) and not (
+                    rescue and any(k in text for k in rescue)):
                 ng_removed += 1
+                continue
+            if is_pr_source(a.get("via", ""), a.get("via_host", ""), via_rules.get(g)):
+                pr_removed += 1
+                continue
+            if g not in foreign_groups and FOREIGN_SCRIPT_RE.search(a.get("title") or ""):
+                foreign_removed += 1
                 continue
             if a.get("kind") == "video" and g not in video_groups:
                 ng_removed += 1
@@ -1345,6 +1415,14 @@ def main():
         archive[g] = keep
     if ng_removed:
         line = f"整理: NG語・場違いな動画 {ng_removed}件を削除"
+        log_lines.append(line)
+        print(line)
+    if pr_removed:
+        line = f"整理: プレスリリース・宣伝記事 {pr_removed}件を削除"
+        log_lines.append(line)
+        print(line)
+    if foreign_removed:
+        line = f"整理: 読めない言語の記事 {foreign_removed}件を削除"
         log_lines.append(line)
         print(line)
 
@@ -1388,7 +1466,10 @@ def main():
         # アーミル・カーンのように英語の現地報道を集めるテーマまで巻き込まないため、
         # テーマ名が日本語で、かつ実際に日本語の記事が大半のときだけ外国語を外す。
         ja = sum(1 for x in items if JAPANESE_RE.search((x.get("title") or "")[:30]))
-        ja_theme = bool(JAPANESE_RE.search(g)) and items and ja / len(items) >= 0.8
+        # 以前は「テーマ名が日本語なら」という条件も付けていたが、それだと
+        # Claude Code のような英語名のテーマで韓国語・ロシア語の記事が残り続けた。
+        # 実際に日本語の記事が大半かどうかだけで判断する。
+        ja_theme = bool(items) and g not in foreign_groups and ja / len(items) >= 0.8
         keep = []
         for a in items:
             t = a.get("title") or ""

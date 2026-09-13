@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.13.0";
+const APP_VERSION = "v1.14.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -38,7 +38,7 @@ const INITIAL_VISIBLE = 3;
 // 一度に画面へ描くテーマあたりの件数。
 // 収集側は貯めた全件を渡してくる（数百件になるテーマもある）ので、
 // 描く量はこちらで抑える。足りなければ「さらに古い記事」で伸ばす。
-const RENDER_CHUNK = 30;
+const RENDER_CHUNK = 15;
 let REREAD = {};   // 「読み返す」を押したテーマ（一時的なので保存しない）
 
 // 画面の開き具合を端末に覚えておく。
@@ -68,6 +68,8 @@ let SELECTED = new Set();
 let SETTINGS_OPEN = false;
 let TROUBLE_OPEN = false;
 let BORING_OPEN = false;
+let ORDER_OPEN = false;    // テーマの並べ替えを開いているか
+let SHOW_READ = false;     // 読んだ記事の一覧を見ているか
 // 「きょうの新着だけ」を見る画面。ボタンを増やさず、見出しの数字を入口にする。
 // 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
 let SHOW_FRESH = false;
@@ -90,6 +92,7 @@ const FAV_KEY = "mynews_fav";          // { 記事の鍵: 記事そのもの } �
 const SHOWALL_KEY = "mynews_showall";  // "1" なら既読も表示
 const SHOWFAV_KEY = "mynews_showfav";  // "1" ならお気に入りだけ表示
 const HIDELOCK_KEY = "mynews_hidelocked";  // "1" なら読めない記事を出さない
+const ORDER_KEY = "mynews_order";      // { テーマ名: 並び順の数字 }
 const BORING_KEY = "mynews_boring";    // { 発信元: つまらないと押した回数 }
 const OPENED_KEY = "mynews_opened";    // { 発信元: 実際に開いた回数 }
 const THEME_KEY = "mynews_theme";      // "auto" | "light" | "dark"
@@ -159,12 +162,34 @@ let HIDE_LOCKED = lsGet(HIDELOCK_KEY, "0") === "1";
 function loadTally(key) {
   try { return JSON.parse(lsGet(key, "{}") || "{}"); } catch (e) { return {}; }
 }
+let ORDER = loadTally(ORDER_KEY);   // 形が同じ（名前→数字）なので同じ読み方で足りる
 let BORING = loadTally(BORING_KEY);
 let OPENED = loadTally(OPENED_KEY);
 
+// note や Zenn は「サイト」ではなく「書き手の集まり」なので、
+// note ひとまとめで数えると、1人を嫌っただけで全部が悪者になってしまう。
+// 直リンクのときは、URLの最初の区切り（note.com/○○）まで見て書き手ごとに数える。
+const AUTHOR_SITES = ["note.com", "zenn.dev", "qiita.com", "medium.com", "ameblo.jp"];
+
 function sourceOf(a) {
-  if (a.via) return a.via;
-  try { return new URL(a.link).hostname.replace(/^www\./, ""); } catch (e) { return "不明"; }
+  const link = a.link || "";
+  // Googleニュース経由の記事は中継URLしか無く、書き手までは分からない
+  if (link && link.indexOf("news.google.") < 0) {
+    try {
+      const u = new URL(link);
+      const host = u.hostname.replace(/^www\./, "");
+      if (AUTHOR_SITES.indexOf(host) >= 0) {
+        const seg = u.pathname.split("/").filter(Boolean)[0];
+        if (seg) return host + "/" + seg;
+      }
+      return host;   // はてなブログ等は、そもそも住所が書き手ごとに分かれている
+    } catch (e) { /* 壊れたURLは下の配信元名で数える */ }
+  }
+  if (a.via) {
+    return AUTHOR_SITES.some(function (h) { return h.split(".")[0] === a.via.toLowerCase(); })
+      ? a.via + "（書き手不明）" : a.via;
+  }
+  return "不明";
 }
 
 function tally(key, store, a) {
@@ -403,24 +428,6 @@ function renderCard(a, hidden, lead) {
   return h;
 }
 
-// 「ときどき見る」テーマは、カテゴリの中で畳んでおく。
-// 開閉はカテゴリと同じ仕組みで覚える（鍵の名前を theme: で分けるだけ）。
-// 既定は閉じる。毎日は見ないテーマなので、開いていると邪魔になる。
-function renderMinorGroup(g, gi) {
-  const all = g.items || [];
-  const key = "theme:" + g.name;
-  const open = UI.cats[key] === true;
-  const fresh = all.filter(isFresh).length;
-  return '<details class="cat minorbox"' + (open ? " open" : "")
-    + ' data-cat="' + esc(key) + '">'
-    + "<summary><h2>" + esc(g.name)
-    + '<span class="catcount">'
-    + (fresh ? '<b class="catnew">新着 ' + fresh + "</b>" : "")
-    + countUnread(all) + "件</span></h2></summary>"
-    + '<div class="body">' + groupHead(g, gi, all)
-    + renderGroup(g, gi, true) + "</div></details>";
-}
-
 // テーマの見出し（名前・件数・NEW・まとめて既読ボタン）
 function groupHead(g, gi, all) {
   const newCount = all.filter(isFresh).length;
@@ -518,6 +525,62 @@ function boringRow() {
       + "<p>押した数が多く、開いた数が0に近い発信元は、除外の相談ができます。</p></div>";
   }
   return h;
+}
+
+// テーマの並び順。指定が無ければ feeds.json の順（＝画面に出てきた順）のまま。
+function orderOf(x, i) {
+  const v = ORDER[x.group.name];
+  return (v === undefined || v === null) ? i + 1000 : v;
+}
+
+function sortByOrder(list) {
+  return list.map(function (x, i) { return { x: x, i: i }; })
+    .sort(function (a, b) {
+      const d = orderOf(a.x, a.i) - orderOf(b.x, b.i);
+      return d !== 0 ? d : a.i - b.i;
+    })
+    .map(function (r) { return r.x; });
+}
+
+// 並べ替えの操作盤。カテゴリの中だけで上下に動かす
+// （カテゴリをまたぐと「地元」の中に仕事の記事が現れて分かりにくくなるため）。
+function orderRow() {
+  let h = '<div class="srow"><span>テーマの並べ替え</span>'
+    + '<button class="tool-btn' + (ORDER_OPEN ? " on" : "") + '" type="button" id="toggle-order">'
+    + (ORDER_OPEN ? "とじる" : "並べ替え") + "</button></div>";
+  if (!ORDER_OPEN) return h;
+  const cats = [];
+  ALL_GROUPS.forEach(function (x) { if (cats.indexOf(x.cat) < 0) cats.push(x.cat); });
+  h += '<div class="orderbox">';
+  cats.forEach(function (c) {
+    const mine = sortByOrder(ALL_GROUPS.filter(function (x) { return x.cat === c; }));
+    h += "<h4>" + esc(c) + "</h4>";
+    mine.forEach(function (x, i) {
+      h += '<div class="orow"><span>' + esc(x.group.name) + "</span>"
+        + '<button class="tool-btn" type="button" data-move="up" data-name="'
+        + esc(x.group.name) + '"' + (i === 0 ? " disabled" : "") + ">▲</button>"
+        + '<button class="tool-btn" type="button" data-move="down" data-name="'
+        + esc(x.group.name) + '"' + (i === mine.length - 1 ? " disabled" : "") + ">▼</button>"
+        + "</div>";
+    });
+  });
+  h += '<p>よく読むテーマを上へ。順番はこの端末に覚えます。</p>'
+    + '<button class="tool-btn" type="button" id="order-reset">元の順番に戻す</button></div>';
+  return h;
+}
+
+// ▲▼ が押されたとき、そのカテゴリの中で入れ替えて順番を保存する
+function moveTheme(name, dir) {
+  const mineCat = (ALL_GROUPS.filter(function (x) { return x.group.name === name; })[0] || {}).cat;
+  if (!mineCat) return;
+  const list = sortByOrder(ALL_GROUPS.filter(function (x) { return x.cat === mineCat; }));
+  const at = list.map(function (x) { return x.group.name; }).indexOf(name);
+  const to = dir === "up" ? at - 1 : at + 1;
+  if (at < 0 || to < 0 || to >= list.length) return;
+  const moved = list.splice(at, 1)[0];
+  list.splice(to, 0, moved);
+  list.forEach(function (x, i) { ORDER[x.group.name] = i; });
+  lsSet(ORDER_KEY, JSON.stringify(ORDER));
 }
 
 function troubleRow(sources) {
@@ -647,8 +710,7 @@ const BY_LINK = {};      // リンク → 記事（押された記事を引く�
   const cats = (window.NEWS_DATA || {}).categories || [];
   cats.forEach(function (c) {
     (c.groups || []).forEach(function (g) {
-      ALL_GROUPS.push({ cat: c.name, group: g, video: isVideoGroup(g),
-                        minor: !!g.minor });
+      ALL_GROUPS.push({ cat: c.name, group: g, video: isVideoGroup(g) });
       (g.items || []).forEach(function (a) { if (a.link) BY_LINK[a.link] = a; });
     });
   });
@@ -671,8 +733,6 @@ function toolbar(sources) {
     + "★ お気に入り" + (favCount ? " " + favCount : "") + "</button>"
     + '<button class="tool-btn' + (SHOW_ALL ? " on" : "") + '" type="button" id="toggle-read">'
     + (SHOW_ALL ? "☑ 既読も表示" : "☐ 既読も表示") + "</button>"
-    + (SHOW_FAV ? "" : '<button class="tool-btn' + (SELECT_MODE ? " on" : "") + '" type="button" id="toggle-select">'
-      + (SELECT_MODE ? "✓ 選択をやめる" : "✓ まとめて既読") + "</button>")
     + '<button class="tool-btn' + (SEARCH ? " on" : "") + '" type="button" id="toggle-search">🔍 探す</button>'
     + '<button class="tool-btn' + (SETTINGS_OPEN ? " on" : "") + '" type="button" id="toggle-settings">⚙ 設定</button>'
     + "</div>"
@@ -691,6 +751,9 @@ function toolbar(sources) {
       + (HIDE_LOCKED ? "隠している" : "表示する") + "</button></div>"
       + '<div class="srow"><span>いま読まないものを片づける</span>'
       + '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button></div>'
+      + '<div class="srow"><span>読んだ記事をふり返る</span>'
+      + '<button class="tool-btn" type="button" id="show-read">📖 読んだ記事</button></div>'
+      + orderRow()
       + boringRow()
       + troubleRow(sources)
       + '<details class="howto"><summary>使い方</summary><ul>'
@@ -698,6 +761,8 @@ function toolbar(sources) {
       + "<li>見出しの<b>「きょうの新着」</b>を押すと、24時間以内に届いた分だけ見られます</li>"
       + "<li>テーマの<b>🔒</b>は、そのテーマの読めない記事をまとめて既読にします</li>"
       + "<li>記事右上の<b>☆</b>は、一覧から消えても残る保存です</li>"
+      + "<li>テーマ名を押すと<b>畳めます</b>（並び順は設定の「並べ替え」で変えられます）</li>"
+      + "<li><b>📖読んだ記事</b>は、読んだ順にさかのぼって見直せます</li>"
       + "<li>見出しの<b>⚠</b>は、取得できなかった配信元がある印です</li>"
       + "</ul></details>"
       + "</div>";
@@ -728,6 +793,63 @@ function renderFavView(data) {
   APP.innerHTML = parts.join("\n");
 }
 
+// ---- 読んだ記事の一覧 ------------------------------------------------------
+// 既読は「いつ読んだか」も残してある（READ = {記事の鍵: 時刻}）。
+// ただし鍵が見出しから作られている記事は元をたどれないので、
+// リンクで記録されている分だけを新しい順に並べる。
+const READ_VIEW_MAX = 200;
+
+function readHistory() {
+  const rows = [];
+  Object.keys(READ).forEach(function (k) {
+    const a = BY_LINK[k];
+    if (a) rows.push({ a: a, at: READ[k] });
+  });
+  rows.sort(function (x, y) { return (y.at || 0) - (x.at || 0); });
+  return rows;
+}
+
+function dayLabel(ms) {
+  if (!ms) return "いつ読んだか不明";
+  const d = new Date(ms), t = new Date();
+  const same = function (x, y) { return x.toDateString() === y.toDateString(); };
+  if (same(d, t)) return "きょう";
+  const y = new Date(t.getTime() - 86400000);
+  if (same(d, y)) return "きのう";
+  return (d.getMonth() + 1) + "月" + d.getDate() + "日";
+}
+
+function renderReadView(data) {
+  const rows = readHistory();
+  const parts = ["<header><h1>📖 読んだ記事</h1>"
+    + '<div class="meta-head">'
+    + '<button class="newcount on" type="button" id="read-back">← 全部を見る</button>'
+    + '<span class="unread">' + rows.length + "件</span></div>"
+    + toolbar(data.sources) + "</header>"];
+
+  if (!rows.length) {
+    parts.push('<div class="empty">まだありません。読んだ記事がここに新しい順で並びます。</div>');
+  } else {
+    let day = "";
+    parts.push('<section class="group">');
+    rows.slice(0, READ_VIEW_MAX).forEach(function (r) {
+      const label = dayLabel(r.at);
+      if (label !== day) {
+        day = label;
+        parts.push('<div class="minor-sep"><span>' + esc(label) + "</span></div>");
+      }
+      parts.push('<div class="gitems expanded">' + renderCard(r.a, false, false) + "</div>");
+    });
+    if (rows.length > READ_VIEW_MAX) {
+      parts.push('<div class="empty">ほかに ' + (rows.length - READ_VIEW_MAX) + "件あります。</div>");
+    }
+    parts.push("</section>");
+  }
+  parts.push('<div class="empty"><small>見出しだけで既読にした記事（同じ記事が別の経路で'
+    + "届いた分など）は、元をたどれないためここには出ません。</small></div>");
+  APP.innerHTML = parts.join("");
+}
+
 // ---- きょうの新着だけの画面 ------------------------------------------------
 // 新着があっても、どのテーマにあるかスクロールして探すしかなかった。
 // テーマの並びは feeds.json 順のまま動かさず（毎日同じ場所にある安心感を保つ）、
@@ -735,7 +857,6 @@ function renderFavView(data) {
 
 function renderFreshView(data) {
   const blocks = ALL_GROUPS.map(function (x) {
-    if (x.minor) return null;   // ときどき見るテーマは新着画面に出さない
     const items = (x.group.items || []).filter(isFresh);
     return items.length ? { name: x.group.name, cat: x.cat, items: items } : null;
   }).filter(Boolean);
@@ -772,45 +893,74 @@ function normForSearch(t) {
   return String(t == null ? "" : t).normalize("NFKC").toLowerCase();
 }
 
-function renderSearchView(data) {
-  const q = normForSearch(SEARCH);
+function searchHits(word) {
+  const q = normForSearch(word);
   const hits = [];
+  if (!q) return hits;
   ALL_GROUPS.forEach(function (x) {
     (x.group.items || []).forEach(function (a) {
-      if (normForSearch(a.title).indexOf(q) >= 0) hits.push({ theme: x.group.name, a: a });
+      // 見出しに加えて配信元も見る（「ロイター」「日経」で絞りたくなるため）
+      if (normForSearch(a.title).indexOf(q) >= 0
+          || (a.via && normForSearch(a.via).indexOf(q) >= 0)) {
+        hits.push({ theme: x.group.name, a: a });
+      }
     });
   });
   hits.sort(function (p, r) { return (r.a.dt || "").localeCompare(p.a.dt || ""); });
+  return hits;
+}
 
-  const parts = ["<header><h1>🔍 探す</h1>"
+// 検索結果の中身だけを組み立てる。画面全体を作り直さないのが肝心で、
+// 作り直すと入力欄そのものが消え、日本語入力の変換が途中で壊れる
+// （「よしゆき」と打っている最中に欄が入れ替わり、変換できなくなっていた）。
+function searchResultsHTML(hits) {
+  if (!SEARCH) {
+    return '<div class="empty">探したい言葉を入れてください（既読も含めて探します）。</div>';
+  }
+  if (!hits.length) {
+    return '<div class="empty">' + esc(SEARCH) + "にあてはまる記事はありませんでした。<br>"
+      + "<small>集めていないテーマの記事は、ここにも出てきません。</small></div>";
+  }
+  const parts = ['<section class="group"><div class="gitems expanded">'];
+  hits.slice(0, SEARCH_MAX).forEach(function (h) {
+    parts.push(renderCard(h.a, false, false));
+  });
+  parts.push("</div>");
+  if (hits.length > SEARCH_MAX) {
+    parts.push('<div class="empty">ほかに ' + (hits.length - SEARCH_MAX)
+      + "件あります。言葉を足すと絞り込めます。</div>");
+  }
+  parts.push("</section>");
+  return parts.join("");
+}
+
+// 入力のたびに呼ぶ。触るのは件数と結果の2か所だけ。
+function updateSearchResults() {
+  const box = document.getElementById("search-results");
+  if (!box) { rerender(); return; }
+  const hits = searchHits(SEARCH);
+  box.innerHTML = searchResultsHTML(hits);
+  const c = document.getElementById("search-count");
+  if (c) c.textContent = SEARCH ? hits.length + "件みつかりました" : "";
+}
+
+function renderSearchView(data) {
+  const hits = searchHits(SEARCH);
+  APP.innerHTML = "<header><h1>🔍 探す</h1>"
     + '<div class="meta-head">'
     + '<button class="newcount on" type="button" id="close-search">← 全部を見る</button>'
-    + '<span class="unread">' + hits.length + "件みつかりました</span></div>"
-    + toolbar(data.sources) + "</header>"];
-
-  if (!hits.length) {
-    parts.push('<div class="empty">' + esc(SEARCH)
-      + "にあてはまる記事はありませんでした。</div>");
-  } else {
-    parts.push('<section class="group"><div class="gitems expanded">');
-    hits.slice(0, SEARCH_MAX).forEach(function (h) {
-      parts.push(renderCard(h.a, false, false));
-    });
-    parts.push("</div>");
-    if (hits.length > SEARCH_MAX) {
-      parts.push('<div class="empty">ほかに ' + (hits.length - SEARCH_MAX)
-        + "件あります。言葉を足すと絞り込めます。</div>");
-    }
-    parts.push("</section>");
-  }
-  APP.innerHTML = parts.join("\n");
+    + '<span class="unread" id="search-count">'
+    + (SEARCH ? hits.length + "件みつかりました" : "") + "</span></div>"
+    + toolbar(data.sources) + "</header>"
+    + '<div id="search-results">' + searchResultsHTML(hits) + "</div>";
 }
 
 // ---- 通常の画面 ------------------------------------------------------------
 
 function render(data) {
+  if (SHOW_READ) { renderReadView(data); return; }
   if (SHOW_FAV) { renderFavView(data); return; }
-  if (SEARCH) { renderSearchView(data); return; }
+  if (SEARCH_OPEN) { renderSearchView(data); return; }
   if (SHOW_FRESH) { renderFreshView(data); return; }
 
   const parts = [];
@@ -823,7 +973,7 @@ function render(data) {
   let totalUnread = 0, totalNew = 0;
   ALL_GROUPS.forEach(function (x) {
     totalUnread += countUnread(x.group.items);
-    if (!x.minor) totalNew += (x.group.items || []).filter(isFresh).length;
+    totalNew += (x.group.items || []).filter(isFresh).length;
   });
   let videoUnread = 0, videoNew = 0;
   videoGroups.forEach(function (x) {
@@ -850,7 +1000,7 @@ function render(data) {
     articleGroups.forEach(function (x) {
       if (x.cat !== name) return;
       u += countUnread(x.group.items);
-      if (!x.minor) n += (x.group.items || []).filter(isFresh).length;
+      n += (x.group.items || []).filter(isFresh).length;
     });
     const mine = articleGroups.some(function (x) { return x.cat === name; });
     if (!mine) return "";   // 動画だけのカテゴリは、下の動画ブロックに現れる
@@ -868,19 +1018,12 @@ function render(data) {
     + "</nav>");
 
   cats.forEach(function (name, ci) {
-    const mine = articleGroups.filter(function (x) { return x.cat === name; });
+    const mine = sortByOrder(articleGroups.filter(function (x) { return x.cat === name; }));
     if (!mine.length) return;   // 動画だけのカテゴリは下の動画ブロックへ
-    const daily = mine.filter(function (x) { return !x.minor; });
-    const rare = mine.filter(function (x) { return x.minor; });
+    const daily = mine;
     let body = daily.map(function (x) {
       return renderGroup(x.group, ALL_GROUPS.indexOf(x));
     }).join("");
-    if (rare.length) {
-      body += '<div class="minor-sep"><span>ときどき見る</span></div>'
-        + rare.map(function (x) {
-          return renderMinorGroup(x.group, ALL_GROUPS.indexOf(x));
-        }).join("");
-    }
     let unread = 0, fresh = 0;
     mine.forEach(function (x) { unread += countUnread(x.group.items); });
     // 「ときどき見る」は新着に数えない。毎朝の数字を実態に合わせるため。
@@ -1153,12 +1296,44 @@ APP.addEventListener("click", function (ev) {
     rerender();
     const box = document.getElementById("search-input");
     if (box) box.focus();
+    window.scrollTo(0, 0);
     return;
   }
   if (ev.target.closest("#close-search")) {
     SEARCH = ""; SEARCH_OPEN = false;
     rerender();
     window.scrollTo(0, 0);
+    return;
+  }
+  // 読んだ記事の一覧
+  if (ev.target.closest("#show-read")) {
+    SHOW_READ = true; SEARCH_OPEN = false; SEARCH = ""; SHOW_FAV = false;
+    rerender();
+    window.scrollTo(0, 0);
+    return;
+  }
+  if (ev.target.closest("#read-back")) {
+    SHOW_READ = false;
+    rerender();
+    window.scrollTo(0, 0);
+    return;
+  }
+  // テーマの並べ替え
+  if (ev.target.closest("#toggle-order")) {
+    ORDER_OPEN = !ORDER_OPEN;
+    rerender();
+    return;
+  }
+  if (ev.target.closest("#order-reset")) {
+    ORDER = {};
+    lsSet(ORDER_KEY, "{}");
+    rerender();
+    return;
+  }
+  const mv = ev.target.closest("[data-move]");
+  if (mv) {
+    moveTheme(mv.dataset.name, mv.dataset.move);
+    rerender();
     return;
   }
   // 設定の開閉
@@ -1369,17 +1544,31 @@ document.addEventListener("toggle", function (ev) {
 }, true);
 
 let SEARCH_TIMER = null;
-APP.addEventListener("input", function (ev) {
-  if (!ev.target.matches("#search-input")) return;
-  const v = ev.target.value;
+let COMPOSING = false;   // 日本語を変換している最中かどうか
+
+function scheduleSearch(value, wait) {
   if (SEARCH_TIMER) clearTimeout(SEARCH_TIMER);
   // 1文字打つたびに1900件を探し直すと指が重くなるので、少し待つ
   SEARCH_TIMER = setTimeout(function () {
-    SEARCH = v.trim();
-    rerender();
-    const box = document.getElementById("search-input");
-    if (box) { box.focus(); box.setSelectionRange(v.length, v.length); }
-  }, 250);
+    SEARCH = value.trim();
+    updateSearchResults();
+  }, wait);
+}
+
+// 変換中（「よしゆき」を「吉行」にしている最中）は数えに行かない。
+// 画面をいじると変換が中断され、目当ての字が打てなくなるため。
+APP.addEventListener("compositionstart", function (ev) {
+  if (ev.target.matches("#search-input")) COMPOSING = true;
+});
+APP.addEventListener("compositionend", function (ev) {
+  if (!ev.target.matches("#search-input")) return;
+  COMPOSING = false;
+  scheduleSearch(ev.target.value, 0);   // 確定したらすぐ探す
+});
+APP.addEventListener("input", function (ev) {
+  if (!ev.target.matches("#search-input")) return;
+  if (COMPOSING) return;
+  scheduleSearch(ev.target.value, 250);
 });
 
 // data.js（<script src> で先に読み込まれ window.NEWS_DATA に入っている）を描画。

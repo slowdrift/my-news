@@ -81,6 +81,25 @@
   :root[data-theme="dark"] .trouble, :root[data-theme="auto"] .trouble {
     color: #fcd34d; background: #3a2d10; border-color: #5b4818;
   }
+  /* テーマの並べ替え（設定の中） */
+  .orderbox {
+    margin: 4px 0 8px; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 10px; background: var(--card); font-size: calc(12px * var(--fs));
+  }
+  .orderbox h4 {
+    margin: 8px 0 4px; font-size: calc(11px * var(--fs)); color: var(--sub);
+    letter-spacing: .04em;
+  }
+  .orderbox h4:first-child { margin-top: 0; }
+  .orow {
+    display: flex; align-items: center; gap: 6px; padding: 3px 0;
+    border-bottom: 1px dotted var(--line);
+  }
+  .orow span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .orow .tool-btn { padding: 2px 8px; min-width: 34px; }
+  .orow .tool-btn[disabled] { opacity: .3; }
+  .orderbox p { margin: 8px 0 6px; color: var(--sub); }
+
   .trouble-list {
     flex-basis: 100%; margin-top: 6px; padding: 8px 10px;
     background: var(--card); border: 1px solid var(--line); border-radius: 10px;
