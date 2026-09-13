@@ -115,7 +115,7 @@
   .settings .srow span { flex: 1 1 auto; }
 
   /* テーマごとの「読めない記事を既読に」 */
-  .ghead .lock-btn {
+  .ghead .lock-btn { /* 旧：テーマごとの鍵ボタン（設定の切り替えに統合したため未使用） */
     margin-left: auto; font-size: calc(11px * var(--fs)); padding: 7px 13px;
     border: 1px solid var(--line); background: var(--btn-bg); color: var(--sub);
     border-radius: 999px; cursor: pointer; font-weight: 600; white-space: nowrap;
@@ -186,7 +186,16 @@
     display: flex; align-items: center; gap: 8px; margin: 0 0 6px;
     font-size: calc(15px * var(--fs)); font-weight: 700;
   }
-  .ghead .gname { border-left: 3px solid var(--cat); padding-left: 8px; }
+  /* テーマ名は押すと最小化できる。押せることが分かる見た目にする */
+  .ghead .gname {
+    border-left: 3px solid var(--cat); padding: 2px 0 2px 8px;
+    background: transparent; border-top: 0; border-right: 0; border-bottom: 0;
+    color: var(--ink); font-size: inherit; font-weight: inherit; font-family: inherit;
+    cursor: pointer; text-align: left;
+  }
+  .ghead .gname:active { color: var(--accent); }
+  .group.folded { margin: 6px 0; }
+  .group.folded h3.ghead { margin: 0; }
   .ghead .gcount { font-size: calc(11px * var(--fs)); color: var(--sub); font-weight: 400; }
   .ghead .gnew {
     font-size: calc(10px * var(--fs)); font-weight: 800; color: #111827; background: #f59e0b;

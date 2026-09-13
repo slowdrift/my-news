@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.11.0";
+const APP_VERSION = "v1.12.0";
 const CHANGELOG = [
+  ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
   ["v1.11.0", "2026-09-13", "終わったセールを残さないように。同じ出来事の重複をまとめ、届かず表示を設定へ移動"],
   ["v1.10.0", "2026-09-09", "「ときどき見る」テーマを作れるように。BLUE GIANTを追加"],
   ["v1.9.0", "2026-09-09", "取り消しを5件までさかのぼれるように。ボタンを押しやすくし、設定に使い方を追加"],
@@ -81,6 +82,7 @@ const READ_KEY = "mynews_read";        // { 記事の鍵: 既読にした時刻(
 const FAV_KEY = "mynews_fav";          // { 記事の鍵: 記事そのもの } お気に入り
 const SHOWALL_KEY = "mynews_showall";  // "1" なら既読も表示
 const SHOWFAV_KEY = "mynews_showfav";  // "1" ならお気に入りだけ表示
+const HIDELOCK_KEY = "mynews_hidelocked";  // "1" なら読めない記事を出さない
 const THEME_KEY = "mynews_theme";      // "auto" | "light" | "dark"
 const FONT_KEY = "mynews_font";        // "s" | "m" | "l"
 // NEWバッジを何日光らせるか。読めば消えるので、長すぎなければ邪魔にならない。
@@ -137,6 +139,10 @@ if (!FIRST_OPEN) {
 }
 let SHOW_ALL = lsGet(SHOWALL_KEY, "0") === "1";
 let SHOW_FAV = lsGet(SHOWFAV_KEY, "0") === "1";
+// 読めない記事（有料・会員限定・一部有料）を一覧から外す。
+// 以前は「まとめて既読」にしていたが、既読にすると埋もれて取り返せない。
+// 隠すだけなら、設定を戻せばいつでも出てくる。
+let HIDE_LOCKED = lsGet(HIDELOCK_KEY, "0") === "1";
 let THEME = lsGet(THEME_KEY, "auto");
 let FONT = lsGet(FONT_KEY, "m");
 
@@ -181,8 +187,18 @@ function markRead(a) {
   saveRead(READ);
 }
 
+function isLocked(a) {
+  return a.paywall === "paid" || a.paywall === "member" || a.paywall === "partial";
+}
+
+// 画面に出す記事か。隠している記事は数にも入れない（数字と見た目を合わせるため）。
+function isShown(a) {
+  if (isRead(a)) return false;
+  return !(HIDE_LOCKED && isLocked(a));
+}
+
 function countUnread(list) {
-  return (list || []).filter(function (a) { return !isRead(a); }).length;
+  return (list || []).filter(isShown).length;
 }
 
 // ---- お気に入り ------------------------------------------------------------
@@ -223,6 +239,7 @@ const FRESH_HOURS = 24;
 
 function isFresh(a) {
   if (isRead(a) || a.quiet) return false;   // 1日の上限を超えた分は騒がない
+  if (HIDE_LOCKED && isLocked(a)) return false;
   const src = a.first_seen || a.dt;
   if (!src) return false;
   const t = new Date(src).getTime();
@@ -232,6 +249,7 @@ function isFresh(a) {
 
 function isNew(a) {
   if (isRead(a) || a.quiet) return false;   // 1日の上限を超えた分は騒がない
+  if (HIDE_LOCKED && isLocked(a)) return false;
   const src = a.first_seen || a.dt;
   if (!src) return false;
   const t = new Date(src).getTime();
@@ -372,28 +390,28 @@ function renderMinorGroup(g, gi) {
 }
 
 // テーマの見出し（名前・件数・NEW・まとめて既読ボタン）
-function lockedIn(all) {
-  return (all || []).filter(function (a) {
-    return !isRead(a) && (a.paywall === "paid" || a.paywall === "member" || a.paywall === "partial");
-  });
-}
-
 function groupHead(g, gi, all) {
   const newCount = all.filter(isFresh).length;
-  const locked = lockedIn(all).length;
-  return '<h3 class="ghead"><span class="gname">' + esc(g.name) + "</span>"
+  const folded = UI.cats["fold:" + g.name] === false;
+  return '<h3 class="ghead"><button class="gname" type="button" data-fold="'
+    + esc(g.name) + '">' + (folded ? "▸ " : "") + esc(g.name) + "</button>"
     + '<span class="gcount">' + countUnread(all) + "件</span>"
     + (newCount ? '<span class="gnew">新着 ' + newCount + "</span>" : "")
-    + (locked ? '<button class="lock-btn" type="button" data-lock="' + gi
-      + '" title="このテーマの読めない記事を既読にする">🔒 ' + locked + "</button>" : "")
     + '<button class="read-all" type="button" title="このテーマをまとめて既読にする">✓ 既読に</button>'
     + "</h3>";
 }
 
 function renderGroup(g, gi, noHead) {
   const all = g.items || [];
+  // テーマ名を押すと最小化する。見出しと件数だけ残し、記事は隠す。
+  if (!noHead && UI.cats["fold:" + g.name] === false) {
+    return '<section class="group folded" data-group="' + gi + '">'
+      + groupHead(g, gi, all) + "</section>";
+  }
   const showRead = SHOW_ALL || REREAD[g.name];
-  const list = showRead ? all : all.filter(function (a) { return !isRead(a); });
+  const list = showRead
+    ? all.filter(function (a) { return !(HIDE_LOCKED && isLocked(a)); })
+    : all.filter(isShown);
 
   // 読み終えてもテーマは消さない。消えるとカテゴリごと画面から無くなり、
   // 読み返す手段も分からなくなるため、見出しと戻り道は必ず残す。
@@ -609,6 +627,9 @@ function toolbar(sources) {
       + '<button class="tool-btn" type="button" id="toggle-theme">' + themeLabel + "</button></div>"
       + '<div class="srow"><span>文字の大きさ</span>'
       + '<button class="tool-btn" type="button" id="toggle-font">文字 ' + fontLabel + "</button></div>"
+      + '<div class="srow"><span>読めない記事（有料・会員限定）</span>'
+      + '<button class="tool-btn' + (HIDE_LOCKED ? " on" : "") + '" type="button" id="toggle-locked">'
+      + (HIDE_LOCKED ? "隠している" : "表示する") + "</button></div>"
       + '<div class="srow"><span>いま読まないものを片づける</span>'
       + '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button></div>'
       + troubleRow(sources)
@@ -941,19 +962,22 @@ APP.addEventListener("click", function (ev) {
     }
     return;
   }
-  // そのテーマの読めない記事（有料・会員限定・一部有料）を既読にする
-  const lock = ev.target.closest(".lock-btn");
-  if (lock) {
-    const entry = ALL_GROUPS[Number(lock.dataset.lock)];
-    if (!entry) return;
-    const locked = lockedIn(entry.group.items);
-    if (!locked.length) return;
-    if (!confirm("「" + entry.group.name + "」の読めない記事 " + locked.length
-      + "件を既読にします。よろしいですか？")) return;
+  // テーマ名を押して最小化／元に戻す
+  const fold = ev.target.closest(".gname[data-fold]");
+  if (fold) {
+    const key = "fold:" + fold.dataset.fold;
+    UI.cats[key] = (UI.cats[key] === false);
+    saveUI();
     const y = window.scrollY;
-    locked.forEach(markRead);
     rerender();
     window.scrollTo(0, y);
+    return;
+  }
+  // 読めない記事を隠す／表示する
+  if (ev.target.closest("#toggle-locked")) {
+    HIDE_LOCKED = !HIDE_LOCKED;
+    lsSet(HIDELOCK_KEY, HIDE_LOCKED ? "1" : "0");
+    rerender();
     return;
   }
   // 新着画面で、そのテーマの新着をまとめて既読にする
