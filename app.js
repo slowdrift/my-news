@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.10.0";
+const APP_VERSION = "v1.11.0";
 const CHANGELOG = [
+  ["v1.11.0", "2026-09-13", "終わったセールを残さないように。同じ出来事の重複をまとめ、届かず表示を設定へ移動"],
   ["v1.10.0", "2026-09-09", "「ときどき見る」テーマを作れるように。BLUE GIANTを追加"],
   ["v1.9.0", "2026-09-09", "取り消しを5件までさかのぼれるように。ボタンを押しやすくし、設定に使い方を追加"],
   ["v1.8.1", "2026-09-09", "天気の下に株価を一行添え、新着画面にテーマごとの一括既読を追加"],
@@ -445,15 +446,16 @@ function troubled(sources) {
   });
 }
 
-function troubleBlock(sources) {
+// 取れなかった配信元の知らせは、設定の中に置く。
+// 毎朝見る場所に出しても、読めないことに変わりはなく判断は変わらないため。
+function troubleRow(sources) {
   const bad = troubled(sources);
   if (!bad.length) return "";
-  let h = '<button class="trouble" type="button" id="show-trouble">⚠ '
-    + bad.length + "件届かず</button>";
+  let h = '<div class="srow"><span>取れなかった配信元</span>'
+    + '<button class="tool-btn" type="button" id="show-trouble">⚠ '
+    + bad.length + "件</button></div>";
   if (TROUBLE_OPEN) {
-    h += '<div class="trouble-list">'
-      + "<p>いつもの取得先から記事が届きませんでした。"
-      + "貯めてある記事は表示しているので、画面は普段どおりに見えます。</p><table>"
+    h += '<div class="trouble-list"><table>'
       + bad.map(function (s) {
         return "<tr><td>" + esc(s.name) + "</td><td>" + esc(s.status) + "</td></tr>";
       }).join("")
@@ -588,7 +590,7 @@ const BY_LINK = {};      // リンク → 記事（押された記事を引く�
 // 上部に出すのは毎日使う4つだけ。
 // 配色や文字サイズは一度決めたら変えないので、設定の中に畳む。
 // 「すべて既読」は取り返しがつかないので、押し間違えない場所へ移す。
-function toolbar() {
+function toolbar(sources) {
   const themeLabel = { auto: "🌓 自動", light: "☀ 明るい", dark: "🌙 暗い" }[THEME] || "🌓 自動";
   const fontLabel = { s: "小", m: "中", l: "大" }[FONT] || "中";
   const favCount = Object.keys(FAV).length;
@@ -609,6 +611,7 @@ function toolbar() {
       + '<button class="tool-btn" type="button" id="toggle-font">文字 ' + fontLabel + "</button></div>"
       + '<div class="srow"><span>いま読まないものを片づける</span>'
       + '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button></div>'
+      + troubleRow(sources)
       + '<details class="howto"><summary>使い方</summary><ul>'
       + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
       + "<li>見出しの<b>「きょうの新着」</b>を押すと、24時間以内に届いた分だけ見られます</li>"
@@ -631,7 +634,7 @@ function renderFavView(data) {
     + '<div class="meta-head">' + headUpdated(data.generated_at)
     + '<button class="newcount on" type="button" id="fav-back">← 全部を見る</button>'
     + '<span class="unread">' + items.length + "件を保存中</span></div>"
-    + toolbar() + "</header>"];
+    + toolbar(data.sources) + "</header>"];
 
   if (!items.length) {
     parts.push('<div class="empty">まだありません。記事の右上の ☆ を押すと、'
@@ -661,7 +664,7 @@ function renderFreshView(data) {
     + '<div class="meta-head">' + headUpdated(data.generated_at)
     + '<button class="newcount on" type="button" id="show-fresh">← 全部を見る</button>'
     + '<span class="unread">' + total + "件</span></div>"
-    + toolbar() + "</header>"];
+    + toolbar(data.sources) + "</header>"];
 
   if (!blocks.length) {
     parts.push('<div class="empty">きょう届いた記事はまだありません。'
@@ -715,10 +718,9 @@ function render(data) {
         + totalNew + "件</button>"
       : '<span class="nonew">きょうの新着はありません</span>')
     + '<span class="unread">未読 ' + totalUnread + "件</span>"
-    + troubleBlock(data.sources)
     + "</div>"
     + weatherLine(data.weather)
-    + toolbar() + "</header>");
+    + toolbar(data.sources) + "</header>");
 
   const cats = (data.categories || []).map(function (c) { return c.name; });
   const navs = cats.map(function (name, i) {

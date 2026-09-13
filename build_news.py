@@ -16,6 +16,7 @@ feeds.json に書かれたフィードを取得・整形・フィルタし、結
     python build_news.py        # → data.json を生成
 """
 
+import collections
 import datetime
 import html
 import json
@@ -148,7 +149,8 @@ def dedupe_by_title(items):
     初めて見つけた日時は古いほうを引き継ぐ。
     新しいほうに合わせると、まとめた瞬間にNEWが再点灯してしまう。
     """
-    keys = []    # [(正規化した見出し, 2文字ずつの集合)]
+    common = common_words(items)
+    keys = []    # [(正規化した見出し, 2文字ずつの集合, 目印になる語)]
     kept = []    # keys と同じ並びの記事
     loose = []   # 見出しが取れないものはそのまま残す
     for a in items:
@@ -157,18 +159,22 @@ def dedupe_by_title(items):
             loose.append(a)
             continue
         grams = title_bigrams(norm)
+        marks = title_words(a.get("title")) - common
         hit = -1
-        for i, (n2, g2) in enumerate(keys):
+        for i, (n2, g2, m2) in enumerate(keys):
             same = (norm == n2)
             prefix = (min(len(norm), len(n2)) >= DUP_PREFIX_MIN
                       and (norm.startswith(n2) or n2.startswith(norm)))
             close = (len(norm) >= DUP_PREFIX_MIN and len(n2) >= DUP_PREFIX_MIN
                      and similarity(grams, g2) >= DUP_SIMILARITY)
-            if same or prefix or close:
+            # 固有名詞の重なりでも見る（言い回しが違う同じ出来事を拾う）
+            event = (len(marks) >= SAME_NEWS_MIN_WORDS and len(m2) >= SAME_NEWS_MIN_WORDS
+                     and len(marks & m2) / len(marks | m2) >= SAME_NEWS_OVERLAP)
+            if same or prefix or close or event:
                 hit = i
                 break
         if hit < 0:
-            keys.append((norm, grams))
+            keys.append((norm, grams, marks))
             kept.append(a)
         else:
             cur = kept[hit]
@@ -399,7 +405,7 @@ def expand_topic(entry):
             feed["exclude"] = entry["exclude"]
         # 記事の重み付け（⑥）：優先したい語・後ろに回したい語
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
-                    "min_views", "views_exempt", "minor"):
+                    "min_views", "views_exempt", "minor", "fresh_only"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -409,6 +415,8 @@ def expand_topic(entry):
         # （例: 近藤紘一のように新着が少ない人物は長めにする）
         if "max_age_days" in entry:
             feed["max_age_days"] = entry["max_age_days"]
+        elif entry.get("fresh_only"):
+            feed["max_age_days"] = int(entry["fresh_only"])
         feeds.append(feed)
 
     # サイトを指定した検索（ニュース以外の情報源を名指しで探す）
@@ -426,9 +434,12 @@ def expand_topic(entry):
             **news_tpl.get("opts", {}),
             "backfill": {"url": news_tpl["url"], "q": q_site},
         }
-        for key in ("exclude", "prefer", "demote", "blog_last", "keep"):
+        for key in ("exclude", "prefer", "demote", "blog_last", "keep",
+                    "no_ng", "minor", "fresh_only"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
+        if entry.get("fresh_only"):
+            site_feed["max_age_days"] = int(entry["fresh_only"])
         # 自動で作る必須語は使わないが、明示された必須語は効かせる
         # （「生成AI」のような広いテーマは、絞らないと何でも入ってしまうため）
         if entry.get("require"):
@@ -807,6 +818,29 @@ DUP_PREFIX_MIN = 14
 DUP_SIMILARITY = 0.75
 
 
+# 同じ出来事を各社が書くと、見出しの言い回しが大きく違って文字の並びでは一致しない
+# （実測：井上陽水＆安全地帯の4K放送が11媒体で重複していた）。
+# そこで固有名詞の重なりでも見る。ただし「井上陽水」のようにそのテーマで
+# 毎回出る語は目印にならないので、よく出る語は除いてから比べる。
+WORD_RE = re.compile(r"[一-龠]{2,}|[ァ-ヶー]{2,}|[A-Za-z]{3,}|[0-9]{2,}")
+SAME_NEWS_COMMON = 0.25    # テーマの見出しのこの割合を超えて出る語は目印にしない
+SAME_NEWS_MIN_WORDS = 3    # 残った語がこれ未満なら判定しない（短い見出しの誤判定を防ぐ）
+SAME_NEWS_OVERLAP = 0.45   # 残った語の重なりがこれ以上なら同じ出来事とみなす
+
+
+def title_words(title: str):
+    return set(WORD_RE.findall(unicodedata.normalize("NFKC", title or "")))
+
+
+def common_words(items):
+    """そのテーマの見出しによく出る語（目印にならない語）を集める。"""
+    df = collections.Counter()
+    for a in items:
+        df.update(title_words(a.get("title")))
+    n = len(items) or 1
+    return {w for w, c in df.items() if c / n > SAME_NEWS_COMMON}
+
+
 def title_bigrams(norm: str):
     """正規化済みの見出しを2文字ずつに刻んだ集合にする（類似度の計算用）。"""
     return set(norm[i:i + 2] for i in range(len(norm) - 1))
@@ -1181,6 +1215,7 @@ def main():
     view_rules = {}       # テーマごとの再生回数の下限
     daily_rules = {}      # テーマごとの「1日に新着として名乗れる数」
     minor_rules = set()   # ときどき見れば良いテーマ
+    fresh_rules = {}      # 期限つき情報のテーマ（何日で捨てるか）
     exclude_rules = {}    # テーマごとのNG語（貯めてある分にも当て直す）
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1207,6 +1242,10 @@ def main():
             # 「ときどき見る」テーマ。新着に数えず、画面では畳んでおく。
             if f.get("minor"):
                 minor_rules.add(g)
+            # 期限つきの情報（セール等）は、古くなったら蓄積からも消す。
+            # 「消さずに貯める」の例外。終わったセールは読んでも仕方がないため。
+            if f.get("fresh_only"):
+                fresh_rules[g] = int(f["fresh_only"])
             # 「関連」判定に使う語。サイト指定検索は見出し一致を求めないぶん、
             # 本文で触れているだけの記事が混ざる。それを見分けるための手がかり。
             if f.get("require"):
@@ -1264,6 +1303,16 @@ def main():
             if a.get("kind") == "video" and g not in video_groups:
                 ng_removed += 1
                 continue
+            limit = fresh_rules.get(g)
+            if limit:
+                try:
+                    old = (datetime.datetime.now(datetime.timezone.utc)
+                           - datetime.datetime.fromisoformat(a.get("dt") or "")).days
+                    if old > limit:
+                        ng_removed += 1
+                        continue
+                except Exception:
+                    pass
             low, exempt = view_rules.get(g, (0, []))
             if low and a.get("views") is not None and a["views"] < low                     and not any(w in (a.get("title") or "") for w in exempt):
                 ng_removed += 1
@@ -1399,6 +1448,8 @@ def main():
             if not bf or feed.get("site_search"):
                 continue   # 既にサイト指定のフィードは、そこからさらに掘らない
             g = feed.get("group") or feed["name"]
+            if fresh_rules.get(g):
+                continue   # 期限つきの情報は、過去へ遡っても意味がない
             # 「実際に貯まっている件数」だけで判断する。
             # 今回取得した分を足すと、その大半は蓄積済みの記事と重複しているため、
             # 二重に数えて「足りている」と誤判定してしまう（沢木耕太郎が補充されなかった原因）。
