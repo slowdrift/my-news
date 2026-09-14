@@ -89,7 +89,7 @@ def save_archive(path: Path, archive) -> None:
     path.write_text(json.dumps(archive, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
-def merge_into_archive(archive, group_name, items, now_iso, cap=None):
+def merge_into_archive(archive, group_name, items, now_iso, cap=None, news_theme=True):
     """今回取得した記事を蓄積へ統合する。
 
     - すでにある記事（同じURL）は残し、first_seen を保つ
@@ -116,7 +116,7 @@ def merge_into_archive(archive, group_name, items, now_iso, cap=None):
     # 見出しでも重複をまとめる。
     # Googleの中継URLは日によって変わるため、URLだけでは同じ記事を見分けられない
     #（実測：同じ hicbc.com の記事が別URLで3件貯まっていた）。
-    merged = dedupe_by_title(list(by_link.values()))
+    merged = dedupe_by_title(list(by_link.values()), news_theme)
     # 新しい順に整え、上限を超えた分は古いものから捨てる
     merged.sort(key=lambda x: x.get("dt") or "", reverse=True)
     archive[group_name] = merged[:(cap or ARCHIVE_MAX_PER_GROUP)]
@@ -191,6 +191,20 @@ def sale_expired(title: str, dt_iso: str, now=None) -> bool:
     return end < now
 
 
+# 連載の回数を表す書き方。これが違えば、どれだけ見出しが似ていても別の記事。
+# （実測：沢木耕太郎の「100冊の古書［４］」と「［６］」は見出しの類似度が0.75あり、
+#   放っておくと片方が消える。グロービスのMBA講義レポート DAY2/DAY4 も同様）
+SERIAL_RE = re.compile(
+    r"[［\[（(#＃]\s*(\d{1,3})\s*[］\])）]?|第\s*(\d{1,3})\s*[回話弾]"
+    r"|vol\.?\s*(\d{1,3})|day\s*(\d{1,3})|その\s*(\d{1,3})", re.I)
+
+
+def serial_no(title: str):
+    """見出しに含まれる「第何回」にあたる数字を集める。"""
+    t = unicodedata.normalize("NFKC", title or "")
+    return {g for m in SERIAL_RE.findall(t) for g in m if g}
+
+
 def days_apart(a: str, b: str) -> float:
     """2つの配信日時（ISO文字列）が何日離れているか。分からなければ大きな値。"""
     try:
@@ -201,7 +215,7 @@ def days_apart(a: str, b: str) -> float:
         return 9999.0
 
 
-def dedupe_by_title(items):
+def dedupe_by_title(items, news_theme=True):
     """似た見出しの記事を1件にまとめる。
 
     完全一致だけでなく、先頭一致と「重なり具合」も見る。
@@ -212,7 +226,7 @@ def dedupe_by_title(items):
     新しいほうに合わせると、まとめた瞬間にNEWが再点灯してしまう。
     """
     common = common_words(items)
-    keys = []    # [(正規化した見出し, 2文字ずつの集合, 目印になる語, 配信日)]
+    keys = []    # [(正規化した見出し, 2文字ずつの集合, 目印になる語, 配信日, 連載番号, ブログか)]
     kept = []    # keys と同じ並びの記事
     loose = []   # 見出しが取れないものはそのまま残す
     for a in items:
@@ -223,8 +237,12 @@ def dedupe_by_title(items):
         grams = title_bigrams(norm)
         marks = title_words(a.get("title")) - common
         day = a.get("dt") or ""
+        ser = serial_no(a.get("title"))
+        blog = bool(a.get("blog"))
         hit = -1
-        for i, (n2, g2, m2, d2) in enumerate(keys):
+        for i, (n2, g2, m2, d2, s2, b2) in enumerate(keys):
+            if ser != s2:
+                continue   # 連載の回が違うので別の記事
             same = (norm == n2)
             prefix = (min(len(norm), len(n2)) >= DUP_PREFIX_MIN
                       and (norm.startswith(n2) or n2.startswith(norm)))
@@ -234,13 +252,24 @@ def dedupe_by_title(items):
             event = (len(marks) >= SAME_NEWS_MIN_WORDS and len(m2) >= SAME_NEWS_MIN_WORDS
                      and len(marks & m2) / len(marks | m2) >= SAME_NEWS_OVERLAP)
             # 割合が届かなくても、珍しい語が何個も一致していて日が近ければ同じ話
-            if not event and len(marks & m2) >= SAME_NEWS_MIN_SHARED:
-                event = days_apart(day, d2) <= SAME_NEWS_DAYS
+            shared = len(marks & m2)
+            gap = days_apart(day, d2)
+            if not event and shared >= SAME_NEWS_MIN_SHARED:
+                event = gap <= SAME_NEWS_DAYS
+            # 報道のテーマでは、もう一段ゆるくまとめる
+            if not event and news_theme:
+                sim = similarity(grams, g2)
+                if blog or b2:
+                    event = (shared >= BLOG_MIN_SHARED and sim >= BLOG_SIMILARITY
+                             and gap <= NEWS_DAYS)
+                else:
+                    event = (shared >= NEWS_MIN_SHARED and sim >= NEWS_SIMILARITY
+                             and gap <= NEWS_DAYS)
             if same or prefix or close or event:
                 hit = i
                 break
         if hit < 0:
-            keys.append((norm, grams, marks, day))
+            keys.append((norm, grams, marks, day, ser, blog))
             kept.append(a)
         else:
             cur = kept[hit]
@@ -839,13 +868,21 @@ def looks_like_corp(via: str, title: str) -> bool:
     return bool(CORP_BLOG_PATTERN.search((via or "") + " " + (title or "")))
 
 
-def looks_like_blog(link: str, via_host: str = "") -> bool:
-    """リンクか発信元ドメインが、個人が書く場のものか。"""
+# Googleニュースが出す配信元の名前。中継URLしか無くても、これで書き手の場が分かる。
+BLOG_SOURCE_NAMES = ["note", "zenn", "qiita", "はてなブログ", "はてなダイアリー",
+                     "アメブロ", "medium", "ブクログ", "livedoor blog", "fc2"]
+
+
+def looks_like_blog(link: str, via_host: str = "", via: str = "") -> bool:
+    """リンク・発信元ドメイン・配信元名のどれかが、個人が書く場のものか。"""
     hay = urlparse(link or "").netloc.lower() + " " + (via_host or "").lower()
-    return any(d in hay for d in BLOG_DOMAINS)
+    if any(d in hay for d in BLOG_DOMAINS):
+        return True
+    name = (via or "").strip().lower()
+    return any(name == w or name.startswith(w + " ") for w in BLOG_SOURCE_NAMES)
 
 
-def is_personal_blog(feed, link: str, via_host: str = "") -> bool:
+def is_personal_blog(feed, link: str, via_host: str = "", via: str = "") -> bool:
     """個人ブログ・note などの「素人記事」かどうか。
 
     はてブ検索から来たものと、ブログ系ドメインを個人発信とみなす。
@@ -856,7 +893,7 @@ def is_personal_blog(feed, link: str, via_host: str = "") -> bool:
     """
     if "b.hatena.ne.jp" in (feed.get("url") or ""):
         return True
-    return looks_like_blog(link, via_host)
+    return looks_like_blog(link, via_host, via)
 
 
 # 見出しの文字種を見分けるための判定
@@ -956,6 +993,14 @@ SAME_NEWS_OVERLAP = 0.45   # 残った語の重なりがこれ以上なら同じ
 # （同じ人物の記事は、年が違っても語が重なるため）。
 SAME_NEWS_MIN_SHARED = 3   # 珍しい語がこれだけ共通なら同じ出来事とみなす
 SAME_NEWS_DAYS = 7         # ただし配信日がこれ以内のものに限る
+# 報道は同じ出来事を各社が書くので、もう少し緩くまとめてよい。
+# 逆に個人ブログは「同じ話題で別の論考」を書くのが普通で、まとめると読み物が消える
+#（実測：「GPT-6 Astraの所感」と「GPT-6 Astra × Claude Code の検証」は別物）。
+NEWS_MIN_SHARED = 2        # 報道どうし：珍しい語がこれだけ共通で
+NEWS_SIMILARITY = 0.35     #             見出しの重なりがこれ以上、かつ
+NEWS_DAYS = 3              #             配信がこれ以内なら同じ出来事
+BLOG_MIN_SHARED = 3        # ブログが混じるとき：語はこれだけ、
+BLOG_SIMILARITY = 0.50     #                     重なりはこれ以上を求める
 
 
 def title_words(title: str):
@@ -1310,7 +1355,7 @@ def fetch_feed(feed):
             "summary": summary,
             "thumb": extract_thumbnail(e) if kind == "video" else "",
             "views": extract_views(e) if kind == "video" else None,
-            "blog": is_personal_blog(feed, link, via_host),
+            "blog": is_personal_blog(feed, link, via_host, via),
             "rank": rank,   # 並び順の重み（-1 優先 / 0 普通 / 1 後回し）
             "kind": kind,
             "via": via,
@@ -1463,7 +1508,8 @@ def main():
                 reranked += 1
             # 発信元ドメインで個人ブログを判定し直す
             # （中継URLしか見ていなかった頃の記事は note でも印が付いていない）
-            if not a.get("blog") and looks_like_blog(a.get("link", ""), a.get("via_host", "")):
+            if not a.get("blog") and looks_like_blog(a.get("link", ""), a.get("via_host", ""),
+                                                     a.get("via", "")):
                 a["blog"] = True
                 reblogged += 1
     # 設定から外したテーマの蓄積を捨てる（残しても表示されず、保存だけが膨らむ）
