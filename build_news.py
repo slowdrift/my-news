@@ -1702,7 +1702,13 @@ def main():
             articles, status = fetch_feed(feed)
             # 取れた件数が少ないテーマは、期間を大きく広げて取り直す
             # （既読管理があるので、古い記事が混ざっても未読なら読む価値がある）
-            if len(articles) < THIN_THRESHOLD and not feed.get("max_age_days"):
+            # 蓄積が十分あるテーマでは広げない。広げると毎回10年前の記事が
+            # 「初めて見つけた記事」として入り、NEW の意味が薄れるため
+            # （実測：BLUE GIANT 117件・アーミル190件あるのに10年前の記事が毎回入っていた）。
+            g_now = feed.get("group") or feed["name"]
+            thin_ok = len(archive.get(g_now, [])) < BACKFILL_TARGET
+            if (len(articles) < THIN_THRESHOLD and thin_ok
+                    and not feed.get("max_age_days")):
                 wide = dict(feed)
                 wide["max_age_days"] = THIN_MAX_AGE_DAYS
                 more, more_status = fetch_feed(wide)

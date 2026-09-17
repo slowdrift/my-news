@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.15.0";
+const APP_VERSION = "v1.16.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -73,6 +73,7 @@ let SHOW_READ = false;     // 読んだ記事の一覧を見ているか
 // 「きょうの新着だけ」を見る画面。ボタンを増やさず、見出しの数字を入口にする。
 // 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
 let SHOW_FRESH = false;
+let SHOW_FOUND = false;   // 掘り出した古い記事だけの画面
 // 蓄積が1900件を超え、「あの記事どこだっけ」を探せなくなった。
 // 既読も含めて見出しから絞り込む（探すのは読んだ記事のことが多いため）。
 let SEARCH = "";
@@ -101,6 +102,10 @@ const THEME_KEY = "mynews_theme";      // "auto" | "light" | "dark"
 const FONT_KEY = "mynews_font";        // "s" | "m" | "l"
 // NEWバッジを何日光らせるか。読めば消えるので、長すぎなければ邪魔にならない。
 const NEW_DAYS = 7;
+// 「新しい記事」と「初めて見つけた古い記事」は別もの。
+// 10年前のインタビュー記事に NEW が付くと、新着の意味が薄れる。
+// 配信がこれより古ければ「発掘」として分けて数える（消しはしない）。
+const NEW_MAX_AGE_DAYS = 30;
 const FIRSTOPEN_KEY = "mynews_firstopen";  // このアプリを初めて開いた時刻
 
 // 既読の記録は「日付では消さない」。一度読んだ記事は、ずっと既読のままにする。
@@ -295,27 +300,45 @@ function toggleFav(a) {
 //   カードのNEW印 … 数日空けても見逃さないための印
 const FRESH_HOURS = 24;
 
-function isFresh(a) {
-  if (isRead(a) || a.quiet) return false;   // 1日の上限を超えた分は騒がない
-  if (HIDE_LOCKED && isLocked(a)) return false;
+// アプリに入ってきてからの日数で見る（記事の配信日ではない）
+function arrivedWithin(a, ms) {
   const src = a.first_seen || a.dt;
   if (!src) return false;
   const t = new Date(src).getTime();
   if (isNaN(t)) return false;
-  return t > Math.max(Date.now() - FRESH_HOURS * 3600000, FIRST_OPEN);
+  return t > Math.max(Date.now() - ms, FIRST_OPEN);
+}
+
+// 記事そのものが古いか（配信から NEW_MAX_AGE_DAYS 日以上たっているか）
+function isOldArticle(a) {
+  if (!a.dt) return false;
+  const t = new Date(a.dt).getTime();
+  if (isNaN(t)) return false;
+  return t < Date.now() - NEW_MAX_AGE_DAYS * 86400000;
+}
+
+// 初めて入ってきたのが最近で、記事そのものは古いもの＝「発掘」
+function isFound(a) {
+  if (isRead(a) || a.quiet) return false;
+  if (HIDE_LOCKED && isLocked(a)) return false;
+  return arrivedWithin(a, NEW_DAYS * 86400000) && isOldArticle(a);
+}
+
+function isFresh(a) {
+  if (isRead(a) || a.quiet) return false;   // 1日の上限を超えた分は騒がない
+  if (HIDE_LOCKED && isLocked(a)) return false;
+  if (isOldArticle(a)) return false;   // 掘り出した古い記事は「発掘」で数える
+  return arrivedWithin(a, FRESH_HOURS * 3600000);
 }
 
 function isNew(a) {
   if (isRead(a) || a.quiet) return false;   // 1日の上限を超えた分は騒がない
   if (HIDE_LOCKED && isLocked(a)) return false;
-  const src = a.first_seen || a.dt;
-  if (!src) return false;
-  const t = new Date(src).getTime();
-  if (isNaN(t)) return false;
   // 初めて開いた日より前に集まっていた記事には付けない。
   // 付けてしまうと、初回や情報源を増やした日に全件が光って意味をなさなくなる。
   // 7日たてば初回の時刻より「7日前」のほうが新しくなり、この縛りは自然に外れる。
-  return t > Math.max(Date.now() - NEW_DAYS * 86400000, FIRST_OPEN);
+  if (isOldArticle(a)) return false;   // 古い記事は NEW ではなく「発掘」
+  return arrivedWithin(a, NEW_DAYS * 86400000);
 }
 
 // ---- 表示用の小さな道具 --------------------------------------------------
@@ -371,6 +394,7 @@ function payBadge(a) {
 function metaRow(a) {
   const t = relTime(a.dt);
   const inner = (isNew(a) ? '<span class="new">NEW</span>' : "")
+    + (isFound(a) ? '<span class="found" title="初めて見つけた、少し前の記事">発掘</span>' : "")
     + payBadge(a)
     + (a.blog ? '<span class="blog' + (a.corp ? " corp" : "") + '">'
         + (a.corp ? "企業ブログ" : "個人ブログ") + "</span>" : "")
@@ -905,6 +929,41 @@ function renderFreshView(data) {
   APP.innerHTML = parts.join("\n");
 }
 
+// 掘り出した古い記事だけを並べる。
+// 「古い＝価値がない」ではないので、消さずに分けて置く。
+function renderFoundView(data) {
+  const blocks = ALL_GROUPS.map(function (x) {
+    const items = (x.group.items || []).filter(isFound);
+    return items.length ? { name: x.group.name, cat: x.cat, items: items } : null;
+  }).filter(Boolean);
+  const total = blocks.reduce(function (t, b) { return t + b.items.length; }, 0);
+
+  const parts = ["<header><h1>⛏ 発掘した記事</h1>"
+    + '<div class="meta-head">'
+    + '<button class="newcount on" type="button" id="show-found">← 全部を見る</button>'
+    + '<span class="unread">' + total + "件</span></div>"
+    + toolbar(data.sources) + "</header>"
+    + '<div class="note">新しく見つけた、少し前の記事です'
+    + "（配信から" + NEW_MAX_AGE_DAYS + "日以上たっているもの）。</div>"];
+
+  if (!blocks.length) {
+    parts.push('<div class="empty">掘り出した記事はまだありません。</div>');
+  } else {
+    blocks.forEach(function (b) {
+      parts.push('<section class="group"><h3 class="ghead">'
+        + '<span class="gname">' + esc(b.name) + "</span>"
+        + '<span class="gcount">' + b.items.length + "件</span>"
+        + '<span class="gcat">' + esc(b.cat) + "</span>"
+        + '<button class="read-all" type="button" data-found="' + esc(b.name)
+        + '" title="このテーマの発掘分をまとめて既読にする">✓ 既読に</button></h3>'
+        + '<div class="gitems expanded">'
+        + b.items.map(function (a) { return renderCard(a, false, false); }).join("")
+        + "</div></section>");
+    });
+  }
+  APP.innerHTML = parts.join("\n");
+}
+
 // ---- 探した結果 ------------------------------------------------------------
 
 function normForSearch(t) {
@@ -980,6 +1039,7 @@ function render(data) {
   if (SHOW_FAV) { renderFavView(data); return; }
   if (SEARCH_OPEN) { renderSearchView(data); return; }
   if (SHOW_FRESH) { renderFreshView(data); return; }
+  if (SHOW_FOUND) { renderFoundView(data); return; }
 
   const parts = [];
   // 動画は記事と分けて扱う（見る時間帯が違うため）
@@ -988,10 +1048,11 @@ function render(data) {
 
   // 見出しの数字は記事と動画をまとめた全体。
   // 記事だけで数えると「きょうの新着」画面（動画も並ぶ）と食い違う。
-  let totalUnread = 0, totalNew = 0;
+  let totalUnread = 0, totalNew = 0, totalFound = 0;
   ALL_GROUPS.forEach(function (x) {
     totalUnread += countUnread(x.group.items);
     totalNew += (x.group.items || []).filter(isFresh).length;
+    totalFound += (x.group.items || []).filter(isFound).length;
   });
   let videoUnread = 0, videoNew = 0;
   videoGroups.forEach(function (x) {
@@ -1007,6 +1068,10 @@ function render(data) {
       ? '<button class="newcount" type="button" id="show-fresh">きょうの新着 '
         + totalNew + "件</button>"
       : '<span class="nonew">きょうの新着はありません</span>')
+    + (totalFound
+      ? '<button class="newcount found-btn" type="button" id="show-found">⛏ 発掘 '
+        + totalFound + "件</button>"
+      : "")
     + '<span class="unread">未読 ' + totalUnread + "件</span>"
     + "</div>"
     + weatherLine(data.weather)
@@ -1284,6 +1349,20 @@ APP.addEventListener("click", function (ev) {
     return;
   }
   // 新着画面で、そのテーマの新着をまとめて既読にする
+  const readFound = ev.target.closest(".read-all[data-found]");
+  if (readFound) {
+    const entry = ALL_GROUPS.find(function (x) { return x.group.name === readFound.dataset.found; });
+    if (!entry) return;
+    const items = (entry.group.items || []).filter(isFound);
+    if (!items.length) return;
+    if (!confirm("「" + entry.group.name + "」の発掘分 " + items.length
+      + "件を既読にします。よろしいですか？")) return;
+    const y0 = window.scrollY;
+    items.forEach(markRead);
+    rerender();
+    window.scrollTo(0, y0);
+    return;
+  }
   const readFresh = ev.target.closest(".read-all[data-fresh]");
   if (readFresh) {
     const entry = ALL_GROUPS.find(function (x) { return x.group.name === readFresh.dataset.fresh; });
@@ -1309,7 +1388,13 @@ APP.addEventListener("click", function (ev) {
   // 「きょうの新着だけ」の切り替え
   if (ev.target.closest("#show-fresh")) {
     SHOW_FRESH = !SHOW_FRESH;
-    if (SHOW_FRESH) SHOW_FAV = false;
+    if (SHOW_FRESH) SHOW_FOUND = false;
+    rerender();
+    return;
+  }
+  if (ev.target.closest("#show-found")) {
+    SHOW_FOUND = !SHOW_FOUND;
+    if (SHOW_FOUND) { SHOW_FRESH = false; SHOW_FAV = false; }
     rerender();
     window.scrollTo(0, 0);
     return;

@@ -10,6 +10,7 @@
   :root {
     --bg:#f3f4f6; --card:#fff; --ink:#111827; --sub:#6b7280;
     --line:#e5e7eb; --accent:#2563eb; --cat:#2563eb;
+    --found-bg:#ede9fe; --found-ink:#6d28d9;
     --chip-bg:#eef0f3; --chip-ink:#374151; --btn-bg:#fff;
     --read-opacity:.5;
     --videos-bg:#fdf2f2;   /* 動画ブロックの下地（記事と見分けるため） */
@@ -21,6 +22,7 @@
     :root[data-theme="auto"] {
       --bg:#111318; --card:#1b1f27; --ink:#e8eaed; --sub:#9aa3af;
       --line:#2b313c; --accent:#7aa7ff; --chip-bg:#262c37; --chip-ink:#c3cad6;
+    --found-bg:#332b4d; --found-ink:#c4b5fd;
       --btn-bg:#1b1f27;
       --read-opacity:.8;
       --videos-bg:#1a1416;
@@ -31,6 +33,7 @@
   :root[data-theme="dark"] {
     --bg:#111318; --card:#1b1f27; --ink:#e8eaed; --sub:#9aa3af;
     --line:#2b313c; --accent:#7aa7ff; --chip-bg:#262c37; --chip-ink:#c3cad6;
+    --found-bg:#332b4d; --found-ink:#c4b5fd;
     --btn-bg:#1b1f27;
     --read-opacity:.8;
     --videos-bg:#1a1416;
@@ -430,6 +433,18 @@
     font-size: calc(10px * var(--fs)); color: var(--chip-ink); background: var(--chip-bg);
     border-radius: 5px; padding: 1px 6px; font-weight: 600; white-space: nowrap;
   }
+  .found {
+    background: var(--found-bg); color: var(--found-ink);
+    border-radius: 4px; padding: 1px 5px; font-weight: 700;
+    font-size: calc(10px * var(--fs)); letter-spacing: .02em;
+  }
+  .found-btn { border-color: var(--found-ink); color: var(--found-ink); }
+  .note {
+    margin: 8px 12px 0; padding: 8px 10px; border-radius: 8px;
+    background: var(--card); border: 1px solid var(--line);
+    color: var(--sub); font-size: calc(11.5px * var(--fs));
+  }
+
   .new {
     font-size: calc(9.5px * var(--fs)); font-weight: 800; color: #111827; background: #f59e0b;
     border-radius: 4px; padding: 1px 5px; letter-spacing: .04em;

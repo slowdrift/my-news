@@ -86,6 +86,9 @@
           "exclude": [
             "カラオケ",
             "カラオケランキング"
+          ],
+          "via_exclude": [
+            "YouTube"
           ]
         },
         {
