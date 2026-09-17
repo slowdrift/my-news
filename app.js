@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.16.0";
+const APP_VERSION = "v1.17.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -74,6 +74,7 @@ let SHOW_READ = false;     // 読んだ記事の一覧を見ているか
 // 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
 let SHOW_FRESH = false;
 let SHOW_FOUND = false;   // 掘り出した古い記事だけの画面
+let FOUND_TODAY = true;   // その画面で「きょう」に絞るか
 // 蓄積が1900件を超え、「あの記事どこだっけ」を探せなくなった。
 // 既読も含めて見出しから絞り込む（探すのは読んだ記事のことが多いため）。
 let SEARCH = "";
@@ -322,6 +323,11 @@ function isFound(a) {
   if (isRead(a) || a.quiet) return false;
   if (HIDE_LOCKED && isLocked(a)) return false;
   return arrivedWithin(a, NEW_DAYS * 86400000) && isOldArticle(a);
+}
+
+// そのうち、きょう届いた分だけ
+function isFoundToday(a) {
+  return isFound(a) && arrivedWithin(a, FRESH_HOURS * 3600000);
 }
 
 function isFresh(a) {
@@ -932,16 +938,28 @@ function renderFreshView(data) {
 // 掘り出した古い記事だけを並べる。
 // 「古い＝価値がない」ではないので、消さずに分けて置く。
 function renderFoundView(data) {
+  const pick = FOUND_TODAY ? isFoundToday : isFound;
   const blocks = ALL_GROUPS.map(function (x) {
-    const items = (x.group.items || []).filter(isFound);
+    const items = (x.group.items || []).filter(pick);
     return items.length ? { name: x.group.name, cat: x.cat, items: items } : null;
   }).filter(Boolean);
   const total = blocks.reduce(function (t, b) { return t + b.items.length; }, 0);
+  let today = 0, week = 0;
+  ALL_GROUPS.forEach(function (x) {
+    (x.group.items || []).forEach(function (a) {
+      if (isFound(a)) { week += 1; if (isFoundToday(a)) today += 1; }
+    });
+  });
 
   const parts = ["<header><h1>⛏ 発掘した記事</h1>"
     + '<div class="meta-head">'
     + '<button class="newcount on" type="button" id="show-found">← 全部を見る</button>'
     + '<span class="unread">' + total + "件</span></div>"
+    + '<div class="tools">'
+    + '<button class="tool-btn' + (FOUND_TODAY ? " on" : "") + '" type="button" '
+    + 'data-found-span="today">きょう ' + today + "件</button>"
+    + '<button class="tool-btn' + (FOUND_TODAY ? "" : " on") + '" type="button" '
+    + 'data-found-span="week">この1週間 ' + week + "件</button></div>"
     + toolbar(data.sources) + "</header>"
     + '<div class="note">新しく見つけた、少し前の記事です'
     + "（配信から" + NEW_MAX_AGE_DAYS + "日以上たっているもの）。</div>"];
@@ -1048,11 +1066,12 @@ function render(data) {
 
   // 見出しの数字は記事と動画をまとめた全体。
   // 記事だけで数えると「きょうの新着」画面（動画も並ぶ）と食い違う。
-  let totalUnread = 0, totalNew = 0, totalFound = 0;
+  let totalUnread = 0, totalNew = 0, totalFound = 0, totalFoundToday = 0;
   ALL_GROUPS.forEach(function (x) {
     totalUnread += countUnread(x.group.items);
     totalNew += (x.group.items || []).filter(isFresh).length;
     totalFound += (x.group.items || []).filter(isFound).length;
+    totalFoundToday += (x.group.items || []).filter(isFoundToday).length;
   });
   let videoUnread = 0, videoNew = 0;
   videoGroups.forEach(function (x) {
@@ -1068,10 +1087,13 @@ function render(data) {
       ? '<button class="newcount" type="button" id="show-fresh">きょうの新着 '
         + totalNew + "件</button>"
       : '<span class="nonew">きょうの新着はありません</span>')
-    + (totalFound
-      ? '<button class="newcount found-btn" type="button" id="show-found">⛏ 発掘 '
-        + totalFound + "件</button>"
-      : "")
+    + (totalFoundToday
+      ? '<button class="newcount found-btn" type="button" id="show-found">'
+        + "⛏ きょうの発掘 " + totalFoundToday + "件</button>"
+      : (totalFound
+        ? '<button class="newcount found-btn" type="button" id="show-found">⛏ 発掘 '
+          + totalFound + "件</button>"
+        : ""))
     + '<span class="unread">未読 ' + totalUnread + "件</span>"
     + "</div>"
     + weatherLine(data.weather)
@@ -1353,7 +1375,7 @@ APP.addEventListener("click", function (ev) {
   if (readFound) {
     const entry = ALL_GROUPS.find(function (x) { return x.group.name === readFound.dataset.found; });
     if (!entry) return;
-    const items = (entry.group.items || []).filter(isFound);
+    const items = (entry.group.items || []).filter(FOUND_TODAY ? isFoundToday : isFound);
     if (!items.length) return;
     if (!confirm("「" + entry.group.name + "」の発掘分 " + items.length
       + "件を既読にします。よろしいですか？")) return;
@@ -1392,9 +1414,21 @@ APP.addEventListener("click", function (ev) {
     rerender();
     return;
   }
+  const foundSpan = ev.target.closest("[data-found-span]");
+  if (foundSpan) {
+    FOUND_TODAY = (foundSpan.dataset.foundSpan === "today");
+    rerender();
+    return;
+  }
   if (ev.target.closest("#show-found")) {
     SHOW_FOUND = !SHOW_FOUND;
-    if (SHOW_FOUND) { SHOW_FRESH = false; SHOW_FAV = false; }
+    if (SHOW_FOUND) {
+      SHOW_FRESH = false; SHOW_FAV = false;
+      const today = ALL_GROUPS.reduce(function (t, x) {
+        return t + (x.group.items || []).filter(isFoundToday).length;
+      }, 0);
+      FOUND_TODAY = today > 0;   // きょうの分が無ければ1週間分を見せる
+    }
     rerender();
     window.scrollTo(0, 0);
     return;
