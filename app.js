@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.17.0";
+const APP_VERSION = "v1.18.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -515,7 +515,20 @@ function renderGroup(g, gi, noHead) {
   // 配信日が古い記事との境目に区切りを入れる。
   // NEWバッジは「アプリに入ってきた新しさ」、この区切りは「記事自体の古さ」。
   let dividerDone = false;
+  // 小分類（設定・工夫／自動化…）があるテーマでは、変わり目に見出しを入れる。
+  // 500件がひと塊では探せないため。分類は見出しから機械で当てているので
+  // 当たらないものもあり、それは「その他」に置く（消さない）。
+  let curSec = null;
+  const hasSec = !!(g.sections && g.sections.length);
   items.forEach(function (a, i) {
+    if (hasSec) {
+      const sec = a.sec || "その他";
+      if (sec !== curSec) {
+        curSec = sec;
+        const cnt = list.filter(function (x) { return (x.sec || "その他") === sec; }).length;
+        h += '<div class="secsep"><span>' + esc(sec) + "</span><i>" + cnt + "件</i></div>";
+      }
+    }
     const t = a.dt ? new Date(a.dt).getTime() : 0;
     if (!dividerDone && t && (Date.now() - t) > OLD_DAYS * 86400000) {
       dividerDone = true;

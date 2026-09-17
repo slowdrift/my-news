@@ -205,6 +205,21 @@ def serial_no(title: str):
     return {g for m in SERIAL_RE.findall(t) for g in m if g}
 
 
+def section_of(title: str, sections):
+    """見出しを見て、テーマの中のどの小分類に入るかを決める。
+
+    feeds.json の sections に上から順に当て、最初に当たったものを採る。
+    どれにも当たらなければ None（画面では「その他」に置き、消しはしない）。
+    見出しだけで判断するので、2〜3割は狙いどおりに入らない。
+    それでも「500件がひと塊」よりは探しやすい。
+    """
+    hay = (title or "").lower()
+    for sec in sections or []:
+        if any(w.lower() in hay for w in sec.get("words") or []):
+            return sec.get("name")
+    return None
+
+
 def days_apart(a: str, b: str) -> float:
     """2つの配信日時（ISO文字列）が何日離れているか。分からなければ大きな値。"""
     try:
@@ -509,7 +524,7 @@ def expand_topic(entry):
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
                     "min_views", "views_exempt", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in"):
+                    "sale_check", "require_always", "exclude_in", "sections"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -541,7 +556,7 @@ def expand_topic(entry):
         for key in ("exclude", "prefer", "demote", "blog_last", "keep",
                     "no_ng", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "require_also"):
+                    "sale_check", "require_always", "exclude_in", "sections", "require_also"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
         if entry.get("fresh_only"):
@@ -1440,6 +1455,7 @@ def main():
     via_rules = {}        # テーマごとの発信元除外
     foreign_groups = set()  # 外国語の記事を許すテーマ（海外報道）
     sale_groups = set()   # 終わったセールを落とすテーマ
+    section_rules = {}    # テーマごとの小分類
     ng_title_groups = set()  # NG語を見出しだけで判定するテーマ
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1465,6 +1481,8 @@ def main():
                 foreign_groups.add(g)
             if f.get("sale_check"):
                 sale_groups.add(g)
+            if f.get("sections"):
+                section_rules[g] = f["sections"]
             if f.get("exclude_in") == "title":
                 ng_title_groups.add(g)
             if f.get("type") == "video":
@@ -1862,8 +1880,23 @@ def main():
                 else:
                     a.pop("quiet", None)
 
+            secs = section_rules.get(g)
+            if secs:
+                order = {x.get("name"): i for i, x in enumerate(secs)}
+                # 「その他」は分類できなかった分。最後に置く（消しはしない）。
+                tail = len(order) + 1
+                for a in items:
+                    sec = section_of(a.get("title"), secs)
+                    if sec:
+                        a["sec"] = sec
+                    else:
+                        a.pop("sec", None)
+                # 小分類の順に並べ替える。企業・業界は sections の最後に置いてあるので、
+                # 自然と後ろへ回る（ご要望：消さずに後ろへ）。
+                items.sort(key=lambda a: order.get(a.get("sec"), tail))
             groups_out.append({"name": g, "items": items,
-                               "minor": g in minor_rules})
+                               "minor": g in minor_rules,
+                               "sections": [x.get("name") for x in secs] if secs else None})
         categories_out.append({"name": cat, "groups": groups_out})
 
     # 蓄積を保存（次回以降、未読の記事が消えないようにするため）
