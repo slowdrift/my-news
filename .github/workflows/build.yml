@@ -74,7 +74,20 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add archive.json
             git commit -m "記事の蓄積を更新 [skip ci]"
-            git push
+            # 別の実行が先に保存していると弾かれる。そのときは相手の蓄積を取り込み、
+            # 自分の分を足して保存し直す（どちらかで上書きすると記事が消えるため）。
+            for i in 1 2 3; do
+              if git push; then exit 0; fi
+              echo "保存が弾かれたので合わせ直します（${i}回目）"
+              cp archive.json /tmp/mine.json
+              git fetch origin main
+              git checkout -B main origin/main
+              python merge_archive.py /tmp/mine.json archive.json
+              git add archive.json
+              git commit -m "記事の蓄積を更新 [skip ci]" || exit 0
+            done
+            echo "保存できませんでした（次回の更新で取り直します）"
+            exit 1
           else
             echo "蓄積に変化なし"
           fi
