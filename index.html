@@ -283,15 +283,20 @@
   }
   .glink:active { border-color: var(--accent); }
 
-  /* 小分類の見出し（設定・工夫／自動化…） */
-  .secsep {
-    display: flex; align-items: center; gap: 8px;
-    margin: 10px 0 4px; padding: 4px 2px;
-    border-bottom: 2px solid var(--accent);
-    font-size: calc(12px * var(--fs)); font-weight: 700; color: var(--ink);
+  /* 小分類の目次（設定・工夫／自動化…）。押すとその分類だけ開く */
+  .secrow {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    margin: 4px 0; padding: 9px 10px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    font-size: calc(12.5px * var(--fs)); font-weight: 700; text-align: left;
   }
-  .secsep i { margin-left: auto; font-style: normal; font-weight: 400; color: var(--sub); }
-  .secsep:first-child { margin-top: 0; }
+  .secrow i { margin-left: auto; font-style: normal; font-weight: 400; color: var(--sub); }
+  .secrow.open { border-color: var(--accent); }
+  .secrow.hasnew { border-left: 4px solid var(--accent); }
+
+  /* 目次（閉じたテーマ）：新着のあるテーマだけ目立たせる */
+  .group.folded { opacity: .72; }
+  .group.folded.hasnew { opacity: 1; border-left: 4px solid var(--accent); padding-left: 6px; }
 
   .agesep {
     display: flex; align-items: center; gap: 8px;

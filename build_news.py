@@ -205,6 +205,36 @@ def serial_no(title: str):
     return {g for m in SERIAL_RE.findall(t) for g in m if g}
 
 
+def curate(items, rule):
+    """読みごたえのある記事だけに絞る（feeds.json の curate）。
+
+    記事の文量は測れない（Googleニュースは中継URLで本文に届かない）ので、
+    代わりに「媒体」と「見出しの型」で見分ける。
+      long  … 長い記事を書く媒体、またはインタビュー・対談・論考の見出し → 残す
+      news  … 移籍・就任などの大きな出来事 → 同じ時期（news_days 日以内）は1件だけ残す
+      sns   … SNS投稿をなぞっただけの短い記事 → どちらでも外す
+    蓄積（archive.json）からは消さず、画面に渡す分だけ絞る。後から緩められるように。
+    """
+    def has(words, text):
+        return any(w in text for w in words or [])
+    sns_re = re.compile(r"\d+\s*文字|[０-９]+\s*文字")
+    kept, news_days = [], []
+    span = float(rule.get("news_days", 3))
+    for a in items:
+        t, via = a.get("title") or "", a.get("via") or ""
+        if has(rule.get("sns"), t) or sns_re.search(t):
+            continue
+        if has(rule.get("long_sources"), via) or has(rule.get("long_marks"), t):
+            kept.append(a)
+            continue
+        if has(rule.get("news_marks"), t):
+            day = a.get("dt") or ""
+            if all(days_apart(day, d2) > span for d2 in news_days):
+                news_days.append(day)
+                kept.append(a)
+    return kept
+
+
 def section_of(title: str, sections):
     """見出しを見て、テーマの中のどの小分類に入るかを決める。
 
@@ -524,7 +554,7 @@ def expand_topic(entry):
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
                     "min_views", "views_exempt", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -556,7 +586,7 @@ def expand_topic(entry):
         for key in ("exclude", "prefer", "demote", "blog_last", "keep",
                     "no_ng", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "require_also"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "require_also"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
         if entry.get("fresh_only"):
@@ -1458,6 +1488,7 @@ def main():
     sale_groups = set()   # 終わったセールを落とすテーマ
     section_rules = {}    # テーマごとの小分類
     link_rules = {}       # テーマの見出しに置く入口リンク（X・TVer など）
+    curate_rules = {}     # 読みごたえのある記事だけに絞るテーマ
     ng_title_groups = set()  # NG語を見出しだけで判定するテーマ
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1485,6 +1516,8 @@ def main():
                 sale_groups.add(g)
             if f.get("sections"):
                 section_rules[g] = f["sections"]
+            if f.get("curate"):
+                curate_rules[g] = f["curate"]
             for x in f.get("links") or []:
                 have_urls = {y["url"] for y in link_rules.get(g, [])}
                 if x.get("url") and x["url"] not in have_urls:
@@ -1874,6 +1907,10 @@ def main():
             # 本人について書かれた個人ブログのほうが、名前に触れただけの報道より読みたいため。
             items.sort(key=lambda a: bool(a.get("related")))
             items.sort(key=lambda a: a.get("paywall") in ("paid", "member", "partial"))
+            if curate_rules.get(g):
+                before_n = len(items)
+                items = curate(items, curate_rules[g])
+                print(f"厳選: {g} {before_n}件 → {len(items)}件（読みごたえのある記事と大きな出来事だけ）")
             # 1日に新着として名乗れる数を超えた分に印を付ける。
             # 並べ替えた後なので、読みたい順に上から数える。
             cap = daily_rules.get(g, DAILY_LOUD_MAX)

@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.19.0";
+const APP_VERSION = "v1.20.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -57,6 +57,29 @@ function saveUI() { lsSet(UI_KEY, JSON.stringify(UI)); }
 
 // 開いているか。覚えが無ければ既定（カテゴリも動画も開いた状態）
 function isOpen(key) { return UI.cats[key] !== false; }
+
+// すべてのテーマが閉じているか（＝「目次」の状態か）
+function allFolded() {
+  return ALL_GROUPS.length > 0 && ALL_GROUPS.every(function (x) {
+    return UI.cats["fold:" + x.group.name] === false;
+  });
+}
+
+// 全部閉じて「目次」にする／全部開く。
+// 毎朝は新着の有無だけ見たいことが多く、20テーマ・54枚のカードを
+// スクロールして探すのは手間だった。閉じるとテーマが1行ずつ並ぶ。
+// 次に開いたときも同じ状態のまま（端末に覚えさせる）。
+function setAllFolded(fold) {
+  ALL_GROUPS.forEach(function (x) {
+    if (fold) UI.cats["fold:" + x.group.name] = false;
+    else delete UI.cats["fold:" + x.group.name];
+  });
+  // 目次を見るためにカテゴリの枠は開けておく
+  Object.keys(UI.cats).forEach(function (k) {
+    if (k.indexOf("fold:") !== 0 && k.indexOf("sec:") !== 0 && UI.cats[k] === false) delete UI.cats[k];
+  });
+  saveUI();
+}
 
 // 記事そのものが古いと感じる境目（日）。ここに区切りを入れる。
 const OLD_DAYS = 30;
@@ -494,7 +517,8 @@ function renderGroup(g, gi, noHead) {
   const all = g.items || [];
   // テーマ名を押すと最小化する。見出しと件数だけ残し、記事は隠す。
   if (!noHead && UI.cats["fold:" + g.name] === false) {
-    return '<section class="group folded" data-group="' + gi + '">'
+    const hasNew = all.some(isFresh);
+    return '<section class="group folded' + (hasNew ? " hasnew" : "") + '" data-group="' + gi + '">'
       + groupHead(g, gi, all) + "</section>";
   }
   const showRead = SHOW_ALL || REREAD[g.name];
@@ -517,30 +541,54 @@ function renderGroup(g, gi, noHead) {
   // 以前は「もっと見る」と「さらに古い記事」の2つが縦に並んでいたが、
   // 内部の仕組みの違いであって、読む側には区別が要らないので1つにまとめた。
   const limit = UI.shown[g.name] || INITIAL_VISIBLE;
+  let h = '<section class="group" data-group="' + gi + '">'
+    + (noHead ? "" : groupHead(g, gi, all));
+
+  // 小分類（設定・工夫／自動化…）があるテーマは、まず小分類を1行ずつ並べる。
+  // 以前は先頭3件しか出さなかったため、2つ目の小分類は169件先まで見えなかった。
+  // 分類は見出しから機械で当てており、当たらないものは「その他」に置く（消さない）。
+  if (g.sections && g.sections.length) {
+    const names = g.sections.concat(["その他"]);
+    names.forEach(function (sec) {
+      const secList = list.filter(function (x) { return (x.sec || "その他") === sec; });
+      if (!secList.length) return;
+      const key = g.name + "|" + sec;
+      const open = UI.cats["sec:" + key] === true;   // 既定は閉じておく（目次として使う）
+      const fresh = secList.filter(isFresh).length;
+      h += '<button class="secrow' + (open ? " open" : "") + (fresh ? " hasnew" : "")
+        + '" type="button" data-sec="' + esc(key) + '">'
+        + '<span class="secname">' + (open ? "▾ " : "▸ ") + esc(sec) + "</span>"
+        + (fresh ? '<b class="gnew">新着 ' + fresh + "</b>" : "")
+        + "<i>" + secList.length + "件</i></button>";
+      if (open) {
+        const lim = UI.shown[key] || INITIAL_VISIBLE;
+        h += cardList(secList.slice(0, lim));
+        if (secList.length > lim) {
+          h += '<button class="more-btn" type="button" data-older="' + esc(key) + '">'
+            + "もっと見る（残り" + (secList.length - lim) + "件）</button>";
+        }
+      }
+    });
+    return h + "</section>";
+  }
+
   const items = list.slice(0, limit);
   const rest = list.length - items.length;
+  h += cardList(items);
+  if (rest > 0) {
+    h += '<button class="more-btn" type="button" data-older="' + esc(g.name) + '">'
+      + "もっと見る（残り" + rest + "件）</button>";
+  }
+  h += "</section>";
+  return h;
+}
 
-  let h = '<section class="group" data-group="' + gi + '">'
-    + (noHead ? "" : groupHead(g, gi, all))
-    + '<div class="gitems expanded">';
-  // 配信日が古い記事との境目に区切りを入れる。
-  // NEWバッジは「アプリに入ってきた新しさ」、この区切りは「記事自体の古さ」。
+// カードを並べる。配信日が古い記事との境目に区切りを入れる。
+// NEWバッジは「アプリに入ってきた新しさ」、この区切りは「記事自体の古さ」。
+function cardList(items) {
+  let h = '<div class="gitems expanded">';
   let dividerDone = false;
-  // 小分類（設定・工夫／自動化…）があるテーマでは、変わり目に見出しを入れる。
-  // 500件がひと塊では探せないため。分類は見出しから機械で当てているので
-  // 当たらないものもあり、それは「その他」に置く（消さない）。
-  let curSec = null;
-  const hasSec = !!(g.sections && g.sections.length);
   items.forEach(function (a, i) {
-    if (hasSec) {
-      const sec = a.sec || "その他";
-      if (sec !== curSec) {
-        curSec = sec;
-        dividerDone = false;   // 区切り線は小分類ごとに引く
-        const cnt = list.filter(function (x) { return (x.sec || "その他") === sec; }).length;
-        h += '<div class="secsep"><span>' + esc(sec) + "</span><i>" + cnt + "件</i></div>";
-      }
-    }
     const t = a.dt ? new Date(a.dt).getTime() : 0;
     if (!dividerDone && t && (Date.now() - t) > OLD_DAYS * 86400000) {
       dividerDone = true;
@@ -548,13 +596,7 @@ function renderGroup(g, gi, noHead) {
     }
     h += renderCard(a, false, i === 0);
   });
-  h += "</div>";
-  if (rest > 0) {
-    h += '<button class="more-btn" type="button" data-older="' + esc(g.name) + '">'
-      + "もっと見る（残り" + rest + "件）</button>";
-  }
-  h += "</section>";
-  return h;
+  return h + "</div>";
 }
 
 // 取れなかったフィードだけを拾う。
@@ -805,6 +847,8 @@ function toolbar(sources) {
     + '<button class="tool-btn' + (SHOW_ALL ? " on" : "") + '" type="button" id="toggle-read">'
     + (SHOW_ALL ? "☑ 既読も表示" : "☐ 既読も表示") + "</button>"
     + '<button class="tool-btn' + (SEARCH ? " on" : "") + '" type="button" id="toggle-search">🔍 探す</button>'
+    + '<button class="tool-btn' + (allFolded() ? " on" : "") + '" type="button" id="toggle-toc">'
+    + (allFolded() ? "☰ 全部開く" : "☰ 全部閉じる") + "</button>"
     + '<button class="tool-btn' + (SETTINGS_OPEN ? " on" : "") + '" type="button" id="toggle-settings">⚙ 設定</button>'
     + "</div>"
     + (SEARCH_OPEN
@@ -1345,6 +1389,23 @@ APP.addEventListener("click", function (ev) {
     return;
   }
   // 「もっと見る」：そのテーマだけ表示件数を増やす
+  if (ev.target.closest("#toggle-toc")) {
+    setAllFolded(!allFolded());
+    rerender();
+    window.scrollTo(0, 0);
+    return;
+  }
+  // 小分類の開け閉め
+  const secRow = ev.target.closest(".secrow");
+  if (secRow) {
+    const key = "sec:" + secRow.dataset.sec;
+    UI.cats[key] = !(UI.cats[key] === true);
+    saveUI();
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
   const more = ev.target.closest(".more-btn");
   if (more) {
     const name = more.dataset.older;
