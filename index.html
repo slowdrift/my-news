@@ -274,6 +274,15 @@
   :root[data-theme="auto"] .weather .wpop.strong { color: #93c5fd; }
 
   /* 記事の古さの区切り（NEWバッジとは役割が違う） */
+  /* テーマの入口リンク（𝕏 情報局・TVer など） */
+  .glinks { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+  .glink {
+    display: inline-block; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--btn-bg); color: var(--ink);
+    font-size: calc(11.5px * var(--fs)); text-decoration: none;
+  }
+  .glink:active { border-color: var(--accent); }
+
   /* 小分類の見出し（設定・工夫／自動化…） */
   .secsep {
     display: flex; align-items: center; gap: 8px;

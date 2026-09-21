@@ -524,7 +524,7 @@ def expand_topic(entry):
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
                     "min_views", "views_exempt", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -556,7 +556,7 @@ def expand_topic(entry):
         for key in ("exclude", "prefer", "demote", "blog_last", "keep",
                     "no_ng", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections", "require_also"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "require_also"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
         if entry.get("fresh_only"):
@@ -739,6 +739,7 @@ DEFAULT_DEEP_SITES = ["note.com", "hatenablog.com", "1101.com"]
 DAILY_LOUD_MAX = 20
 
 BACKFILL_TARGET = 40   # 蓄積がこの件数に届かないテーマは過去を掘る
+OLD_ARTICLE_DAYS = 30  # 新旧の境目。画面の区切り線（app.js の OLD_DAYS）とそろえる
 BACKFILL_YEARS = 20    # 何年前まで遡るか
 BACKFILL_SLICE = 4     # 何年ずつ区切って聞くか
 
@@ -1456,6 +1457,7 @@ def main():
     foreign_groups = set()  # 外国語の記事を許すテーマ（海外報道）
     sale_groups = set()   # 終わったセールを落とすテーマ
     section_rules = {}    # テーマごとの小分類
+    link_rules = {}       # テーマの見出しに置く入口リンク（X・TVer など）
     ng_title_groups = set()  # NG語を見出しだけで判定するテーマ
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1483,6 +1485,10 @@ def main():
                 sale_groups.add(g)
             if f.get("sections"):
                 section_rules[g] = f["sections"]
+            for x in f.get("links") or []:
+                have_urls = {y["url"] for y in link_rules.get(g, [])}
+                if x.get("url") and x["url"] not in have_urls:
+                    link_rules.setdefault(g, []).append(x)
             if f.get("exclude_in") == "title":
                 ng_title_groups.add(g)
             if f.get("type") == "video":
@@ -1646,6 +1652,10 @@ def main():
     # 消してしまうため、誤解の余地がないものだけに絞る。
     JUNK_TITLE_WORDS = ["タグ記事一覧", "関連画像", "フォトギャラリー",
                         "求人・転職情報", "の求人"]
+    # 質問サイトは「質問」であって記事ではない。見出しに社名が出ないこともあるので、
+    # リンク先の住所で見分ける（実測：沢木耕太郎に「本を探しています」の質問が混入）。
+    JUNK_LINK_PARTS = ["chiebukuro.yahoo.co.jp", "oshiete.goo.ne.jp", "okwave.jp",
+                       "komachi.yomiuri.co.jp"]
     dropped = 0
     for g in list(archive):
         items = archive[g]
@@ -1660,7 +1670,9 @@ def main():
         keep = []
         for a in items:
             t = a.get("title") or ""
-            if any(w in t for w in JUNK_TITLE_WORDS) or (ja_theme and is_foreign_title(t)):
+            link = (a.get("link") or "") + " " + (a.get("via_host") or "")
+            if (any(w in t for w in JUNK_TITLE_WORDS) or any(w in link for w in JUNK_LINK_PARTS)
+                    or "知恵袋" in (a.get("via") or "") or (ja_theme and is_foreign_title(t))):
                 dropped += 1
                 continue
             keep.append(a)
@@ -1755,7 +1767,9 @@ def main():
             gained = 0
             # (a) まずニュース以外の情報源へ。報道が少ない相手でも、
             #     ブログや媒体サイトには書かれていることがある。
-            if g not in deep_done:
+            # 報道が十分あるテーマ（本田圭佑など）では、ブログへの深掘りはしない。
+            # 深掘りは見出しに名前が無くても拾うため、無関係な記事（学校だより等）が混ざる。
+            if g not in deep_done and feed.get("deep", True):
                 deep_done.add(g)
                 for site in DEFAULT_DEEP_SITES:
                     if have + gained >= BACKFILL_TARGET:
@@ -1880,6 +1894,18 @@ def main():
                 else:
                     a.pop("quiet", None)
 
+            # 新旧の境目（1か月）より古い記事は、優先語が当たっていても新しい記事の後ろへ。
+            # 画面の「ここから1か月以上前の記事」の区切り線は日付順を前提にしており、
+            # 古い記事が前に出ると、線より後ろに「2日前」の記事が並んでしまっていた。
+            # 並べ替えは安定なので、それぞれの塊の中では優先語・有料後回しの順が保たれる。
+            limit_old = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=OLD_ARTICLE_DAYS)
+
+            def is_old(a):
+                try:
+                    return datetime.datetime.fromisoformat(a.get("dt") or "") < limit_old
+                except Exception:
+                    return False
+            items.sort(key=is_old)
             secs = section_rules.get(g)
             if secs:
                 order = {x.get("name"): i for i, x in enumerate(secs)}
@@ -1896,7 +1922,8 @@ def main():
                 items.sort(key=lambda a: order.get(a.get("sec"), tail))
             groups_out.append({"name": g, "items": items,
                                "minor": g in minor_rules,
-                               "sections": [x.get("name") for x in secs] if secs else None})
+                               "sections": [x.get("name") for x in secs] if secs else None,
+                               "links": link_rules.get(g) or None})
         categories_out.append({"name": cat, "groups": groups_out})
 
     # 蓄積を保存（次回以降、未読の記事が消えないようにするため）

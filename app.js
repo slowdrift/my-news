@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.18.0";
+const APP_VERSION = "v1.19.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -476,7 +476,18 @@ function groupHead(g, gi, all) {
     + '<span class="gcount">' + countUnread(all) + "件</span>"
     + (newCount ? '<span class="gnew">新着 ' + newCount + "</span>" : "")
     + '<button class="read-all" type="button" title="このテーマをまとめて既読にする">✓ 既読に</button>'
-    + "</h3>";
+    + "</h3>" + groupLinks(g);
+}
+
+// 記事として集められない情報源への「入口」。
+// X（旧Twitter）は無料の配信が無く記事を取り込めないので、1タップで開けるようにする。
+// TVer のように、読むのではなく「見に行く」先もここに置く。
+function groupLinks(g) {
+  if (!g.links || !g.links.length) return "";
+  return '<div class="glinks">' + g.links.map(function (x) {
+    return '<a class="glink" href="' + esc(x.url) + '" target="_blank" rel="noopener">'
+      + esc(x.label) + "</a>";
+  }).join("") + "</div>";
 }
 
 function renderGroup(g, gi, noHead) {
@@ -525,6 +536,7 @@ function renderGroup(g, gi, noHead) {
       const sec = a.sec || "その他";
       if (sec !== curSec) {
         curSec = sec;
+        dividerDone = false;   // 区切り線は小分類ごとに引く
         const cnt = list.filter(function (x) { return (x.sec || "その他") === sec; }).length;
         h += '<div class="secsep"><span>' + esc(sec) + "</span><i>" + cnt + "件</i></div>";
       }
