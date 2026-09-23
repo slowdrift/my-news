@@ -10,7 +10,19 @@ import json
 import sys
 
 
+def merge_seen(mine, theirs):
+    """見た記事の控え（見出し → 初めて見た日時）を合わせる。早いほうを残す。"""
+    out = dict(theirs)
+    for k, t in mine.items():
+        if k not in out or t < out[k]:
+            out[k] = t
+    return out
+
+
 def merge(mine, theirs):
+    # seen.json（値が文字列）なら控えとして合わせる
+    if all(isinstance(v, str) for v in list(mine.values())[:50] + list(theirs.values())[:50]):
+        return merge_seen(mine, theirs)
     out = {}
     for src in (theirs, mine):
         for group, items in src.items():
@@ -38,5 +50,5 @@ if __name__ == "__main__":
     merged = merge(mine, theirs)
     with open(theirs_path, "w", encoding="utf-8") as f:
         json.dump(merged, f, ensure_ascii=False)
-    n = lambda d: sum(len(v) for v in d.values())
+    n = lambda d: sum(len(v) if isinstance(v, list) else 1 for v in d.values())
     print(f"蓄積を合わせました: 自分 {n(mine)} ＋ 相手 {n(theirs)} → {n(merged)} 件")

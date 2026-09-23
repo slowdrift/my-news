@@ -64,6 +64,39 @@ PAYWALL_FILE = BASE_DIR / "paywall.json"  # 有料媒体リスト（編集はこ
 OUTPUT_DATA = BASE_DIR / "data.js"       # 生成物（表示用データを JS に埋め込む）
 LOG_FILE = BASE_DIR / "fetch.log"        # 取得ログ（追記）
 ARCHIVE_FILE = BASE_DIR / "archive.json"  # これまでに見つけた記事の蓄積（消さずに貯める）
+# 一度見た記事の「初めて見た日時」の控え（見出し → 日時）。
+# 蓄積から一度消えた記事が入り直したとき、日時を今に戻さないために使う。
+# （実測：上限で押し出された記事や、テーマ内で条件の違う検索が拾った記事が
+#   消えては入り直し、そのたびに「新着」として出ていた。1回の収集で15件）
+SEEN_FILE = BASE_DIR / "seen.json"
+SEEN_MAX = 30000   # 増えすぎたら古いものから忘れる
+SEEN = {}
+
+
+def seen_key(title: str) -> str:
+    """見出しから記憶の鍵を作る。短すぎる見出しは別記事と衝突しうるので使わない。"""
+    k = normalize_title(title or "")
+    return k if len(k) >= 8 else ""
+
+
+def load_seen(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except Exception:
+        return {}
+
+
+def save_seen(path: Path, archive) -> None:
+    """蓄積にある記事の日時を控えに足して保存する（早いほうを残す）。"""
+    for items in archive.values():
+        for a in items:
+            k, t = seen_key(a.get("title")), a.get("first_seen")
+            if k and t and (k not in SEEN or t < SEEN[k]):
+                SEEN[k] = t
+    if len(SEEN) > SEEN_MAX:
+        for k in sorted(SEEN, key=SEEN.get)[:len(SEEN) - SEEN_MAX]:
+            del SEEN[k]
+    path.write_text(json.dumps(SEEN, ensure_ascii=False, sort_keys=True), encoding="utf-8")
 
 # 1テーマあたり蓄積しておく上限。超えたら配信日の古いものから捨てる。
 # ※ 既読かどうかは収集側から分からないため、未読でも古ければ捨てられる。
@@ -89,7 +122,7 @@ def save_archive(path: Path, archive) -> None:
     path.write_text(json.dumps(archive, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
-def merge_into_archive(archive, group_name, items, now_iso, cap=None, news_theme=True):
+def merge_into_archive(archive, group_name, items, now_iso, cap=None, news_theme=True, seed=False):
     """今回取得した記事を蓄積へ統合する。
 
     - すでにある記事（同じURL）は残し、first_seen を保つ
@@ -109,8 +142,17 @@ def merge_into_archive(archive, group_name, items, now_iso, cap=None, news_theme
         if link in by_link:
             # 既にある記事：初めて見つけた日時は維持し、中身だけ最新に更新する
             a["first_seen"] = by_link[link].get("first_seen", now_iso)
+            if by_link[link].get("seed"):
+                a["seed"] = True   # 「足した日の分」の印も引き継ぐ
+        elif SEEN.get(seen_key(a.get("title"))):
+            # 蓄積からは消えていたが、以前に見た記事。日時を戻さない（新着に出さない）
+            a["first_seen"] = SEEN[seen_key(a.get("title"))]
         else:
             a["first_seen"] = now_iso
+            if seed:
+                # テーマを足した日に入った記事は「過去の分」。新着としては騒がない
+                # （実測：実教出版を足した日、過去2か月のお知らせ7件が朝刊に並んだ）
+                a["seed"] = True
         by_link[link] = a
 
     # 見出しでも重複をまとめる。
@@ -319,9 +361,14 @@ def dedupe_by_title(items, news_theme=True):
         else:
             cur = kept[hit]
             seen = [x.get("first_seen") for x in (cur, a) if x.get("first_seen")]
+            # 先に見つけていたほうが「テーマを足した日の分」なら、その印も引き継ぐ
+            # （中継URLが日ごとに変わり、同じ記事が別物として入り直すため）
+            older = min((cur, a), key=lambda x: x.get("first_seen") or "9999")
             keep = better_record(cur, a)
             if seen:
                 keep["first_seen"] = min(seen)
+            if older.get("seed"):
+                keep["seed"] = True
             kept[hit] = keep
     return kept + loose
 
@@ -1445,6 +1492,7 @@ def to_json_item(a):
         "rank": a.get("rank", 0),  # 並び順の重み（-1 優先 / 0 普通 / 1 後回し）
         "hb": a.get("hb"),                   # はてなブックマーク件数（直リンクのみ）
         "quiet": a.get("quiet", False),      # 1日の上限を超えた分（新着として数えない）
+        "seed": a.get("seed", False),        # テーマを足した日に入った過去の分（新着に数えない）
         "related": a.get("related", False),  # 見出しにテーマ名が無い＝本文で触れただけ
         "corp": a.get("corp", False),        # 会社が運営するブログ
         "first_seen": a.get("first_seen"),  # アプリに初めて入ってきた日時（NEW判定用）
@@ -1481,6 +1529,9 @@ def main():
 
     # これまでに見つけた記事の蓄積。どのテーマが手薄かを知るため、取得の前に読む。
     archive = load_archive(ARCHIVE_FILE)
+    SEEN.update(load_seen(SEEN_FILE))
+    if not SEEN:
+        save_seen(SEEN_FILE, archive)   # 初回は、いまの蓄積から控えを作る
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     # テーマごとの並べ替え規則（feeds.json の prefer / demote）を集める。
@@ -1670,7 +1721,11 @@ def main():
             words, also, has_site = require_rules.get(g, ([], [], False))
             # require_always: サイト指定の情報源があっても必須語を当てる。
             # （Amazonのセールに、昔まぎれ込んだ競馬予想のnote記事が残っていたため）
-            site = bool(f.get("site_search")) and not f.get("require_always")
+            # 直接登録した配信（会社の公式RSSなど）は、見出しにテーマ名が無いのが普通。
+            # 必須語を蓄積に当て直すと毎回消され、次の取得で「初めて見た記事」として
+            # 入り直して毎日「新着」に出てしまう（実教出版の公式お知らせで起きた）。
+            direct = bool(f.get("url")) and not f.get("gnews") and not f.get("site_search")
+            site = (bool(f.get("site_search")) or direct) and not f.get("require_always")
             require_rules[g] = (words + (f.get("require") or []),
                                 also + (f.get("require_also") or []),
                                 has_site or site)
@@ -1902,7 +1957,8 @@ def main():
             fresh = [to_json_item(a) for a in buckets.get(g, [])]
             if not fresh and not archive.get(g):
                 continue   # 取れず、蓄積も無いテーマは出さない
-            merged = merge_into_archive(archive, g, fresh, now_iso, keep_rules.get(g))
+            first_time = not archive.get(g)
+            merged = merge_into_archive(archive, g, fresh, now_iso, keep_rules.get(g), seed=first_time)
 
             # 「関連」＝ 見出しにテーマの語が無い記事。本文で触れているだけのものが多い。
             # 消さずに後ろへ回す（当たりの読み物も混じっているため）。
@@ -1941,6 +1997,9 @@ def main():
                     fresh = (datetime.datetime.now(datetime.timezone.utc) - seen).total_seconds() <= 86400
                 except Exception:
                     pass
+                if fresh and a.get("seed"):
+                    a["quiet"] = True   # テーマを足した日の分は新着に数えない（書庫には入る）
+                    continue
                 if not fresh:
                     a.pop("quiet", None)
                     continue
@@ -1984,6 +2043,7 @@ def main():
 
     # 蓄積を保存（次回以降、未読の記事が消えないようにするため）
     save_archive(ARCHIVE_FILE, archive)
+    save_seen(SEEN_FILE, archive)
     total_archived = sum(len(v) for v in archive.values())
     line = f"蓄積: {total_archived}件（{len(archive)}テーマ）を archive.json に保存"
     log_lines.append(line)

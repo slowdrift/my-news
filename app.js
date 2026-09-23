@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.23.0";
+const APP_VERSION = "v1.24.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -58,11 +58,14 @@ function saveUI() { lsSet(UI_KEY, JSON.stringify(UI)); }
 // 開いているか。覚えが無ければ既定（カテゴリも動画も開いた状態）
 function isOpen(key) { return UI.cats[key] !== false; }
 
+// 書庫のテーマは、既定で畳んでおく（目次として使う）。
+// 朝刊を上に置いたので、書庫はまず「どのテーマがあるか」を1行ずつ見せ、読みたいものだけ開く。
+// （以前は既定で開いていて、朝刊の下に記事カードが54枚続いていた）
+function isFolded(name) { return UI.cats["fold:" + name] !== true; }
+
 // すべてのテーマが閉じているか（＝「目次」の状態か）
 function allFolded() {
-  return ALL_GROUPS.length > 0 && ALL_GROUPS.every(function (x) {
-    return UI.cats["fold:" + x.group.name] === false;
-  });
+  return ALL_GROUPS.length > 0 && ALL_GROUPS.every(function (x) { return isFolded(x.group.name); });
 }
 
 // 全部閉じて「目次」にする／全部開く。
@@ -71,8 +74,8 @@ function allFolded() {
 // 次に開いたときも同じ状態のまま（端末に覚えさせる）。
 function setAllFolded(fold) {
   ALL_GROUPS.forEach(function (x) {
-    if (fold) UI.cats["fold:" + x.group.name] = false;
-    else delete UI.cats["fold:" + x.group.name];
+    if (fold) delete UI.cats["fold:" + x.group.name];
+    else UI.cats["fold:" + x.group.name] = true;
   });
   // 目次を見るためにカテゴリの枠は開けておく
   Object.keys(UI.cats).forEach(function (k) {
@@ -527,7 +530,7 @@ function renderCard(a, hidden, lead) {
 // テーマの見出し（名前・件数・NEW・まとめて既読ボタン）
 function groupHead(g, gi, all) {
   const newCount = all.filter(isFresh).length;
-  const folded = UI.cats["fold:" + g.name] === false;
+  const folded = isFolded(g.name);
   return '<h3 class="ghead"><button class="gname" type="button" data-fold="'
     + esc(g.name) + '">' + (folded ? "▸ " : "") + esc(g.name) + "</button>"
     + '<span class="gcount">' + shelfCount(all) + "件</span>"
@@ -549,7 +552,7 @@ function groupLinks(g) {
 function renderGroup(g, gi, noHead) {
   const all = g.items || [];
   // テーマ名を押すと最小化する。見出しと件数だけ残し、記事は隠す。
-  if (!noHead && UI.cats["fold:" + g.name] === false) {
+  if (!noHead && isFolded(g.name)) {
     const hasNew = all.some(isFresh);
     return '<section class="group folded' + (hasNew ? " hasnew" : "") + '" data-group="' + gi + '">'
       + groupHead(g, gi, all) + "</section>";
@@ -1035,6 +1038,20 @@ function freshBlocks() {
   }).filter(Boolean);
 }
 
+// 朝刊でテーマを開いたときのカード。小分類のあるテーマ（Claude Code など）は、
+// 小分類ごとに小見出しを入れて並べる（20件が1列に並ぶと読みたいものを探しにくい）。
+function freshCards(b) {
+  const g = (ALL_GROUPS.find(function (x) { return x.group.name === b.name; }) || {}).group;
+  if (!g || !g.sections || !g.sections.length) return cardList(b.items);
+  let h = "";
+  g.sections.concat(["その他"]).forEach(function (sec) {
+    const list = b.items.filter(function (a) { return (a.sec || "その他") === sec; });
+    if (!list.length) return;
+    h += '<div class="msec">' + esc(sec) + "<i>" + list.length + "</i></div>" + cardList(list);
+  });
+  return h;
+}
+
 // ---- 朝刊（トップ画面の一番上）---------------------------------------------
 // 開いた瞬間に「きょう読むもの」が目に入り、下へ進むと書庫になる（新聞の1面と後ろのページ）。
 // テーマは畳んで1行ずつ並べ、読みたいテーマだけ開く。見終わったら片づけてゼロにする。
@@ -1068,7 +1085,7 @@ function morningEdition() {
         + (bs && bs < b.items.length ? '<span class="since" title="前回見てから届いた数">●' + bs + "</span>" : "")
         + '<button class="read-all mtidy" type="button" data-fresh="' + esc(b.name)
         + '" title="このテーマの新着を片づける（あとで戻せます）">✓ 片づけ</button></div>'
-        + (open ? cardList(b.items) : "")
+        + (open ? freshCards(b) : "")
         + "</div>";
     });
   }
@@ -1571,7 +1588,8 @@ APP.addEventListener("click", function (ev) {
   const fold = ev.target.closest(".gname[data-fold]");
   if (fold) {
     const key = "fold:" + fold.dataset.fold;
-    UI.cats[key] = (UI.cats[key] === false);
+    if (isFolded(fold.dataset.fold)) UI.cats[key] = true;
+    else delete UI.cats[key];
     saveUI();
     const y = window.scrollY;
     rerender();

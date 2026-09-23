@@ -69,10 +69,10 @@ jobs:
       #   説明のつもりで書くとビルド自体が起動しなくなる（実際に一度やらかした）。
       - name: 記事の蓄積を保存
         run: |
-          if [ -n "$(git status --porcelain archive.json)" ]; then
+          if [ -n "$(git status --porcelain archive.json seen.json)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add archive.json
+            git add archive.json seen.json
             git commit -m "記事の蓄積を更新 [skip ci]"
             # 別の実行が先に保存していると弾かれる。そのときは相手の蓄積を取り込み、
             # 自分の分を足して保存し直す（どちらかで上書きすると記事が消えるため）。
@@ -80,10 +80,12 @@ jobs:
               if git push; then exit 0; fi
               echo "保存が弾かれたので合わせ直します（${i}回目）"
               cp archive.json /tmp/mine.json
+              cp seen.json /tmp/mine_seen.json
               git fetch origin main
               git checkout -B main origin/main
               python merge_archive.py /tmp/mine.json archive.json
-              git add archive.json
+              if [ -f seen.json ]; then python merge_archive.py /tmp/mine_seen.json seen.json; else cp /tmp/mine_seen.json seen.json; fi
+              git add archive.json seen.json
               git commit -m "記事の蓄積を更新 [skip ci]" || exit 0
             done
             echo "保存できませんでした（次回の更新で取り直します）"
