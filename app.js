@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.21.0";
+const APP_VERSION = "v1.22.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -528,9 +528,8 @@ function groupHead(g, gi, all) {
   const folded = UI.cats["fold:" + g.name] === false;
   return '<h3 class="ghead"><button class="gname" type="button" data-fold="'
     + esc(g.name) + '">' + (folded ? "▸ " : "") + esc(g.name) + "</button>"
-    + '<span class="gcount">' + countUnread(all) + "件</span>"
+    + '<span class="gcount">' + shelfCount(all) + "件</span>"
     + (newCount ? '<span class="gnew">新着 ' + newCount + "</span>" : "")
-    + '<button class="read-all" type="button" title="このテーマをまとめて既読にする">✓ 既読に</button>'
     + "</h3>" + groupLinks(g);
 }
 
@@ -553,10 +552,9 @@ function renderGroup(g, gi, noHead) {
     return '<section class="group folded' + (hasNew ? " hasnew" : "") + '" data-group="' + gi + '">'
       + groupHead(g, gi, all) + "</section>";
   }
-  const showRead = SHOW_ALL || REREAD[g.name];
-  const list = freshFirst(showRead
-    ? all.filter(function (a) { return !(HIDE_LOCKED && isLocked(a)); })
-    : all.filter(isShown));
+  // 書庫：読んだ記事も消さずに薄く残す（本棚のように）。
+  // 並びは「きょう届いた → まだ読んでいない → 読んだ」。読んだものは後ろへ回るだけ。
+  const list = shelfOrder(all.filter(function (a) { return !(HIDE_LOCKED && isLocked(a)); }));
 
   // 読み終えてもテーマは消さない。消えるとカテゴリごと画面から無くなり、
   // 読み返す手段も分からなくなるため、見出しと戻り道は必ず残す。
@@ -613,6 +611,18 @@ function renderGroup(g, gi, noHead) {
   }
   h += "</section>";
   return h;
+}
+
+// 書庫の並び：きょう届いた → まだ読んでいない → 読んだ（それぞれの中は元の並び）
+function shelfOrder(list) {
+  const fresh = [], unread = [], read = [];
+  list.forEach(function (x) { (isFresh(x) ? fresh : isRead(x) ? read : unread).push(x); });
+  return fresh.concat(unread, read);
+}
+
+// 本棚にある数（読めない記事を隠しているときは、それを除く）
+function shelfCount(list) {
+  return (list || []).filter(function (a) { return !(HIDE_LOCKED && isLocked(a)); }).length;
 }
 
 // きょう届いた記事を先頭へ（それ以外の並びはそのまま）。
@@ -885,8 +895,6 @@ function toolbar(sources) {
   let h = '<div class="tools">'
     + '<button class="tool-btn star' + (SHOW_FAV ? " on" : "") + '" type="button" id="toggle-fav">'
     + "★ お気に入り" + (favCount ? " " + favCount : "") + "</button>"
-    + '<button class="tool-btn' + (SHOW_ALL ? " on" : "") + '" type="button" id="toggle-read">'
-    + (SHOW_ALL ? "☑ 既読も表示" : "☐ 既読も表示") + "</button>"
     + '<button class="tool-btn' + (SEARCH ? " on" : "") + '" type="button" id="toggle-search">🔍 探す</button>'
     + '<button class="tool-btn' + (allFolded() ? " on" : "") + '" type="button" id="toggle-toc">'
     + (allFolded() ? "☰ 全部開く" : "☰ 全部閉じる") + "</button>"
@@ -914,7 +922,9 @@ function toolbar(sources) {
       + troubleRow(sources)
       + '<details class="howto"><summary>使い方</summary><ul>'
       + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
-      + "<li>見出しの<b>「きょうの新着」</b>を押すと、24時間以内に届いた分だけ見られます</li>"
+      + "<li><b>朝刊と書庫</b>：見出しの<b>「きょうの新着」</b>が朝刊です。見出しを見て、読むものは開き、"
+      + "読まないものは<b>✓ 片づけ</b>（押したあと5秒は戻せます）。ゼロになれば今日の分はおしまい</li>"
+      + "<li>テーマの一覧は<b>書庫</b>です。読んだ記事も薄くして残すので、あとから読み返せます</li>"
       + "<li>テーマの<b>🔒</b>は、そのテーマの読めない記事をまとめて既読にします</li>"
       + "<li>記事右上の<b>☆</b>は、一覧から消えても残る保存です</li>"
       + "<li>テーマ名を押すと<b>畳めます</b>（並び順は設定の「並べ替え」で変えられます）</li>"
@@ -1030,13 +1040,17 @@ function renderFreshView(data) {
 
   const parts = ["<header><h1>⚡ きょうの新着</h1>"
     + '<div class="meta-head">' + headUpdated(data.generated_at)
-    + '<button class="newcount on" type="button" id="show-fresh">← 全部を見る</button>'
-    + '<span class="unread">' + total + "件</span></div>"
+    + '<button class="newcount on" type="button" id="show-fresh">← 書庫へ</button>'
+    + '<span class="unread">' + total + "件</span>"
+    + (total ? '<button class="tool-btn tidy-all" type="button" id="tidy-all-fresh">✓ 全部片づけ</button>' : "")
+    + "</div>"
     + toolbar(data.sources) + "</header>"];
 
+  // 朝刊のように「読み切れる量で終わる」ことを目指す。
+  // 見出しを見て、読むものは開き、読まないものは片づける。ゼロになったら今日の分はおしまい。
   if (!blocks.length) {
-    parts.push('<div class="empty">きょう届いた記事はまだありません。'
-      + "「← 全部を見る」で貯めてある記事を読めます。</div>");
+    parts.push('<div class="empty done-today">✓ きょうの分はおしまいです。<br>'
+      + "新しい記事は次の更新で届きます。古い記事や発掘は「← 書庫へ」でいつでも読めます。</div>");
   } else {
     blocks.forEach(function (b) {
       const open = !!FRESH_OPEN[b.name];
@@ -1047,7 +1061,7 @@ function renderFreshView(data) {
         + '<span class="gcount">' + b.items.length + "件</span>"
         + (since ? '<span class="since">●前回から ' + since + "</span>" : "")
         + '<button class="read-all" type="button" data-fresh="' + esc(b.name)
-        + '" title="このテーマの新着をまとめて既読にする">✓ 既読に</button></h3>'
+        + '" title="このテーマの新着を片づける（あとで戻せます）">✓ 片づけ</button></h3>'
         + (open
           ? '<div class="gitems expanded">'
             + b.items.map(function (a) { return renderCard(a, false, false); }).join("")
@@ -1097,7 +1111,7 @@ function renderFoundView(data) {
         + '<span class="gcount">' + b.items.length + "件</span>"
         + '<span class="gcat">' + esc(b.cat) + "</span>"
         + '<button class="read-all" type="button" data-found="' + esc(b.name)
-        + '" title="このテーマの発掘分をまとめて既読にする">✓ 既読に</button></h3>'
+        + '" title="このテーマの発掘分を片づける（あとで戻せます）">✓ 片づけ</button></h3>'
         + '<div class="gitems expanded">'
         + b.items.map(function (a) { return renderCard(a, false, false); }).join("")
         + "</div></section>");
@@ -1218,7 +1232,6 @@ function render(data) {
         ? '<button class="newcount found-btn" type="button" id="show-found">⛏ 発掘 '
           + totalFound + "件</button>"
         : ""))
-    + '<span class="unread">未読 ' + totalUnread + "件</span>"
     + "</div>"
     + weatherLine(data.weather)
     + toolbar(data.sources) + "</header>");
@@ -1236,13 +1249,13 @@ function render(data) {
     return '<a class="nav-chip" href="#cat' + i + '" style="--cat:'
       + CAT_COLORS[i % CAT_COLORS.length] + '">' + esc(name)
       + (n ? '<b class="navnew">' + n + "</b>" : "")
-      + "<span>" + u + "</span></a>";
+      + "</a>";
   }).join("");
   parts.push('<nav class="catnav">' + navs
     + (videoGroups.length
       ? '<a class="nav-chip" href="#videos" style="--cat:#dc2626">🎬 動画'
         + (videoNew ? '<b class="navnew">' + videoNew + "</b>" : "")
-        + "<span>" + videoUnread + "</span></a>"
+        + "</a>"
       : "")
     + "</nav>");
 
@@ -1266,7 +1279,7 @@ function render(data) {
     parts.push("<summary><h2>" + esc(name)
       + '<span class="catcount">'
       + (fresh ? '<b class="catnew">新着 ' + fresh + "</b>" : "")
-      + unread + "件</span></h2></summary>");
+      + "</span></h2></summary>");
     parts.push('<div class="body">');
     parts.push(body || (SHOW_ALL
       ? '<div class="empty">この時間は取得できた記事がありませんでした。</div>'
@@ -1285,7 +1298,7 @@ function render(data) {
     parts.push('<summary><h2>🎬 動画'
       + '<span class="catcount">'
       + (videoNew ? '<b class="catnew">新着 ' + videoNew + "</b>" : "")
-      + videoUnread + "件</span></h2></summary>");
+      + "</span></h2></summary>");
     parts.push('<div class="body">');
     parts.push(body || '<div class="empty">すべて見終えました 🎉</div>');
     parts.push("</div></details>");
@@ -1334,6 +1347,24 @@ function rerender() {
 }
 
 // テーマ内の記事をまとめて既読にする
+// まとめて片づける（既読にする）。確認のダイアログは出さず、押したあとで戻せるようにする。
+// スワイプと同じ考え方：迷わず押せて、間違えたら5秒以内に戻す。
+function tidyUp(items, label) {
+  if (!items.length) return;
+  const done = items.slice();
+  done.forEach(markRead);
+  pushUndo(label + " " + done.length + "件を片づけました", function () {
+    done.forEach(unmarkRead);
+  });
+}
+
+function unmarkRead(a) {
+  if (a.link) delete READ[a.link];
+  const k = titleKey(a);
+  if (k) delete READ[k];
+  saveRead(READ);
+}
+
 function markGroupRead(items) {
   const now = Date.now();
   (items || []).forEach(function (a) {
@@ -1482,17 +1513,8 @@ APP.addEventListener("click", function (ev) {
   }
   // テーマ単位のまとめて既読
   // 新着画面のボタンは別に扱うので、ここでは拾わない
-  const readAll = ev.target.closest(".read-all:not([data-fresh])");
-  if (readAll) {
-    const gi = Number(readAll.closest(".group").dataset.group);
-    const entry = ALL_GROUPS[gi];
-    if (entry) {
-      markGroupRead(entry.group.items);
-      saveRead(READ);
-      rerender();
-    }
-    return;
-  }
+  // （テーマの「✓ 既読に」は外した。押した瞬間に過去分まで全部既読になり、
+  //   戻せなかったため。片づけは「きょうの新着」画面で、戻せる形で行う）
   // テーマ名を押して最小化／元に戻す
   const fold = ev.target.closest(".gname[data-fold]");
   if (fold) {
@@ -1526,12 +1548,9 @@ APP.addEventListener("click", function (ev) {
   if (readFound) {
     const entry = ALL_GROUPS.find(function (x) { return x.group.name === readFound.dataset.found; });
     if (!entry) return;
-    const items = (entry.group.items || []).filter(FOUND_TODAY ? isFoundToday : isFound);
-    if (!items.length) return;
-    if (!confirm("「" + entry.group.name + "」の発掘分 " + items.length
-      + "件を既読にします。よろしいですか？")) return;
     const y0 = window.scrollY;
-    items.forEach(markRead);
+    tidyUp((entry.group.items || []).filter(FOUND_TODAY ? isFoundToday : isFound),
+      "「" + entry.group.name + "」の発掘");
     rerender();
     window.scrollTo(0, y0);
     return;
@@ -1540,14 +1559,18 @@ APP.addEventListener("click", function (ev) {
   if (readFresh) {
     const entry = ALL_GROUPS.find(function (x) { return x.group.name === readFresh.dataset.fresh; });
     if (!entry) return;
-    const items = (entry.group.items || []).filter(isFresh);
-    if (!items.length) return;
-    if (!confirm("「" + entry.group.name + "」の新着 " + items.length
-      + "件を既読にします。よろしいですか？")) return;
     const y = window.scrollY;
-    items.forEach(markRead);
+    tidyUp((entry.group.items || []).filter(isFresh), "「" + entry.group.name + "」の新着");
     rerender();
     window.scrollTo(0, y);
+    return;
+  }
+  if (ev.target.closest("#tidy-all-fresh")) {
+    const items = [];
+    ALL_GROUPS.forEach(function (x) { (x.group.items || []).filter(isFresh).forEach(function (a) { items.push(a); }); });
+    tidyUp(items, "きょうの新着");
+    rerender();
+    window.scrollTo(0, 0);
     return;
   }
   // お気に入り画面から戻る

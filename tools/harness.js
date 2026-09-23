@@ -14,6 +14,7 @@
 //                 使える道具:
 //                   __APP.innerHTML      … 描かれた画面（HTML）
 //                   __click(選択子, dataset) … ボタンを押す（例: __click(".more-btn", {older: "本田圭佑"})）
+//                   __undo()             … 最後に出た知らせの「元に戻す」を押す
 //                   __loadError          … 読み込み時のエラー（無ければ null）
 //                   ほかに app.js の関数（isNew, isFresh, searchHits …）もそのまま呼べる。
 //
@@ -50,7 +51,7 @@ class FakeDate extends RealDate {
 // 画面の部品の代わり。app.js が触る最低限だけを用意する。
 const LISTENERS = {};
 function el(id) {
-  return {
+  const self = {
     id, innerHTML: "", value: "", dataset: {}, style: { setProperty() {} },
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     addEventListener(type, fn) { if (id === "app") (LISTENERS[type] = LISTENERS[type] || []).push(fn); },
@@ -58,7 +59,19 @@ function el(id) {
     remove() {}, appendChild() {}, querySelector() { return el("q"); }, querySelectorAll() { return []; },
     setAttribute() {}, getBoundingClientRect() { return { width: 400 }; },
   };
+  // 「元に戻す」などの部品の押下を拾えるように、部品ごとの受け手を覚えておく
+  self.addEventListener = function (type, fn) {
+    if (id === "app") (LISTENERS[type] = LISTENERS[type] || []).push(fn);
+    else (self._on = self._on || {})[type] = fn;
+  };
+  self.querySelector = function (sel) {
+    if (sel === "#toast-undo") return (self._undo = self._undo || el("toast-undo"));
+    return el("q");
+  };
+  if (id === "x") LAST_CREATED.push(self);
+  return self;
 }
+const LAST_CREATED = [];
 const nodes = {};
 const document = {
   getElementById(id) { return nodes[id] || (id === "app" ? (nodes.app = el("app")) : null); },
@@ -100,6 +113,15 @@ ctx.__click = function (selector, dataset) {
   };
   const ev = { target, preventDefault() {}, stopPropagation() {} };
   (LISTENERS.click || []).forEach(fn => fn(ev));
+};
+
+// 最後に出た知らせ（トースト）の「元に戻す」を押す
+ctx.__undo = function () {
+  for (let i = LAST_CREATED.length - 1; i >= 0; i--) {
+    const u = LAST_CREATED[i]._undo;
+    if (u && u._on && u._on.click) { u._on.click({}); return true; }
+  }
+  return false;
 };
 
 const out = vm.runInContext(fs.readFileSync(probePath, "utf8"), ctx);
