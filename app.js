@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.22.0";
+const APP_VERSION = "v1.23.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -453,8 +453,8 @@ function payBadge(a) {
 // NEW＋有料バッジ＋発信元＋再生回数＋時刻のメタ行
 function metaRow(a) {
   const t = relTime(a.dt);
-  const inner = (isSinceLast(a) ? '<span class="since" title="前回見てから届いた記事">●前回から</span>' : "")
-    + (isNew(a) ? '<span class="new">NEW</span>' : "")
+  const inner = (isSinceLast(a) ? '<span class="since" title="前回見てから届いた記事">●前回から</span>'
+      : isNew(a) ? '<span class="new">NEW</span>' : "")
     + (isFound(a) ? '<span class="found" title="初めて見つけた、少し前の記事">発掘</span>' : "")
     + payBadge(a)
     + (a.blog ? '<span class="blog' + (a.corp ? " corp" : "") + '">'
@@ -471,7 +471,7 @@ function metaRow(a) {
     + esc(k) + '" title="良かった。この発信元を大事にします">👍</button>';
   const boring = '<button class="boring" type="button" data-boring="'
     + esc(k) + '" title="つまらない。以後この発信元を見直す材料にします">👎</button>';
-  return '<div class="meta">' + inner + good + boring + "</div>";
+  return '<div class="meta">' + inner + '<span class="votes">' + good + boring + "</span></div>";
 }
 
 // ★ボタン。リンクの外側に置くので、押しても記事は開かない。
@@ -517,7 +517,9 @@ function renderCard(a, hidden, lead) {
     + title + "</a>"
     + favBtn(a)
     + metaRow(a);
-  if (lead && a.summary) h += '<div class="summary">' + esc(a.summary) + "</div>";
+  // 説明文が日付だけ（茨城新聞の配信など）なら出さない。場所を取るだけで情報が無いため
+  const dateOnly = /^\s*\d{4}年\d{1,2}月\d{1,2}日(\s*[(（][^)）]*[)）])?\s*$/.test(a.summary || "");
+  if (lead && a.summary && !dateOnly) h += '<div class="summary">' + esc(a.summary) + "</div>";
   h += "</div>";
   return h;
 }
@@ -645,7 +647,7 @@ function cardList(items) {
       dividerDone = true;
       h += '<div class="agesep"><span>ここから1か月以上前の記事</span></div>';
     }
-    h += renderCard(a, false, i === 0);
+    h += renderCard(a, false, i === 0 && isFresh(a));
   });
   return h + "</div>";
 }
@@ -803,7 +805,7 @@ function weatherLine(w) {
       + '<span class="wicon">' + (d.icon || "") + "</span>"
       + '<span class="wtext">' + esc(d.short || d.text) + "</span>"
       + (temp ? '<span class="wtemp">' + temp + "</span>" : "")
-      + popPart(d, "06", "朝") + popPart(d, "12", "夕")
+      + '<span class="wpops">' + popPart(d, "06", "朝") + popPart(d, "12", "夕") + "</span>"
       + "</div>";
   }).join("");
   return '<div class="weather" title="' + esc(w.days[0].text) + '">'
@@ -922,7 +924,7 @@ function toolbar(sources) {
       + troubleRow(sources)
       + '<details class="howto"><summary>使い方</summary><ul>'
       + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
-      + "<li><b>朝刊と書庫</b>：見出しの<b>「きょうの新着」</b>が朝刊です。見出しを見て、読むものは開き、"
+      + "<li><b>朝刊と書庫</b>：一番上の<b>「きょうの新着」</b>が朝刊です。見出しを見て、読むものは開き、"
       + "読まないものは<b>✓ 片づけ</b>（押したあと5秒は戻せます）。ゼロになれば今日の分はおしまい</li>"
       + "<li>テーマの一覧は<b>書庫</b>です。読んだ記事も薄くして残すので、あとから読み返せます</li>"
       + "<li>テーマの<b>🔒</b>は、そのテーマの読めない記事をまとめて既読にします</li>"
@@ -1022,6 +1024,68 @@ function renderReadView(data) {
 // 新着があっても、どのテーマにあるかスクロールして探すしかなかった。
 // テーマの並びは feeds.json 順のまま動かさず（毎日同じ場所にある安心感を保つ）、
 // 別の入口として「新着だけ」を集める。
+
+// 新着のあるテーマを、設定の並び順で（動画は後ろ）
+function freshBlocks() {
+  const ordered = sortByOrder(ALL_GROUPS.filter(function (x) { return !isVideoGroup(x.group); }))
+    .concat(sortByOrder(ALL_GROUPS.filter(function (x) { return isVideoGroup(x.group); })));
+  return ordered.map(function (x) {
+    const items = (x.group.items || []).filter(isFresh);
+    return items.length ? { name: x.group.name, cat: x.cat, items: items } : null;
+  }).filter(Boolean);
+}
+
+// ---- 朝刊（トップ画面の一番上）---------------------------------------------
+// 開いた瞬間に「きょう読むもの」が目に入り、下へ進むと書庫になる（新聞の1面と後ろのページ）。
+// テーマは畳んで1行ずつ並べ、読みたいテーマだけ開く。見終わったら片づけてゼロにする。
+function morningEdition() {
+  const blocks = freshBlocks();
+  const total = blocks.reduce(function (t, b) { return t + b.items.length; }, 0);
+  let since = 0, foundToday = 0, foundWeek = 0;
+  ALL_GROUPS.forEach(function (x) {
+    (x.group.items || []).forEach(function (a) {
+      if (isSinceLast(a)) since += 1;
+      if (isFound(a)) { foundWeek += 1; if (isFoundToday(a)) foundToday += 1; }
+    });
+  });
+
+  let h = '<section class="morning" id="morning"><div class="mhead">'
+    + "<h2>⚡ きょうの新着</h2>"
+    + '<span class="mcount">' + total + "件</span>"
+    + (since && since < total ? '<span class="since">●前回から ' + since + "</span>" : "")
+    + "</div>";
+
+  if (!total) {
+    h += '<div class="mdone">✓ きょうの分はおしまいです。新しい記事は次の更新で届きます。</div>';
+  } else {
+    blocks.forEach(function (b) {
+      const open = !!FRESH_OPEN[b.name];
+      const bs = b.items.filter(isSinceLast).length;
+      h += '<div class="mtheme' + (open ? " open" : "") + '"><div class="mrow">'
+        + '<button class="mname" type="button" data-fresh-open="' + esc(b.name) + '">'
+        + '<span class="mcaret">' + (open ? "▾" : "▸") + "</span>" + esc(b.name) + "</button>"
+        + '<span class="mnum">' + b.items.length + "</span>"
+        + (bs && bs < b.items.length ? '<span class="since" title="前回見てから届いた数">●' + bs + "</span>" : "")
+        + '<button class="read-all mtidy" type="button" data-fresh="' + esc(b.name)
+        + '" title="このテーマの新着を片づける（あとで戻せます）">✓ 片づけ</button></div>'
+        + (open ? cardList(b.items) : "")
+        + "</div>";
+    });
+  }
+  if (foundWeek) {
+    h += '<button class="mfound" type="button" id="show-found">⛏ '
+      + (foundToday ? "きょうの発掘 " + foundToday : "発掘 " + foundWeek) + "件"
+      + "<small>初めて見つけた、少し前の記事</small><i>→</i></button>";
+  }
+  if (total) {
+    h += '<button class="mtidyall" type="button" id="tidy-all-fresh">✓ 見終わったので全部片づけ（'
+      + total + "件）</button>";
+  }
+  h += "</section>"
+    + '<div class="shelf-head"><h2>📚 書庫</h2>'
+    + "<p>テーマごとに貯めた記事です。読んだ記事も薄くして残します。</p></div>";
+  return h;
+}
 
 // 新着画面はテーマごとに畳んでおく。59枚・12画面を上から見る時間は無いので、
 // まず「どのテーマに何件あるか」を1画面で見せ、読みたいテーマだけ開く。
@@ -1218,23 +1282,11 @@ function render(data) {
   });
 
   parts.push("<header><h1>📰 マイニュース</h1>"
-    + '<div class="meta-head">' + headUpdated(data.generated_at)
-    // 「未読1624件」は読み切れる数ではなく、指標として働かない。
-    // 今日読むべき「新着」を主役にし、貯まっている数は控えめに添える。
-    + (totalNew
-      ? '<button class="newcount" type="button" id="show-fresh">きょうの新着 '
-        + totalNew + "件</button>"
-      : '<span class="nonew">きょうの新着はありません</span>')
-    + (totalFoundToday
-      ? '<button class="newcount found-btn" type="button" id="show-found">'
-        + "⛏ きょうの発掘 " + totalFoundToday + "件</button>"
-      : (totalFound
-        ? '<button class="newcount found-btn" type="button" id="show-found">⛏ 発掘 '
-          + totalFound + "件</button>"
-        : ""))
-    + "</div>"
+    + '<div class="meta-head">' + headUpdated(data.generated_at) + "</div>"
     + weatherLine(data.weather)
     + toolbar(data.sources) + "</header>");
+  // 朝刊（きょうの新着）を一番上に。その下が書庫
+  parts.push(morningEdition());
 
   const cats = (data.categories || []).map(function (c) { return c.name; });
   const navs = cats.map(function (name, i) {

@@ -251,6 +251,7 @@
   .weather .wicon { font-size: calc(15px * var(--fs)); line-height: 1; }
   .weather .wtext { flex: 1 1 auto; min-width: 6em; }
   .weather .wtemp { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .weather .wpops { margin-left: auto; display: inline-flex; gap: 6px; white-space: nowrap; }
   .weather .wpop {
     font-size: calc(11px * var(--fs)); color: var(--sub); white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -434,7 +435,7 @@
 
   /* ★お気に入り。リンクの外側に置くので、押しても記事は開かない */
   .fav {
-    position: absolute; top: 4px; right: 4px; width: 28px; height: 28px;
+    position: absolute; top: 0; right: 0; width: 36px; height: 36px;
     display: flex; align-items: center; justify-content: center;
     padding: 0; border: 0; background: transparent; cursor: pointer;
     color: var(--sub); font-size: calc(15px * var(--fs)); line-height: 1;
@@ -442,8 +443,8 @@
   .fav.on { color: #f59e0b; }
   .card a.title, .card.video .vtext .title { padding-right: 26px; }
   .card a.title {
-    color: var(--ink); text-decoration: none; font-size: calc(13.5px * var(--fs));
-    font-weight: 600; display: block; letter-spacing: .01em; line-height: 1.4;
+    color: var(--ink); text-decoration: none; font-size: calc(14.5px * var(--fs));
+    font-weight: 600; display: block; letter-spacing: .01em; line-height: 1.45;
   }
   .card a.title:active { color: var(--accent); }
   .card .summary { color: var(--sub); font-size: calc(12px * var(--fs)); margin-top: 5px; line-height: 1.5; }
@@ -457,6 +458,51 @@
     font-size: calc(10px * var(--fs)); color: var(--chip-ink); background: var(--chip-bg);
     border-radius: 5px; padding: 1px 6px; font-weight: 600; white-space: nowrap;
   }
+  /* ---- 朝刊（トップの「きょうの新着」）---- */
+  .morning {
+    margin: 10px 0 4px; padding: 12px 12px 10px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--accent);
+  }
+  .morning .mhead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .morning h2 { margin: 0; font-size: calc(17px * var(--fs)); }
+  .morning .mcount { font-size: calc(20px * var(--fs)); font-weight: 800; color: var(--accent); }
+  .mtheme { border-top: 1px solid var(--line); }
+  .mtheme.open { padding-bottom: 6px; }
+  .mrow { display: flex; align-items: center; gap: 8px; min-height: 46px; }
+  .mname {
+    flex: 1; display: flex; align-items: center; gap: 6px; min-height: 46px; padding: 0;
+    border: 0; background: transparent; color: var(--ink); cursor: pointer; text-align: left;
+    font-size: calc(14.5px * var(--fs)); font-weight: 700;
+  }
+  .mcaret { color: var(--sub); width: 1em; }
+  .mnum { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+  /* 片づけは控えめな文字ボタン（押せる範囲は広く） */
+  .mtidy {
+    min-height: 36px; padding: 0 10px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: transparent; color: var(--sub);
+    font-size: calc(12px * var(--fs)); font-weight: 600; white-space: nowrap;
+  }
+  .mtidy:active { border-color: var(--accent); color: var(--accent); }
+  .mfound {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 46px;
+    margin-top: 6px; padding: 0 10px; border-radius: 10px; cursor: pointer; text-align: left;
+    border: 1px solid var(--found-ink); background: var(--found-bg); color: var(--found-ink);
+    font-size: calc(13.5px * var(--fs)); font-weight: 700;
+  }
+  .mfound small { font-weight: 400; opacity: .85; font-size: calc(11px * var(--fs)); }
+  .mfound i { margin-left: auto; font-style: normal; }
+  .mtidyall {
+    width: 100%; min-height: 44px; margin-top: 8px; border-radius: 10px; cursor: pointer;
+    border: 1px dashed var(--line); background: transparent; color: var(--sub);
+    font-size: calc(12.5px * var(--fs)); font-weight: 700;
+  }
+  .mdone { padding: 8px 2px 4px; font-weight: 700; color: var(--sub); }
+
+  /* ---- 書庫の見出し ---- */
+  .shelf-head { margin: 18px 2px 6px; }
+  .shelf-head h2 { margin: 0; font-size: calc(17px * var(--fs)); }
+  .shelf-head p { margin: 2px 0 0; color: var(--sub); font-size: calc(11.5px * var(--fs)); }
+
   /* 朝刊を読み切ったとき */
   .done-today { font-weight: 700; line-height: 1.8; }
   .tidy-all { margin-left: auto; }
@@ -493,20 +539,21 @@
     color: #5eead4; background: #10302e;
   }
   /* 👎 つまらない。押しやすく、かつ目立ちすぎない位置に */
+  .votes { margin-left: auto; display: inline-flex; gap: 2px; flex-shrink: 0; }
   .boring {
-    margin-left: auto; padding: 3px 8px; border-radius: 999px; cursor: pointer;
-    border: 1px solid var(--line); background: var(--btn-bg);
-    font-size: calc(11px * var(--fs)); line-height: 1.2; opacity: .55;
+    min-width: 36px; min-height: 32px; padding: 0 6px; border-radius: 8px; cursor: pointer;
+    border: 0; background: transparent;
+    font-size: calc(13px * var(--fs)); line-height: 1; opacity: .4;
   }
   .boring:active { opacity: 1; border-color: var(--accent); }
   /* 👍 良かった。👎と同じ形にそろえ、右端に2つ並べる */
   .good {
-    margin-left: auto; padding: 3px 8px; border-radius: 999px; cursor: pointer;
-    border: 1px solid var(--line); background: var(--btn-bg);
-    font-size: calc(11px * var(--fs)); line-height: 1.2; opacity: .55;
+    min-width: 36px; min-height: 32px; padding: 0 6px; border-radius: 8px; cursor: pointer;
+    border: 0; background: transparent;
+    font-size: calc(13px * var(--fs)); line-height: 1; opacity: .4;
   }
   .good:active { opacity: 1; border-color: var(--accent); }
-  .good.on { opacity: 1; border-color: var(--accent); background: var(--accent-bg, var(--btn-bg)); }
+  .good.on { opacity: 1; background: var(--chip-bg); }
   .good + .boring { margin-left: 4px; }
 
   /* 探す窓 */
