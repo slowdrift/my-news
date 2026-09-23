@@ -705,12 +705,18 @@ FOREIGN_SCRIPT_RE = re.compile(
     "[가-힣Ѐ-ӿ؀-ۿ฀-๿֐-׿ऀ-ॿ]")
 
 
-def is_pr_source(via: str, via_host: str, extra=None) -> bool:
-    """プレスリリース配信・宣伝サイトからの記事か。"""
-    hay = ((via or "") + " " + (via_host or "")).lower()
+# 発信元の名前と住所の対応。「YouTube」を外すと指定されたら、短縮した住所（youtu.be）も外す。
+# （実測：井上陽水で via_exclude に YouTube を指定したのに、はてブ経由の youtu.be が9件残っていた）
+SOURCE_ALIASES = {"youtube": ["youtube.com", "youtu.be"]}
+
+
+def is_pr_source(via: str, via_host: str, extra=None, link: str = "") -> bool:
+    """プレスリリース配信・宣伝サイトからの記事か（テーマごとの発信元除外も含む）。"""
+    hay = ((via or "") + " " + (via_host or "") + " " + urlparse(link or "").netloc).lower()
     for w in PR_SOURCES + list(extra or []):
-        if w.lower() in hay:
-            return True
+        for key in [w.lower()] + SOURCE_ALIASES.get(w.lower(), []):
+            if key in hay:
+                return True
     return False
 
 # 話題性が低くなりがちな記事を「消さずに後ろへ回す」ための語。
@@ -1372,7 +1378,7 @@ def fetch_feed(feed):
             continue  # 日本語のテーマに混じった外国語の記事（サイト指定検索のみ）
         if not foreign_ok and FOREIGN_SCRIPT_RE.search(title):
             continue  # 読めない言語（韓国語・ロシア語など）の記事
-        if is_pr_source(via, via_host, via_extra):
+        if is_pr_source(via, via_host, via_extra, link):
             continue  # プレスリリース配信・宣伝記事
         if sale_check and dt and sale_expired(title, dt.isoformat()):
             continue  # 終わったセールの告知
@@ -1384,7 +1390,10 @@ def fetch_feed(feed):
         if dt and dt < cutoff:
             continue  # 古すぎる記事を除外（日時不明は残す）
 
-        rank = compute_rank(text, prefer, demote)
+        # 動画の説明文には「フリーBGM DOVA-SYNDROME」のような決まり文句が入り、
+        # 後回しの語「BGM」に当たって新しい動画ほど後ろに回っていた（リュウジで8本）。
+        # 動画は見出しだけで判断する。
+        rank = compute_rank(title if kind == "video" else text, prefer, demote)
 
         # 再生回数の下限。伸びなかった動画を並べても仕方がないため。
         # ただし指定した名前（出演者など）が見出しにあれば、回数によらず残す。
@@ -1559,6 +1568,8 @@ def main():
                     a["paywall"] = new_pw
                     relabeled += 1
             text = (a.get("title") or "") + " " + (a.get("summary") or "")
+            if a.get("kind") == "video":
+                text = a.get("title") or ""   # 説明文の決まり文句に当てない（上と同じ理由）
             new_rank = compute_rank(text, prefer, demote)
             if new_rank != a.get("rank", 0):
                 a["rank"] = new_rank
@@ -1597,7 +1608,7 @@ def main():
                     rescue and any(k in text for k in rescue)):
                 ng_removed += 1
                 continue
-            if is_pr_source(a.get("via", ""), a.get("via_host", ""), via_rules.get(g)):
+            if is_pr_source(a.get("via", ""), a.get("via_host", ""), via_rules.get(g), a.get("link", "")):
                 pr_removed += 1
                 continue
             if g not in foreign_groups and FOREIGN_SCRIPT_RE.search(a.get("title") or ""):
