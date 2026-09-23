@@ -554,7 +554,7 @@ def expand_topic(entry):
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
                     "min_views", "views_exempt", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -586,7 +586,7 @@ def expand_topic(entry):
         for key in ("exclude", "prefer", "demote", "blog_last", "keep",
                     "no_ng", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "require_also"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "require_also"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
         if entry.get("fresh_only"):
@@ -710,10 +710,14 @@ FOREIGN_SCRIPT_RE = re.compile(
 SOURCE_ALIASES = {"youtube": ["youtube.com", "youtu.be"]}
 
 
-def is_pr_source(via: str, via_host: str, extra=None, link: str = "") -> bool:
-    """プレスリリース配信・宣伝サイトからの記事か（テーマごとの発信元除外も含む）。"""
+def is_pr_source(via: str, via_host: str, extra=None, link: str = "", allow_pr=False) -> bool:
+    """プレスリリース配信・宣伝サイトからの記事か（テーマごとの発信元除外も含む）。
+
+    allow_pr … 会社のテーマ（実教出版など）では、発表そのものがニュースなので
+               全体共通のプレスリリース除外を当てない（テーマごとの除外は当てる）。
+    """
     hay = ((via or "") + " " + (via_host or "") + " " + urlparse(link or "").netloc).lower()
-    for w in PR_SOURCES + list(extra or []):
+    for w in ([] if allow_pr else PR_SOURCES) + list(extra or []):
         for key in [w.lower()] + SOURCE_ALIASES.get(w.lower(), []):
             if key in hay:
                 return True
@@ -1378,7 +1382,7 @@ def fetch_feed(feed):
             continue  # 日本語のテーマに混じった外国語の記事（サイト指定検索のみ）
         if not foreign_ok and FOREIGN_SCRIPT_RE.search(title):
             continue  # 読めない言語（韓国語・ロシア語など）の記事
-        if is_pr_source(via, via_host, via_extra, link):
+        if is_pr_source(via, via_host, via_extra, link, bool(feed.get("allow_pr"))):
             continue  # プレスリリース配信・宣伝記事
         if sale_check and dt and sale_expired(title, dt.isoformat()):
             continue  # 終わったセールの告知
@@ -1495,6 +1499,7 @@ def main():
     via_rules = {}        # テーマごとの発信元除外
     foreign_groups = set()  # 外国語の記事を許すテーマ（海外報道）
     sale_groups = set()   # 終わったセールを落とすテーマ
+    pr_ok_groups = set()  # プレスリリースを残すテーマ（会社のテーマ）
     section_rules = {}    # テーマごとの小分類
     link_rules = {}       # テーマの見出しに置く入口リンク（X・TVer など）
     curate_rules = {}     # 読みごたえのある記事だけに絞るテーマ
@@ -1523,6 +1528,8 @@ def main():
                 foreign_groups.add(g)
             if f.get("sale_check"):
                 sale_groups.add(g)
+            if f.get("allow_pr"):
+                pr_ok_groups.add(g)
             if f.get("sections"):
                 section_rules[g] = f["sections"]
             if f.get("curate"):
@@ -1608,7 +1615,8 @@ def main():
                     rescue and any(k in text for k in rescue)):
                 ng_removed += 1
                 continue
-            if is_pr_source(a.get("via", ""), a.get("via_host", ""), via_rules.get(g), a.get("link", "")):
+            if is_pr_source(a.get("via", ""), a.get("via_host", ""), via_rules.get(g), a.get("link", ""),
+                            g in pr_ok_groups):
                 pr_removed += 1
                 continue
             if g not in foreign_groups and FOREIGN_SCRIPT_RE.search(a.get("title") or ""):
