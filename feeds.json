@@ -60,7 +60,36 @@
           ]
         },
         {
-          "topic": "吉村昭"
+          "topic": "吉村昭",
+          "sites": [
+            "yoshimurabungakukan.city.arakawa.tokyo.jp"
+          ]
+        },
+        {
+          "topic": "\"吉村昭\" site:dailyshincho.jp",
+          "name": "吉村昭（新潮）",
+          "group": "吉村昭",
+          "sources": [
+            "gnews_ja"
+          ],
+          "require": [
+            "吉村昭",
+            "吉村 昭"
+          ],
+          "max_age_days": 36500
+        },
+        {
+          "topic": "\"吉村昭\" site:note.com",
+          "name": "吉村昭（note）",
+          "group": "吉村昭",
+          "sources": [
+            "gnews_ja"
+          ],
+          "require": [
+            "吉村昭",
+            "吉村 昭"
+          ],
+          "max_age_days": 36500
         },
         {
           "topic": "井上陽水",
@@ -1491,7 +1520,8 @@
                 "めし"
               ]
             }
-          ]
+          ],
+          "fresh_only": 7
         },
         {
           "topic": "旅番組 茨城",
@@ -1567,7 +1597,8 @@
             "求人",
             "事故",
             "事件"
-          ]
+          ],
+          "fresh_only": 7
         },
         {
           "topic": "茨城 ロケ 放送",
@@ -1643,7 +1674,8 @@
             "求人",
             "事故",
             "事件"
-          ]
+          ],
+          "fresh_only": 7
         },
         {
           "topic": "旅番組 放送",
@@ -1692,7 +1724,8 @@
             "求人",
             "事故",
             "事件"
-          ]
+          ],
+          "fresh_only": 7
         }
       ]
     },
