@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.25.0";
+const APP_VERSION = "v1.26.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -453,6 +453,7 @@ function payBadge(a) {
   return "";
 }
 
+let IN_MORNING = false;   // 朝刊の中を描いている最中か
 const BLOG_VIA_RE = /^(note|zenn|qiita|はてなブログ|はてなダイアリー|アメブロ|medium)/i;
 
 // NEW＋有料バッジ＋発信元＋再生回数＋時刻のメタ行
@@ -465,7 +466,8 @@ function metaRow(a) {
     // 発信元が note・Zenn などなら「個人ブログ」は言わずもがななので省く
     + (a.blog && (a.corp || !BLOG_VIA_RE.test(a.via || "")) ? '<span class="blog' + (a.corp ? " corp" : "") + '">'
         + (a.corp ? "企業ブログ" : "個人ブログ") + "</span>" : "")
-    + (a.related ? '<span class="rel" title="見出しにテーマ名が無い記事">関連</span>' : "")
+    // 朝刊の中では出さない（note・Zenn等から集めたテーマではほとんどに付き、意味を持たない）
+    + (a.related && !IN_MORNING ? '<span class="rel" title="見出しにテーマ名が無い記事">関連</span>' : "")
     + (a.via ? '<span class="chip">' + esc(a.via) + "</span>" : "")
     + (a.views ? '<span class="views">▶ ' + fmtViews(a.views) + "</span>" : "")
     + (a.hb ? '<span class="hb" title="はてなブックマーク数">🔖' + a.hb + "</span>" : "")
@@ -806,7 +808,28 @@ function popPart(d, hour, label) {
   return '<span class="wpop' + strong + '">' + label + " ☔" + v + "%</span>";
 }
 
+// 朝刊をトップに置いたので、天気は短くまとめる（以前は約160pxあり、朝刊を押し下げていた）。
+// 「今日 ☁ 25℃ ☔10%｜明日 ☔ 26/19℃ ☔30%」の1行と、株価の1行。
+// 降水確率は朝・夕の高いほう。詳しい予報文は長押しで出る（title）。
 function weatherLine(w) {
+  if (!w || !w.days || !w.days.length) return "";
+  const cells = w.days.slice(0, 2).map(function (d, i) {
+    const temp = d.max != null && d.min != null ? d.max + "/" + d.min + "℃"
+      : d.max != null ? d.max + "℃" : "";
+    const pops = [d.pops && d.pops["06"], d.pops && d.pops["12"]]
+      .filter(function (v) { return v != null; }).map(Number);
+    const pop = pops.length ? Math.max.apply(null, pops) : null;
+    return '<span class="wday" title="' + esc(d.text || d.short || "") + '"><b>' + (i === 0 ? "今日" : "明日") + "</b>"
+      + '<span class="wicon">' + (d.icon || "") + "</span>"
+      + (temp ? '<span class="wtemp">' + temp + "</span>" : "")
+      + (pop != null ? '<span class="wpop' + (pop >= 50 ? " strong" : "") + '">☔' + pop + "%</span>" : "")
+      + "</span>";
+  }).join('<span class="wsep">｜</span>');
+  return '<div class="weather compact"><div class="wline"><span class="wplace">' + esc(w.place || "") + "</span>"
+    + cells + "</div>" + stockStrip((window.NEWS_DATA || {}).stocks) + "</div>";
+}
+
+function weatherLineFull(w) {
   if (!w || !w.days || !w.days.length) return "";
   const rows = w.days.slice(0, 2).map(function (d, i) {
     const temp = (d.max != null ? d.max + "℃" : "")
@@ -1047,12 +1070,154 @@ function freshBlocks() {
 // 小分類ごとに小見出しを入れて並べる（20件が1列に並ぶと読みたいものを探しにくい）。
 function freshCards(b) {
   const g = (ALL_GROUPS.find(function (x) { return x.group.name === b.name; }) || {}).group;
-  if (!g || !g.sections || !g.sections.length) return cardList(b.items, true);
+  IN_MORNING = true;
   let h = "";
-  g.sections.concat(["その他"]).forEach(function (sec) {
-    const list = b.items.filter(function (a) { return (a.sec || "その他") === sec; });
-    if (!list.length) return;
-    h += '<div class="msec">' + esc(sec) + "<i>" + list.length + "</i></div>" + cardList(list, true);
+  try {
+    if (!g || !g.sections || !g.sections.length) {
+      h = topicCards(b.name, b.items);
+    } else {
+      g.sections.concat(["その他"]).forEach(function (sec) {
+        const list = b.items.filter(function (a) { return (a.sec || "その他") === sec; });
+        if (!list.length) return;
+        h += '<div class="msec">' + esc(sec) + "<i>" + list.length + "</i></div>" + topicCards(b.name, list);
+      });
+    }
+  } finally { IN_MORNING = false; }
+  return h;
+}
+
+// ---- 同じ話題の記事を1枚に畳む（朝刊）--------------------------------------
+// 言い回しが違うと重複としてまとまらない（例：アーミル・カーンの新作公開を
+// 「9年ぶり日本公開」「9年ぶり来日」「2027年春公開」と3社が書いた）。
+// 見出しの「珍しい語」が十分重なる報道どうしを、先頭の1枚＋「同じ話題 ほか◯件」にする。
+// 個人ブログは同じ話題でも別の論考なので畳まない。
+let TOPIC_OPEN = {};
+
+// どの話題にも出るカタカナ語。1語だけで話題を決めない（実測：「オープン」で別々の開店を、
+// 「ローカル」で別々の旅番組をつないだ）
+const TOPIC_STOP = ["オープン", "ローカル", "リニューアル", "イベント", "キャンペーン", "サービス",
+  "スタート", "ニュース", "ランキング", "プロジェクト", "シリーズ", "ライブ", "アニメ", "チーム",
+  "ドラマ", "テレビ", "コーナー", "スペシャル", "アプリ", "システム", "データ", "ビジネス", "セミナー",
+  "レポート", "インタビュー", "コメント", "メンバー", "ファン", "グループ", "スタジオ", "ショップ"];
+
+// 見出しから「目印の語」を取り出す。値は { 重み, かたまりの番号 }。
+// 漢字は2文字ずつに刻む（「日本公開作」と「日本公開決定」を突き合わせるため）が、
+// 同じかたまり（例：「常陸太田」）から出た一致は1つと数える。
+function topicWords(title, theme) {
+  const t = String(title || "").normalize("NFKC").replace(/[―‐－—]/g, "ー");
+  const out = {};
+  let run = 0;
+  (t.match(/[ァ-ヶー]{3,}|[A-Za-z][A-Za-z0-9]{2,}/g) || []).forEach(function (w) {
+    if (theme.indexOf(w) >= 0 || TOPIC_STOP.indexOf(w) >= 0) return;   // テーマ名・ありふれた語は使わない
+    out[w] = { w: w.length >= 4 ? 2 : 1, run: "r" + (run++) };
+  });
+  (t.match(/[一-龠々]{2,}/g) || []).forEach(function (chunk) {
+    const id = "r" + (run++);
+    for (let i = 0; i + 2 <= chunk.length; i++) {
+      const w = chunk.slice(i, i + 2);
+      if (theme.indexOf(w) < 0) out[w] = { w: 1, run: id };
+    }
+  });
+  return out;
+}
+
+// 語の珍しさは、そのテーマに貯めてある全記事で測る（pool）。
+// 新着の中だけで測ると、海外ニュースの「アメリカ」のような、そのテーマでは
+// ありふれた語が目印になり、別の話題をつないでしまう。
+const DF_CACHE = {};
+function themeDf(theme, pool) {
+  if (DF_CACHE[theme]) return DF_CACHE[theme];
+  const df = {};
+  (pool || []).forEach(function (a) {
+    Object.keys(topicWords(a.title, theme)).forEach(function (w) { df[w] = (df[w] || 0) + 1; });
+  });
+  return (DF_CACHE[theme] = df);
+}
+
+function topicClusters(theme, items, pool) {
+  const words = items.map(function (a) { return topicWords(a.title, theme); });
+  const df = themeDf(theme, pool && pool.length ? pool : items);
+  const size = pool && pool.length ? pool.length : items.length;
+  // テーマ全体で4件を超える記事に出る語は目印にしない。割合で決めると、
+  // 500件あるテーマでは25件に出る語（「活用」など）まで目印になり、別々の会社の発表をつないだ。
+  const limit = 4 + 0 * size;
+  // 同じ話題とみなす条件：長いカタカナ・英字の語が重なる（重み2）か、
+  // 漢字2文字の重なりが3つ以上。「情報」「茨城県」程度の一致ではつなげない
+  // （実測：スタンプラリーの記事が「情報」「城県」の一致で地震の記事と畳まれた）。
+  // 1語だけでつないでよいのは、テーマ全体で2件以下にしか出ない特に珍しい長い語
+  // （「シターレ」「バスケコーチ」など作品や出来事の固有の語）。
+  // 「アメリカ」は海外ニュースで3件あり、1語では別の話題をつないでしまった。
+  // 見出しを2文字ずつに刻み、どれだけ重なるか（ほぼ同じ見出しを見分ける）
+  const grams = items.map(function (a) {
+    // 末尾の媒体名（「 - FNN」「（茨城新聞）」など）だけを落とす
+    const t = String(a.title || "").normalize("NFKC")
+      .replace(/\s*[-|｜]\s*[^-|｜]*$/, "").replace(/[（(][^）)]*[）)]\s*$/, "")
+      .replace(/[^\p{L}\p{N}]/gu, "");
+    const g = {};
+    for (let k = 0; k + 2 <= t.length; k++) g[t.slice(k, k + 2)] = true;
+    return g;
+  });
+  const overlap = function (i, j) {
+    const a = Object.keys(grams[i]), b = grams[j];
+    if (!a.length) return 0;
+    const hit = a.filter(function (x) { return b[x]; }).length;
+    return hit / (a.length + Object.keys(b).length - hit);
+  };
+  // 見出しの数字（回数・日付）。連載の別の回（part1 と part3 など）を同じ話題にしない
+  const nums = items.map(function (a) {
+    const t = String(a.title || "").normalize("NFKC");
+    return (t.match(/(?:part|vol\.?|第|#)\s*(?:\d+|[一二三四五六七八九十]+)|(?:\d+|[一二三四五六七八九十]+)\s*(?:回|話|夜|弾)/gi) || []).join(",");
+  });
+  const same = function (i, j) {
+    // ほぼ同じ見出し（同じ地震を2社が報じた等）。ただし数字が違えば別の回
+    if (overlap(i, j) >= 0.6 && nums[i] === nums[j]) return true;
+    const ri = {}, rj = {};
+    let strong = false;
+    Object.keys(words[i]).forEach(function (w) {
+      if (!words[j][w] || df[w] > limit) return;
+      ri[words[i][w].run] = true;          // 同じかたまりからの一致は1つと数える
+      rj[words[j][w].run] = true;          // 相手の見出し側でも数え、多いほうを採る
+      if (words[i][w].w >= 2 && df[w] <= 2) strong = true;
+    });
+    return strong || Math.max(Object.keys(ri).length, Object.keys(rj).length) >= 3;
+  };
+  const days = function (a, b) { return Math.abs(new Date(a.dt || 0) - new Date(b.dt || 0)) / 86400000; };
+  const used = {}, clusters = [];
+  items.forEach(function (a, i) {
+    if (used[i]) return;
+    used[i] = true;
+    const c = [i];
+    if (!a.blog) {
+      // つながりを最後までたどる（AとC、CとBがつながれば、AとBも同じ話題）
+      let grew = true;
+      while (grew) {
+        grew = false;
+        items.forEach(function (b, j) {
+          if (used[j] || b.blog || days(a, b) > 3) return;
+          if (c.some(function (k) { return same(k, j); })) { used[j] = true; c.push(j); grew = true; }
+        });
+      }
+    }
+    clusters.push(c.map(function (k) { return items[k]; }));
+  });
+  return clusters;
+}
+
+function topicCards(theme, items) {
+  let h = "";
+  const g = (ALL_GROUPS.find(function (x) { return x.group.name === theme; }) || {}).group;
+  topicClusters(theme, items, g ? g.items : null).forEach(function (c) {
+    h += cardList([c[0]], true);
+    if (c.length < 2) return;
+    const key = theme + "|" + favKey(c[0]);
+    if (TOPIC_OPEN[key]) {
+      h += cardList(c.slice(1), true);
+    } else {
+      h += '<button class="topic-more" type="button" data-topic="' + esc(key) + '">'
+        + "▸ 同じ話題 ほか" + (c.length - 1) + "件"
+        + "<small>" + esc(c.slice(1).map(function (a) { return a.via || ""; }).filter(Boolean).join("・")) + "</small>"
+        + "</button>";
+    }
   });
   return h;
 }
@@ -1620,6 +1785,14 @@ APP.addEventListener("click", function (ev) {
   }
   // 新着画面で、そのテーマの新着をまとめて既読にする
   // 朝刊：開いたテーマの一番下「ここまで見た」→ 片づけて閉じ、次のテーマの位置へ
+  const topicBtn = ev.target.closest("[data-topic]");
+  if (topicBtn) {
+    TOPIC_OPEN[topicBtn.dataset.topic] = true;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
   const seenBtn = ev.target.closest("[data-fresh-done]");
   if (seenBtn) {
     const name = seenBtn.dataset.freshDone;

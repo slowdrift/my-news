@@ -500,6 +500,22 @@
     font-size: calc(12.5px * var(--fs)); font-weight: 700;
   }
   .mdone { padding: 8px 2px 4px; font-weight: 700; color: var(--sub); }
+  /* 同じ話題の記事（朝刊で1枚に畳んだ分） */
+  .topic-more {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px;
+    margin: -2px 0 8px; padding: 0 12px; border-radius: 8px; cursor: pointer; text-align: left;
+    border: 1px dashed var(--line); background: transparent; color: var(--sub);
+    font-size: calc(12px * var(--fs)); font-weight: 700;
+  }
+  .topic-more small { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 天気：短くまとめる */
+  .weather.compact { padding: 6px 10px; }
+  .weather.compact .wline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .weather.compact .wplace { margin: 0 4px 0 0; font-size: calc(11px * var(--fs)); }
+  .weather.compact .wday { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .weather.compact .wday b { color: var(--sub); font-weight: 700; }
+  .weather.compact .wsep { color: var(--line); }
+  .weather.compact .wstocks { margin-top: 3px; padding-top: 3px; }
   /* 開いたテーマの一番下：読み終えたらここで片づけて次へ */
   .mseen {
     width: 100%; min-height: 46px; margin: 4px 0 6px; border-radius: 10px; cursor: pointer;
