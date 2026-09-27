@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.24.0";
+const APP_VERSION = "v1.25.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -453,14 +453,17 @@ function payBadge(a) {
   return "";
 }
 
+const BLOG_VIA_RE = /^(note|zenn|qiita|はてなブログ|はてなダイアリー|アメブロ|medium)/i;
+
 // NEW＋有料バッジ＋発信元＋再生回数＋時刻のメタ行
 function metaRow(a) {
   const t = relTime(a.dt);
-  const inner = (isSinceLast(a) ? '<span class="since" title="前回見てから届いた記事">●前回から</span>'
+  const inner = (isSinceLast(a) ? '<span class="since dot" title="前回見てから届いた記事">●</span>'
       : isNew(a) ? '<span class="new">NEW</span>' : "")
     + (isFound(a) ? '<span class="found" title="初めて見つけた、少し前の記事">発掘</span>' : "")
     + payBadge(a)
-    + (a.blog ? '<span class="blog' + (a.corp ? " corp" : "") + '">'
+    // 発信元が note・Zenn などなら「個人ブログ」は言わずもがななので省く
+    + (a.blog && (a.corp || !BLOG_VIA_RE.test(a.via || "")) ? '<span class="blog' + (a.corp ? " corp" : "") + '">'
         + (a.corp ? "企業ブログ" : "個人ブログ") + "</span>" : "")
     + (a.related ? '<span class="rel" title="見出しにテーマ名が無い記事">関連</span>' : "")
     + (a.via ? '<span class="chip">' + esc(a.via) + "</span>" : "")
@@ -522,7 +525,10 @@ function renderCard(a, hidden, lead) {
     + metaRow(a);
   // 説明文が日付だけ（茨城新聞の配信など）なら出さない。場所を取るだけで情報が無いため
   const dateOnly = /^\s*\d{4}年\d{1,2}月\d{1,2}日(\s*[(（][^)）]*[)）])?\s*$/.test(a.summary || "");
-  if (lead && a.summary && !dateOnly) h += '<div class="summary">' + esc(a.summary) + "</div>";
+  // 説明文が見出しの繰り返しなら出さない（実測：先頭カードの説明文6件中5件が繰り返しだった）
+  const squash = function (x) { return String(x || "").replace(/[\s|｜\-–—:：]/g, ""); };
+  const repeats = squash(a.summary).indexOf(squash(a.title).slice(0, 15)) === 0;
+  if (lead && a.summary && !dateOnly && !repeats) h += '<div class="summary">' + esc(a.summary) + "</div>";
   h += "</div>";
   return h;
 }
@@ -535,7 +541,7 @@ function groupHead(g, gi, all) {
     + esc(g.name) + '">' + (folded ? "▸ " : "") + esc(g.name) + "</button>"
     + '<span class="gcount">' + shelfCount(all) + "件</span>"
     + (newCount ? '<span class="gnew">新着 ' + newCount + "</span>" : "")
-    + "</h3>" + groupLinks(g);
+    + "</h3>" + (folded ? "" : groupLinks(g));   // 目次（畳んだ状態）では出さない
 }
 
 // 記事として集められない情報源への「入口」。
@@ -641,7 +647,8 @@ function freshFirst(list) {
 
 // カードを並べる。配信日が古い記事との境目に区切りを入れる。
 // NEWバッジは「アプリに入ってきた新しさ」、この区切りは「記事自体の古さ」。
-function cardList(items) {
+// noLead … 朝刊の中では先頭を目立たせない（中身が全部新着なので意味が無い）
+function cardList(items, noLead) {
   let h = '<div class="gitems expanded">';
   let dividerDone = false;
   items.forEach(function (a, i) {
@@ -650,7 +657,7 @@ function cardList(items) {
       dividerDone = true;
       h += '<div class="agesep"><span>ここから1か月以上前の記事</span></div>';
     }
-    h += renderCard(a, false, i === 0 && isFresh(a));
+    h += renderCard(a, false, !noLead && i === 0 && isFresh(a));
   });
   return h + "</div>";
 }
@@ -901,7 +908,7 @@ function toolbar(sources) {
     + '<button class="tool-btn star' + (SHOW_FAV ? " on" : "") + '" type="button" id="toggle-fav">'
     + "★ お気に入り" + (favCount ? " " + favCount : "") + "</button>"
     + '<button class="tool-btn' + (SEARCH ? " on" : "") + '" type="button" id="toggle-search">🔍 探す</button>'
-    + '<button class="tool-btn' + (allFolded() ? " on" : "") + '" type="button" id="toggle-toc">'
+    + '<button class="tool-btn" type="button" id="toggle-toc">'
     + (allFolded() ? "☰ 全部開く" : "☰ 全部閉じる") + "</button>"
     + '<button class="tool-btn' + (SETTINGS_OPEN ? " on" : "") + '" type="button" id="toggle-settings">⚙ 設定</button>'
     + "</div>"
@@ -918,8 +925,6 @@ function toolbar(sources) {
       + '<div class="srow"><span>読めない記事（有料・会員限定）</span>'
       + '<button class="tool-btn' + (HIDE_LOCKED ? " on" : "") + '" type="button" id="toggle-locked">'
       + (HIDE_LOCKED ? "隠している" : "表示する") + "</button></div>"
-      + '<div class="srow"><span>いま読まないものを片づける</span>'
-      + '<button class="tool-btn danger" type="button" id="read-everything">すべて既読</button></div>'
       + '<div class="srow"><span>読んだ記事をふり返る</span>'
       + '<button class="tool-btn" type="button" id="show-read">📖 読んだ記事</button></div>'
       + orderRow()
@@ -1042,12 +1047,12 @@ function freshBlocks() {
 // 小分類ごとに小見出しを入れて並べる（20件が1列に並ぶと読みたいものを探しにくい）。
 function freshCards(b) {
   const g = (ALL_GROUPS.find(function (x) { return x.group.name === b.name; }) || {}).group;
-  if (!g || !g.sections || !g.sections.length) return cardList(b.items);
+  if (!g || !g.sections || !g.sections.length) return cardList(b.items, true);
   let h = "";
   g.sections.concat(["その他"]).forEach(function (sec) {
     const list = b.items.filter(function (a) { return (a.sec || "その他") === sec; });
     if (!list.length) return;
-    h += '<div class="msec">' + esc(sec) + "<i>" + list.length + "</i></div>" + cardList(list);
+    h += '<div class="msec">' + esc(sec) + "<i>" + list.length + "</i></div>" + cardList(list, true);
   });
   return h;
 }
@@ -1085,7 +1090,9 @@ function morningEdition() {
         + (bs && bs < b.items.length ? '<span class="since" title="前回見てから届いた数">●' + bs + "</span>" : "")
         + '<button class="read-all mtidy" type="button" data-fresh="' + esc(b.name)
         + '" title="このテーマの新着を片づける（あとで戻せます）">✓ 片づけ</button></div>'
-        + (open ? freshCards(b) : "")
+        + (open ? freshCards(b)
+            + '<button class="mseen" type="button" data-fresh-done="' + esc(b.name) + '">'
+            + "✓ ここまで見た（" + b.items.length + "件を片づけて次へ）</button>" : "")
         + "</div>";
     });
   }
@@ -1107,7 +1114,21 @@ function morningEdition() {
 // 新着画面はテーマごとに畳んでおく。59枚・12画面を上から見る時間は無いので、
 // まず「どのテーマに何件あるか」を1画面で見せ、読みたいテーマだけ開く。
 // 開いた状態はこの画面を見ている間だけ覚える（翌日は新着の中身が変わるため）。
-let FRESH_OPEN = {};
+// スマホがタブを読み込み直しても（記事を読んで戻ったときなど）、開いていたテーマと
+// 読んでいた位置に戻れるように、ページを開いている間だけ覚えておく（sessionStorage）。
+const VIEW_KEY = "mynews_view";
+function ssGet() {
+  try { return JSON.parse(sessionStorage.getItem(VIEW_KEY) || "{}"); } catch (e) { return {}; }
+}
+function ssSave(extra) {
+  try {
+    const v = ssGet();
+    v.open = FRESH_OPEN;
+    if (extra) Object.keys(extra).forEach(function (k) { v[k] = extra[k]; });
+    sessionStorage.setItem(VIEW_KEY, JSON.stringify(v));
+  } catch (e) { /* 覚えられなくても動作は続ける */ }
+}
+let FRESH_OPEN = ssGet().open || {};
 
 function renderFreshView(data) {
   // 並びは設定の「テーマの並べ替え」の順。動画は記事の後ろへ。
@@ -1320,13 +1341,7 @@ function render(data) {
       + (n ? '<b class="navnew">' + n + "</b>" : "")
       + "</a>";
   }).join("");
-  parts.push('<nav class="catnav">' + navs
-    + (videoGroups.length
-      ? '<a class="nav-chip" href="#videos" style="--cat:#dc2626">🎬 動画'
-        + (videoNew ? '<b class="navnew">' + videoNew + "</b>" : "")
-        + "</a>"
-      : "")
-    + "</nav>");
+  // （カテゴリへ飛ぶ札は外した。書庫が目次になり、すぐ下の見出しと役割が重なっていたため）
 
   cats.forEach(function (name, ci) {
     const mine = sortByOrder(articleGroups.filter(function (x) { return x.cat === name; }));
@@ -1604,11 +1619,30 @@ APP.addEventListener("click", function (ev) {
     return;
   }
   // 新着画面で、そのテーマの新着をまとめて既読にする
+  // 朝刊：開いたテーマの一番下「ここまで見た」→ 片づけて閉じ、次のテーマの位置へ
+  const seenBtn = ev.target.closest("[data-fresh-done]");
+  if (seenBtn) {
+    const name = seenBtn.dataset.freshDone;
+    const entry = ALL_GROUPS.find(function (x) { return x.group.name === name; });
+    const rows = [].slice.call(document.querySelectorAll("[data-fresh-open]"));
+    const idx = rows.findIndex ? rows.findIndex(function (r) { return r.dataset.freshOpen === name; }) : -1;
+    if (entry) tidyUp((entry.group.items || []).filter(isFresh), "「" + name + "」の新着");
+    FRESH_OPEN[name] = false;
+    ssSave();
+    rerender();
+    // 片づけたテーマの行は消えるので、同じ位置に来た「次のテーマ」へ移る
+    const next = document.querySelectorAll("[data-fresh-open]")[Math.max(0, idx)];
+    if (next && next.getBoundingClientRect) {
+      window.scrollTo(0, Math.max(0, next.getBoundingClientRect().top + (window.scrollY || 0) - 12));
+    }
+    return;
+  }
   // 新着画面：テーマを開く／畳む
   const freshOpen = ev.target.closest("[data-fresh-open]");
   if (freshOpen) {
     const k = freshOpen.dataset.freshOpen;
     FRESH_OPEN[k] = !FRESH_OPEN[k];
+    ssSave();
     const y = window.scrollY;
     rerender();
     window.scrollTo(0, y);
@@ -1989,6 +2023,12 @@ try {
   if (!data) throw new Error("data.js が読み込まれていません（build_news.py を実行してください）");
   applyPrefs();
   render(data);
+  // 読み込み直したときは、読んでいた位置に戻す（ページを開いている間だけ覚えている）
+  const saved = ssGet();
+  if (saved.y) window.scrollTo(0, saved.y);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") ssSave({ y: window.scrollY || 0 });
+  });
   // ※「最後に開いた時刻」の記録は上（NEW_BASE の算出直後）で済ませている。
   //   ここで更新すると、再読み込みのたびに基準が動いて NEW が消えてしまう。
 } catch (err) {

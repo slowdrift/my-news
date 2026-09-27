@@ -117,7 +117,7 @@
 
   .tools { margin: 8px 0 2px; display: flex; gap: 6px; flex-wrap: wrap; }
   .tool-btn {
-    font-size: calc(11.5px * var(--fs)); padding: 5px 10px; border-radius: 999px; cursor: pointer;
+    font-size: calc(11.5px * var(--fs)); padding: 5px 12px; min-height: 36px; border-radius: 999px; cursor: pointer;
     border: 1px solid var(--line); background: var(--btn-bg); color: var(--sub); font-weight: 600;
   }
   .tool-btn.on { border-color: var(--accent); color: var(--accent); }
@@ -178,7 +178,7 @@
     display: flex; align-items: center; gap: 6px;
   }
   details.cat > summary .catnew {
-    padding: 0 7px; border-radius: 999px;
+    padding: 0 7px; border-radius: 999px; font-size: calc(11px * var(--fs));
     background: #f59e0b; color: #111827; font-weight: 800;
     font-size: calc(10.5px * var(--fs));
   }
@@ -220,7 +220,7 @@
   .group.folded h3.ghead { margin: 0; }
   .ghead .gcount { font-size: calc(11px * var(--fs)); color: var(--sub); font-weight: 400; }
   .ghead .gnew {
-    font-size: calc(10px * var(--fs)); font-weight: 800; color: #111827; background: #f59e0b;
+    font-size: calc(11px * var(--fs)); font-weight: 800; color: #111827; background: #f59e0b;
     border-radius: 999px; padding: 0 6px;
   }
   /* 指で押し分けられる大きさに。24px角では隣と押し間違える。 */
@@ -297,7 +297,10 @@
 
   /* 目次（閉じたテーマ）：新着のあるテーマだけ目立たせる */
   .group.folded { opacity: .72; }
-  .group.folded.hasnew { opacity: 1; border-left: 4px solid var(--accent); padding-left: 6px; }
+  .group.folded.hasnew { opacity: 1; }
+  .group.folded.hasnew .ghead .gname { border-left-width: 5px; }
+  /* 目次ではテーマの行全体を押せるように（目安44px） */
+  .group.folded .ghead .gname { flex: 1; min-height: 44px; display: flex; align-items: center; gap: 4px; }
 
   .agesep {
     display: flex; align-items: center; gap: 8px;
@@ -455,7 +458,7 @@
   /* メタ行 */
   .card .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
   .chip {
-    font-size: calc(10px * var(--fs)); color: var(--chip-ink); background: var(--chip-bg);
+    font-size: calc(11px * var(--fs)); color: var(--chip-ink); background: var(--chip-bg);
     border-radius: 5px; padding: 1px 6px; font-weight: 600; white-space: nowrap;
   }
   /* ---- 朝刊（トップの「きょうの新着」）---- */
@@ -497,6 +500,13 @@
     font-size: calc(12.5px * var(--fs)); font-weight: 700;
   }
   .mdone { padding: 8px 2px 4px; font-weight: 700; color: var(--sub); }
+  /* 開いたテーマの一番下：読み終えたらここで片づけて次へ */
+  .mseen {
+    width: 100%; min-height: 46px; margin: 4px 0 6px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--accent); background: transparent; color: var(--accent);
+    font-size: calc(13px * var(--fs)); font-weight: 700;
+  }
+  .mseen:active { background: var(--chip-bg); }
   /* 朝刊の中の小分類の見出し */
   .msec {
     display: flex; align-items: center; gap: 6px; margin: 8px 2px 4px;
@@ -516,13 +526,14 @@
   /* 前回見てから届いた記事（NEWより控えめ） */
   .since {
     color: var(--accent); font-weight: 700;
-    font-size: calc(10.5px * var(--fs)); white-space: nowrap;
+    font-size: calc(11px * var(--fs)); white-space: nowrap;
   }
+  .since.dot { font-size: calc(12px * var(--fs)); }
 
   .found {
     background: var(--found-bg); color: var(--found-ink);
     border-radius: 4px; padding: 1px 5px; font-weight: 700;
-    font-size: calc(10px * var(--fs)); letter-spacing: .02em;
+    font-size: calc(11px * var(--fs)); letter-spacing: .02em;
   }
   .found-btn { border-color: var(--found-ink); color: var(--found-ink); }
   .note {
@@ -532,13 +543,13 @@
   }
 
   .new {
-    font-size: calc(9.5px * var(--fs)); font-weight: 800; color: #111827; background: #f59e0b;
+    font-size: calc(11px * var(--fs)); font-weight: 800; color: #111827; background: #f59e0b;
     border-radius: 4px; padding: 1px 5px; letter-spacing: .04em;
   }
-  .views { font-size: calc(10px * var(--fs)); color: var(--sub); white-space: nowrap; }
+  .views { font-size: calc(11px * var(--fs)); color: var(--sub); white-space: nowrap; }
   /* はてなブックマーク数。直リンクの記事にだけ付く */
   .hb {
-    font-size: calc(10px * var(--fs)); color: #0f766e; background: #ccfbf1;
+    font-size: calc(11px * var(--fs)); color: #0f766e; background: #ccfbf1;
     border-radius: 5px; padding: 1px 5px; font-weight: 700; white-space: nowrap;
   }
   :root[data-theme="dark"] .hb, :root[data-theme="auto"] .hb {
@@ -571,7 +582,7 @@
   }
   /* 個人ブログ・note等（報道と区別するための印） */
   .blog {
-    font-size: calc(10px * var(--fs)); color: #7c3aed; background: #f3e8ff;
+    font-size: calc(11px * var(--fs)); color: #7c3aed; background: #f3e8ff;
     border: 1px solid #e9d5ff; border-radius: 5px; padding: 1px 6px;
     font-weight: 600; white-space: nowrap;
   }
@@ -585,11 +596,11 @@
   }
   /* 見出しにテーマ名が無い＝本文で触れているだけの記事 */
   .rel {
-    font-size: calc(10px * var(--fs)); color: var(--sub); background: var(--chip-bg);
+    font-size: calc(11px * var(--fs)); color: var(--sub); background: var(--chip-bg);
     border: 1px dashed var(--line); border-radius: 5px; padding: 1px 6px;
     font-weight: 600; white-space: nowrap;
   }
-  .pw { font-size: calc(10px * var(--fs)); border-radius: 5px; padding: 1px 6px; font-weight: 700; white-space: nowrap; }
+  .pw { font-size: calc(11px * var(--fs)); border-radius: 5px; padding: 1px 6px; font-weight: 700; white-space: nowrap; }
   .pw.paid { color: #9a3412; background: #ffedd5; border: 1px solid #fed7aa; }
   .pw.partial { color: var(--sub); background: var(--chip-bg); border: 1px solid var(--line); font-weight: 600; }
   /* 会員限定：お金は要らないが、登録しないと本文が読めないもの */
@@ -597,7 +608,7 @@
   :root[data-theme="dark"] .pw.member, :root[data-theme="auto"] .pw.member {
     color: #93c5fd; background: #1e2a44; border-color: #2f3f66;
   }
-  .card .time { font-size: calc(10.5px * var(--fs)); color: var(--sub); }
+  .card .time { font-size: calc(11px * var(--fs)); color: var(--sub); }
   .card:has(.pw.paid) a.title { color: var(--sub); }
 
   /* 既読（「既読も表示」時のみ現れる） */
