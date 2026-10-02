@@ -771,7 +771,8 @@
               ]
             }
           ],
-          "deep": false
+          "deep": false,
+          "fresh_only": 365
         },
         {
           "topic": "\"茨城県議会議員選挙\"",
@@ -788,7 +789,8 @@
             "県議選挙",
             "県議補選"
           ],
-          "deep": false
+          "deep": false,
+          "fresh_only": 365
         },
         {
           "topic": "\"茨城県議選\" site:note.com",
@@ -805,8 +807,8 @@
             "県議選挙",
             "県議補選"
           ],
-          "max_age_days": 36500,
-          "deep": false
+          "deep": false,
+          "fresh_only": 365
         }
       ]
     },
@@ -1120,25 +1122,32 @@
           "alert": true
         },
         {
-          "topic": "生成AI 活用",
+          "topic": "Claude 使い方",
           "name": "生成AIの使いこなし",
-          "require": [
-            "生成AI",
-            "ChatGPT",
-            "Claude",
-            "Gemini",
-            "Copilot",
-            "AIエージェント"
-          ],
           "sources": [
             "gnews_ja",
             "hatebu"
           ],
-          "sites": [
-            "zenn.dev",
-            "note.com",
-            "qiita.com"
+          "require": [
+            "Claude",
+            "クロード"
           ],
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "受講",
+            "申し込み",
+            "講座",
+            "資料ダウンロード",
+            "ホワイトペーパー",
+            "Claude Code",
+            "ClaudeCode",
+            "claude code"
+          ],
+          "exclude_in": "title",
+          "deep": false,
           "blog_last": false,
           "prefer": [
             "使い方",
@@ -1151,7 +1160,8 @@
             "やってみた",
             "試した",
             "工夫",
-            "プロンプト"
+            "プロンプト",
+            "Claude"
           ],
           "demote": [
             "資金調達",
@@ -1170,18 +1180,17 @@
             "行政",
             "ソリューション",
             "提供開始",
-            "様にて"
-          ],
-          "exclude": [
-            "セミナー",
-            "ウェビナー",
-            "説明会",
-            "無料相談",
-            "受講",
-            "申し込み",
-            "講座",
-            "資料ダウンロード",
-            "ホワイトペーパー"
+            "様にて",
+            "とは？",
+            "とは?",
+            "徹底解説",
+            "完全解説",
+            "やさしく解説",
+            "わかりやすく解説",
+            "完全ガイド",
+            "選！",
+            "選】",
+            "おすすめ"
           ],
           "sections": [
             {
@@ -1330,29 +1339,39 @@
               "words": [
                 "Anthropic",
                 "アンソロピック",
-                "公式",
-                "発表",
-                "リリース",
-                "アップデート",
-                "新機能",
-                "提供開始",
-                "公開",
+                "OpenAI",
+                "オープンAI",
+                "Google",
+                "グーグル",
+                "米グーグル",
+                "Microsoft",
+                "マイクロソフト",
+                "米マイクロソフト",
+                "Meta",
+                "メタ",
+                "xAI",
+                "Claude",
+                "ChatGPT",
+                "Gemini",
+                "Copilot",
+                "GPT-",
+                "Opus",
+                "Sonnet",
+                "Haiku",
+                "Fable",
+                "Mythos",
                 "上限",
                 "制限",
                 "クォータ",
-                "quota",
                 "料金",
-                "価格",
-                "値下げ",
                 "値上げ",
-                "モデル",
-                "Opus",
-                "Sonnet",
-                "Fable",
-                "Mythos",
-                "Haiku",
-                "バージョン"
-              ]
+                "値下げ",
+                "新機能",
+                "アップデート",
+                "移行",
+                "終了"
+              ],
+              "check": 2
             },
             {
               "name": "🔀 併用・使い分け",
@@ -1410,10 +1429,221 @@
                 "支援",
                 "ソリューション",
                 "業務改善",
-                "生産性向上"
+                "生産性向上",
+                "提供開始",
+                "支援を開始",
+                "支援開始",
+                "実証",
+                "導入",
+                "発売",
+                "市が",
+                "県が",
+                "社員",
+                "協業",
+                "受賞",
+                "開始",
+                "設立",
+                "始動",
+                "新会社",
+                "事業",
+                "業務効率",
+                "法人向け",
+                "企業向け"
               ],
-              "last": true
+              "last": true,
+              "check": 1,
+              "news_only": true,
+              "pattern": "^[^、。？！?!\\s「『【]{2,20}、",
+              "unless_prefix": [
+                "Anthropic",
+                "アンソロピック",
+                "OpenAI",
+                "オープンAI",
+                "Google",
+                "グーグル",
+                "米グーグル",
+                "Microsoft",
+                "マイクロソフト",
+                "米マイクロソフト",
+                "Meta",
+                "メタ",
+                "xAI"
+              ]
             }
+          ],
+          "quiet_sections": [
+            "🏢 企業・業界"
+          ]
+        },
+        {
+          "group": "生成AIの使いこなし",
+          "sources": [
+            "gnews_ja"
+          ],
+          "deep": false,
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "受講",
+            "申し込み",
+            "講座",
+            "資料ダウンロード",
+            "ホワイトペーパー",
+            "Claude Code",
+            "ClaudeCode",
+            "claude code"
+          ],
+          "exclude_in": "title",
+          "topic": "\"Claude\" site:note.com",
+          "name": "生成AIの使いこなし（note・Claude）",
+          "require": [
+            "Claude",
+            "クロード"
+          ]
+        },
+        {
+          "group": "生成AIの使いこなし",
+          "sources": [
+            "gnews_ja"
+          ],
+          "deep": false,
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "受講",
+            "申し込み",
+            "講座",
+            "資料ダウンロード",
+            "ホワイトペーパー",
+            "Claude Code",
+            "ClaudeCode",
+            "claude code"
+          ],
+          "exclude_in": "title",
+          "topic": "\"Claude\" site:zenn.dev",
+          "name": "生成AIの使いこなし（Zenn・Claude）",
+          "require": [
+            "Claude",
+            "クロード"
+          ]
+        },
+        {
+          "group": "生成AIの使いこなし",
+          "sources": [
+            "gnews_ja"
+          ],
+          "deep": false,
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "受講",
+            "申し込み",
+            "講座",
+            "資料ダウンロード",
+            "ホワイトペーパー",
+            "Claude Code",
+            "ClaudeCode",
+            "claude code"
+          ],
+          "exclude_in": "title",
+          "topic": "\"Claude\" site:qiita.com",
+          "name": "生成AIの使いこなし（Qiita・Claude）",
+          "require": [
+            "Claude",
+            "クロード"
+          ]
+        },
+        {
+          "group": "生成AIの使いこなし",
+          "sources": [
+            "gnews_ja"
+          ],
+          "deep": false,
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "受講",
+            "申し込み",
+            "講座",
+            "資料ダウンロード",
+            "ホワイトペーパー",
+            "Claude Code",
+            "ClaudeCode",
+            "claude code"
+          ],
+          "exclude_in": "title",
+          "topic": "プロンプト コツ",
+          "name": "生成AIの使いこなし（プロンプト）",
+          "require": [
+            "プロンプト",
+            "生成AI",
+            "ChatGPT",
+            "Claude",
+            "Gemini",
+            "Copilot",
+            "AIエージェント"
+          ]
+        },
+        {
+          "group": "生成AIの使いこなし",
+          "sources": [
+            "gnews_ja"
+          ],
+          "deep": false,
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "受講",
+            "申し込み",
+            "講座",
+            "資料ダウンロード",
+            "ホワイトペーパー",
+            "Claude Code",
+            "ClaudeCode",
+            "claude code"
+          ],
+          "exclude_in": "title",
+          "topic": "\"生成AI\" site:note.com",
+          "name": "生成AIの使いこなし（note・生成AI）",
+          "require": [
+            "生成AI"
+          ]
+        },
+        {
+          "group": "生成AIの使いこなし",
+          "sources": [
+            "gnews_ja"
+          ],
+          "deep": false,
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "受講",
+            "申し込み",
+            "講座",
+            "資料ダウンロード",
+            "ホワイトペーパー",
+            "Claude Code",
+            "ClaudeCode",
+            "claude code"
+          ],
+          "exclude_in": "title",
+          "topic": "\"生成AI\" site:zenn.dev",
+          "name": "生成AIの使いこなし（Zenn・生成AI）",
+          "require": [
+            "生成AI"
           ]
         },
         {

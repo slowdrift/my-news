@@ -277,7 +277,7 @@ def curate(items, rule):
     return kept
 
 
-def section_of(title: str, sections):
+def section_of(title: str, sections, blog: bool = False):
     """見出しを見て、テーマの中のどの小分類に入るかを決める。
 
     feeds.json の sections に上から順に当て、最初に当たったものを採る。
@@ -286,8 +286,17 @@ def section_of(title: str, sections):
     それでも「500件がひと塊」よりは探しやすい。
     """
     hay = (title or "").lower()
-    for sec in sections or []:
+    # check の小さい分類から先に判定する（並び順とは別。例：「公式・新機能」→「企業・業界」→ 残り）
+    ordered = sorted(sections or [], key=lambda x: x.get("check", 10))
+    for sec in ordered:
+        if sec.get("news_only") and blog:
+            continue   # 企業の発表を見分ける分類は、個人の記事には当てない
+        if any((title or "").startswith(w) for w in sec.get("unless_prefix") or []):
+            continue   # 例：「Anthropic、…」はAIを作る会社の公式発表なので、企業の発表には入れない
         if any(w.lower() in hay for w in sec.get("words") or []):
+            return sec.get("name")
+        # 語だけでなく形でも見分けられる（例：企業の発表は「社名、…」で始まることが多い）
+        if sec.get("pattern") and re.search(sec["pattern"], title or ""):
             return sec.get("name")
     return None
 
@@ -601,7 +610,7 @@ def expand_topic(entry):
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
                     "min_views", "views_exempt", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections"):
             if key in entry:
                 feed[key] = entry[key]
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
@@ -633,7 +642,7 @@ def expand_topic(entry):
         for key in ("exclude", "prefer", "demote", "blog_last", "keep",
                     "no_ng", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "require_also"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections", "require_also"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
         if entry.get("fresh_only"):
@@ -1554,6 +1563,7 @@ def main():
     section_rules = {}    # テーマごとの小分類
     link_rules = {}       # テーマの見出しに置く入口リンク（X・TVer など）
     curate_rules = {}     # 読みごたえのある記事だけに絞るテーマ
+    quiet_sec_rules = {}  # 朝刊（新着）に出さない小分類（企業の発表など。書庫には残す）
     ng_title_groups = set()  # NG語を見出しだけで判定するテーマ
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1585,6 +1595,8 @@ def main():
                 section_rules[g] = f["sections"]
             if f.get("curate"):
                 curate_rules[g] = f["curate"]
+            if f.get("quiet_sections"):
+                quiet_sec_rules[g] = f["quiet_sections"]
             for x in f.get("links") or []:
                 have_urls = {y["url"] for y in link_rules.get(g, [])}
                 if x.get("url") and x["url"] not in have_urls:
@@ -2000,6 +2012,10 @@ def main():
                 if fresh and a.get("seed"):
                     a["quiet"] = True   # テーマを足した日の分は新着に数えない（書庫には入る）
                     continue
+                if fresh and quiet_sec_rules.get(g) and section_rules.get(g) and \
+                        section_of(a.get("title"), section_rules[g], bool(a.get("blog"))) in quiet_sec_rules[g]:
+                    a["quiet"] = True   # 企業の発表などは新着に数えない（書庫の小分類には入る）
+                    continue
                 if not fresh:
                     a.pop("quiet", None)
                     continue
@@ -2027,7 +2043,7 @@ def main():
                 # 「その他」は分類できなかった分。最後に置く（消しはしない）。
                 tail = len(order) + 1
                 for a in items:
-                    sec = section_of(a.get("title"), secs)
+                    sec = section_of(a.get("title"), secs, bool(a.get("blog")))
                     if sec:
                         a["sec"] = sec
                     else:
