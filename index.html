@@ -523,6 +523,21 @@
     font-size: calc(13px * var(--fs)); font-weight: 700;
   }
   .mseen:active { background: var(--chip-bg); }
+  /* 閉じたテーマの下の見出し（2本まで）。押すとテーマが開く。長い見出しは1行で「…」 */
+  .mpeek {
+    display: block; width: 100%; margin: -8px 0 0; padding: 0 0 8px calc(1em + 6px);
+    border: 0; background: transparent; text-align: left; cursor: pointer;
+  }
+  .mpeek span {
+    display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: calc(12.5px * var(--fs)); line-height: 1.65; color: var(--sub);
+  }
+  /* 件数の多いテーマの「残り◯件を見る」 */
+  .mmore {
+    width: 100%; min-height: 44px; margin: 2px 0 4px; border-radius: 10px; cursor: pointer;
+    border: 1px dashed var(--accent); background: transparent; color: var(--accent);
+    font-size: calc(13px * var(--fs)); font-weight: 700;
+  }
   /* 朝刊の中の小分類の見出し */
   .msec {
     display: flex; align-items: center; gap: 6px; margin: 8px 2px 4px;

@@ -72,6 +72,9 @@ SEEN_FILE = BASE_DIR / "seen.json"
 SEEN_MAX = 30000   # 増えすぎたら古いものから忘れる
 SEEN = {}
 
+# 公式配信の記事が載っているサイト → 媒体名（feeds.json の via）。収集のたびに作る
+VIA_BY_HOST = {}
+
 
 def seen_key(title: str) -> str:
     """見出しから記憶の鍵を作る。短すぎる見出しは別記事と衝突しうるので使わない。"""
@@ -301,6 +304,37 @@ def section_of(title: str, sections, blog: bool = False):
     return None
 
 
+# ---- 同じ記事の付属ページ ----------------------------------------------------
+# 1本の記事が「画像だけのページ」や「2ページ目」として別々に入ってくる
+# （実測：電ファミの1本の記事が、本体＋画像ページ3つ＋記事一覧の5件になっていた）。
+# 目印を外した見出しで、本体や同じ記事のほかのページと突き合わせてまとめる。
+# 目印の数字が「連載の回」と取り違えられ、これまでは別記事として残っていた。
+# 「記事一覧」は記事ではないが入口として役立つこともあるので、ここでは扱わない。
+# ※ 比べる前に全角を半角へそろえる（「（」→「(」、「－」→「-」）。
+SUBPAGE_RULES = [
+    re.compile(r"^画像ページ\s*\[\d+\s*/\s*\d+\]\s*"),          # 「画像ページ[3/9] 見出し」
+    re.compile(r"\s*\d+\s*枚目の写真・画像\s*$"),                 # 「見出し 1枚目の写真・画像」
+    # 「見出し（2ページ目）」「(3ページ目)見出し」。1ページ目は本体なので対象にしない
+    re.compile(r"\s*\(\s*[2-9]\d?\s*ページ目\s*\)\s*$"),
+    re.compile(r"^\s*\(\s*[2-9]\d?\s*ページ目\s*\)\s*"),
+]
+# 「写真の説明 - 見出し - 写真・画像(1/1)」（西日本新聞）は、見出しの部分だけを残す
+PHOTO_PAGE_RE = re.compile(r"^(?:.*\s-\s)?(.+?)\s-\s写真・画像\s*\(\d+\s*/\s*\d+\)\s*$")
+
+
+def subpage_base(title: str):
+    """付属ページなら目印を外した見出しを、そうでなければ None を返す。"""
+    t = unicodedata.normalize("NFKC", title or "")
+    m = PHOTO_PAGE_RE.match(t)
+    if m:
+        return m.group(1).strip()
+    for rule in SUBPAGE_RULES:
+        base = rule.sub("", t)
+        if base != t:
+            return base.strip()
+    return None
+
+
 def days_apart(a: str, b: str) -> float:
     """2つの配信日時（ISO文字列）が何日離れているか。分からなければ大きな値。"""
     try:
@@ -322,21 +356,25 @@ def dedupe_by_title(items, news_theme=True):
     新しいほうに合わせると、まとめた瞬間にNEWが再点灯してしまう。
     """
     common = common_words(items)
-    keys = []    # [(正規化した見出し, 2文字ずつの集合, 目印になる語, 配信日, 連載番号, ブログか)]
+    keys = []    # [(正規化した見出し, 2文字ずつの集合, 目印になる語, 配信日, 連載番号, ブログか, 付属ページか)]
     kept = []    # keys と同じ並びの記事
     loose = []   # 見出しが取れないものはそのまま残す
     for a in items:
-        norm = normalize_title(a.get("title") or "")
+        # 付属ページ（画像ページ・2ページ目など）は、目印を外した見出しで比べる
+        base = subpage_base(a.get("title"))
+        sub = base is not None
+        title = base if sub else (a.get("title") or "")
+        norm = normalize_title(title)
         if not norm:
             loose.append(a)
             continue
         grams = title_bigrams(norm)
-        marks = title_words(a.get("title")) - common
+        marks = title_words(title) - common
         day = a.get("dt") or ""
-        ser = serial_no(a.get("title"))
+        ser = serial_no(title)
         blog = bool(a.get("blog"))
         hit = -1
-        for i, (n2, g2, m2, d2, s2, b2) in enumerate(keys):
+        for i, (n2, g2, m2, d2, s2, b2, sub2) in enumerate(keys):
             if ser != s2:
                 continue   # 連載の回が違うので別の記事
             same = (norm == n2)
@@ -344,6 +382,13 @@ def dedupe_by_title(items, news_theme=True):
                       and (norm.startswith(n2) or n2.startswith(norm)))
             close = (len(norm) >= DUP_PREFIX_MIN and len(n2) >= DUP_PREFIX_MIN
                      and similarity(grams, g2) >= DUP_SIMILARITY)
+            if sub or sub2:
+                # 付属ページは「同じ記事のページどうし」だけをまとめる。
+                # 話題が近いだけの別記事とはまとめない（本体が無ければ、その記事への唯一の入口）
+                if same or prefix or close:
+                    hit = i
+                    break
+                continue
             # 固有名詞の重なりでも見る（言い回しが違う同じ出来事を拾う）
             event = (len(marks) >= SAME_NEWS_MIN_WORDS and len(m2) >= SAME_NEWS_MIN_WORDS
                      and len(marks & m2) / len(marks | m2) >= SAME_NEWS_OVERLAP)
@@ -365,7 +410,7 @@ def dedupe_by_title(items, news_theme=True):
                 hit = i
                 break
         if hit < 0:
-            keys.append((norm, grams, marks, day, ser, blog))
+            keys.append((norm, grams, marks, day, ser, blog, sub))
             kept.append(a)
         else:
             cur = kept[hit]
@@ -373,7 +418,18 @@ def dedupe_by_title(items, news_theme=True):
             # 先に見つけていたほうが「テーマを足した日の分」なら、その印も引き継ぐ
             # （中継URLが日ごとに変わり、同じ記事が別物として入り直すため）
             older = min((cur, a), key=lambda x: x.get("first_seen") or "9999")
-            keep = better_record(cur, a)
+            if sub != keys[hit][6]:
+                # 本体と付属ページなら、本体を残す
+                keep = cur if sub else a
+                gone = a if sub else cur
+                print(f"付属ページをまとめた: {(gone.get('title') or '')[:60]}")
+                if keep is a:
+                    keys[hit] = (norm, grams, marks, day, ser, blog, sub)
+            else:
+                keep = better_record(cur, a)
+                if sub:
+                    gone = cur if keep is a else a
+                    print(f"付属ページをまとめた: {(gone.get('title') or '')[:60]}")
             if seen:
                 keep["first_seen"] = min(seen)
             if older.get("seed"):
@@ -1424,6 +1480,10 @@ def fetch_feed(feed):
                 via_host = urlparse(src.get("href") or "").netloc.lower()
             if via and title.endswith(" - " + via):
                 title = title[: -(len(via) + 3)].rstrip()
+        elif feed.get("via"):
+            # 公式の配信（茨城新聞・BBC など）は記事に媒体名が付いてこない。
+            # feeds.json の via に書いた名前を使う（無いとカードに発信元が出ない）
+            via = feed["via"]
 
         # --- 多層フィルタ ---
         if is_alert and link and is_blocked_domain(link):
@@ -1849,6 +1909,13 @@ def main():
         collected = []
         for feed in feeds:
             articles, status = fetch_feed(feed)
+            if feed.get("via"):
+                # 公式配信の記事が載っているサイト（BBC なら www.bbc.com）を覚え、
+                # 蓄積済みの古い記事にも同じ名前を付け直すのに使う
+                for a in articles:
+                    host = urlparse(a.get("link") or "").netloc.lower()
+                    if host:
+                        VIA_BY_HOST[host] = feed["via"]
             # 取れた件数が少ないテーマは、期間を大きく広げて取り直す
             # （既読管理があるので、古い記事が混ざっても未読なら読む価値がある）
             # 取れた数が少なければ期間を10年に広げて引き直す。
@@ -1971,6 +2038,12 @@ def main():
                 continue   # 取れず、蓄積も無いテーマは出さない
             first_time = not archive.get(g)
             merged = merge_into_archive(archive, g, fresh, now_iso, keep_rules.get(g), seed=first_time)
+            # 媒体名の無い蓄積済み記事に、公式配信の名前を付け直す（feeds.json の via）
+            for a in merged:
+                if not a.get("via"):
+                    v = VIA_BY_HOST.get(urlparse(a.get("link") or "").netloc.lower())
+                    if v:
+                        a["via"] = v
 
             # 「関連」＝ 見出しにテーマの語が無い記事。本文で触れているだけのものが多い。
             # 消さずに後ろへ回す（当たりの読み物も混じっているため）。

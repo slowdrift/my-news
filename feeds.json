@@ -411,6 +411,7 @@
       "feeds": [
         {
           "name": "茨城新聞 県内ニュース",
+          "via": "茨城新聞",
           "url": "https://ibarakinews.jp/news/hphead.rss",
           "group": "茨城のニュース",
           "exclude": [
@@ -1750,6 +1751,7 @@
         {
           "name": "実教出版（公式のお知らせ）",
           "group": "実教出版",
+          "via": "実教出版",
           "url": "https://www.jikkyo.co.jp/information/feed/"
         }
       ]
@@ -2155,10 +2157,12 @@
         },
         {
           "name": "BBC News Japan",
+          "via": "BBC",
           "url": "https://feeds.bbci.co.uk/japanese/rss.xml"
         },
         {
           "name": "CNN.co.jp",
+          "via": "CNN",
           "url": "http://feeds.cnn.co.jp/rss/cnn/cnn.rdf"
         }
       ]

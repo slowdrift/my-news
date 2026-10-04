@@ -10,7 +10,7 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.26.0";
+const APP_VERSION = "v1.28.0";
 const CHANGELOG = [
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
@@ -456,19 +456,31 @@ function payBadge(a) {
 let IN_MORNING = false;   // 朝刊の中を描いている最中か
 const BLOG_VIA_RE = /^(note|zenn|qiita|はてなブログ|はてなダイアリー|アメブロ|medium)/i;
 
+// 発信元の名前。名前が分からない記事（アラートで拾った記事など）は、サイトの住所を出す
+// （Google ニュースも名前の無い記事には「daily.co.jp」のように住所を出している）。
+// 動画は全部 YouTube なので出さない。Googleニュースの中継URLは本当の住所ではないので使わない。
+function sourceName(a) {
+  if (a.via) return a.via;
+  if (a.kind === "video") return "";
+  const m = String(a.via_host || a.link || "").match(/^(?:https?:\/\/)?([^/:?#]+)/i);
+  const host = m ? m[1].toLowerCase().replace(/^www\./, "") : "";
+  return host && host.indexOf("news.google.") !== 0 ? host : "";
+}
+
 // NEW＋有料バッジ＋発信元＋再生回数＋時刻のメタ行
 function metaRow(a) {
   const t = relTime(a.dt);
+  const src = sourceName(a);
   const inner = (isSinceLast(a) ? '<span class="since dot" title="前回見てから届いた記事">●</span>'
       : isNew(a) ? '<span class="new">NEW</span>' : "")
     + (isFound(a) ? '<span class="found" title="初めて見つけた、少し前の記事">発掘</span>' : "")
     + payBadge(a)
     // 発信元が note・Zenn などなら「個人ブログ」は言わずもがななので省く
-    + (a.blog && (a.corp || !BLOG_VIA_RE.test(a.via || "")) ? '<span class="blog' + (a.corp ? " corp" : "") + '">'
+    + (a.blog && (a.corp || !BLOG_VIA_RE.test(src)) ? '<span class="blog' + (a.corp ? " corp" : "") + '">'
         + (a.corp ? "企業ブログ" : "個人ブログ") + "</span>" : "")
     // 朝刊の中では出さない（note・Zenn等から集めたテーマではほとんどに付き、意味を持たない）
     + (a.related && !IN_MORNING ? '<span class="rel" title="見出しにテーマ名が無い記事">関連</span>' : "")
-    + (a.via ? '<span class="chip">' + esc(a.via) + "</span>" : "")
+    + (src ? '<span class="chip">' + esc(src) + "</span>" : "")
     + (a.views ? '<span class="views">▶ ' + fmtViews(a.views) + "</span>" : "")
     + (a.hb ? '<span class="hb" title="はてなブックマーク数">🔖' + a.hb + "</span>" : "")
     + (t ? '<span class="time">' + esc(t) + "</span>" : "");
@@ -1066,24 +1078,66 @@ function freshBlocks() {
   }).filter(Boolean);
 }
 
-// 朝刊でテーマを開いたときのカード。小分類のあるテーマ（Claude Code など）は、
-// 小分類ごとに小見出しを入れて並べる（20件が1列に並ぶと読みたいものを探しにくい）。
-function freshCards(b) {
+// 件数の多いテーマは、開いても最初の数枚だけ見せ、残りはボタンの奥に置く
+// （Yahoo!ニュースのトピックスが数本で止めるのと同じ考え）。
+// 実測：Claude Code の新着20件を開くと 2,603px（スマホ約3画面）あった。
+// 隠した分も「ここまで見た」で一緒に片づく（ボタンに件数を出している）。書庫には残る。
+const MORNING_SPLIT = 8;   // 新着がこの件数以上のテーマを区切る
+const MORNING_SHOW = 5;    // 区切るときに先に見せる枚数（同じ話題は畳んで1枚と数える）
+const PEEK_MAX = 2;        // 閉じたテーマの下に先に見せる見出しの本数
+let MORE_OPEN = {};        // 「残りを見る」を押したテーマ（この画面を見ている間だけ覚える）
+
+// テーマの新着を、表に出す順の「まとまり」（同じ話題を畳んだ単位）に並べる。
+// 小分類のあるテーマ（Claude Code など）は小分類の順に並べる。
+function morningUnits(b) {
   const g = (ALL_GROUPS.find(function (x) { return x.group.name === b.name; }) || {}).group;
+  const secs = g && g.sections && g.sections.length ? g.sections.concat(["その他"]) : [null];
+  const units = [];
+  secs.forEach(function (sec) {
+    const list = sec === null ? b.items
+      : b.items.filter(function (a) { return (a.sec || "その他") === sec; });
+    if (!list.length) return;
+    topicClusters(b.name, list, g ? g.items : null).map(pickLead).forEach(function (c) {
+      units.push({ sec: sec, secCount: list.length, items: c });
+    });
+  });
+  return units;
+}
+
+// 朝刊でテーマを開いたときのカード。小分類のあるテーマは小見出しを入れて並べる
+// （20件が1列に並ぶと読みたいものを探しにくい）。
+function freshCards(b) {
   IN_MORNING = true;
   let h = "";
   try {
-    if (!g || !g.sections || !g.sections.length) {
-      h = topicCards(b.name, b.items);
-    } else {
-      g.sections.concat(["その他"]).forEach(function (sec) {
-        const list = b.items.filter(function (a) { return (a.sec || "その他") === sec; });
-        if (!list.length) return;
-        h += '<div class="msec">' + esc(sec) + "<i>" + list.length + "</i></div>" + topicCards(b.name, list);
-      });
+    const units = morningUnits(b);
+    const split = b.items.length >= MORNING_SPLIT && !MORE_OPEN[b.name] && units.length > MORNING_SHOW;
+    let sec;
+    (split ? units.slice(0, MORNING_SHOW) : units).forEach(function (u) {
+      if (u.sec !== null && u.sec !== sec) {
+        h += '<div class="msec">' + esc(u.sec) + "<i>" + u.secCount + "</i></div>";
+      }
+      sec = u.sec;
+      h += topicCards(b.name, u.items);
+    });
+    if (split) {
+      const rest = units.slice(MORNING_SHOW).reduce(function (t, u) { return t + u.items.length; }, 0);
+      h += '<button class="mmore" type="button" data-fresh-more="' + esc(b.name) + '">'
+        + "▾ 残り" + rest + "件を見る</button>";
     }
   } finally { IN_MORNING = false; }
   return h;
+}
+
+// 閉じたテーマの行の下に、代表の見出しを2本まで出す（Google ニュースのまとめ方）。
+// 開かなくても「読むか、片づけるか」を決められるように。押すとテーマが開く。
+// 長い見出しは1行で切る（画面の幅で「…」になるだけで、要約はしない）。
+function freshPeek(b) {
+  const units = morningUnits(b).slice(0, PEEK_MAX);
+  if (!units.length) return "";
+  return '<button class="mpeek" type="button" data-fresh-peek="' + esc(b.name) + '">'
+    + units.map(function (u) { return "<span>" + esc(u.items[0].title) + "</span>"; }).join("")
+    + "</button>";
 }
 
 // ---- 同じ話題の記事を1枚に畳む（朝刊）--------------------------------------
@@ -1098,7 +1152,10 @@ let TOPIC_OPEN = {};
 const TOPIC_STOP = ["オープン", "ローカル", "リニューアル", "イベント", "キャンペーン", "サービス",
   "スタート", "ニュース", "ランキング", "プロジェクト", "シリーズ", "ライブ", "アニメ", "チーム",
   "ドラマ", "テレビ", "コーナー", "スペシャル", "アプリ", "システム", "データ", "ビジネス", "セミナー",
-  "レポート", "インタビュー", "コメント", "メンバー", "ファン", "グループ", "スタジオ", "ショップ"];
+  "レポート", "インタビュー", "コメント", "メンバー", "ファン", "グループ", "スタジオ", "ショップ",
+  // 英語は小文字で書く（大文字・小文字を区別せずに比べる）。
+  // 実測：「イオンリテールnews」と「CBC news」の一致で、開業の記事と地震の記事を畳んだ
+  "news"];
 
 // 見出しから「目印の語」を取り出す。値は { 重み, かたまりの番号 }。
 // 漢字は2文字ずつに刻む（「日本公開作」と「日本公開決定」を突き合わせるため）が、
@@ -1108,7 +1165,7 @@ function topicWords(title, theme) {
   const out = {};
   let run = 0;
   (t.match(/[ァ-ヶー]{3,}|[A-Za-z][A-Za-z0-9]{2,}/g) || []).forEach(function (w) {
-    if (theme.indexOf(w) >= 0 || TOPIC_STOP.indexOf(w) >= 0) return;   // テーマ名・ありふれた語は使わない
+    if (theme.indexOf(w) >= 0 || TOPIC_STOP.indexOf(w.toLowerCase()) >= 0) return;   // テーマ名・ありふれた語は使わない
     out[w] = { w: w.length >= 4 ? 2 : 1, run: "r" + (run++) };
   });
   (t.match(/[一-龠々]{2,}/g) || []).forEach(function (chunk) {
@@ -1203,10 +1260,39 @@ function topicClusters(theme, items, pool) {
   return clusters;
 }
 
+// 同じ話題の中から、表に出す1件（代表）を選ぶ。
+// 本文の長さは測れない（Googleニュースの中継URLを実URLに解決できない）ので、次の順で推し量る。
+//   ① 2ページ目・画像ページ・写真ページ・記事一覧は後ろへ（実測：吉村昭で「2ページ目」、
+//      アクアワールド大洗で「画像ページ[3/9]」が代表になり、本文の記事が畳まれていた）
+//   ② 無料の記事を有料・会員限定より前へ
+//   ③ 説明文が長いほうを前へ（見出しのくり返しの部分は数えない）
+//   ④ 差が無ければ元の並び順
+const SUBPAGE_RE = /[2-9２-９]\s*ページ目|[（(]\s*[2-9]\s*ページ|画像ページ|写真・画像|記事一覧/;
+function topicRank(a) {
+  const sub = SUBPAGE_RE.test(a.title || "") ? 1 : 0;
+  const paid = a.paywall && a.paywall !== "free" ? 1 : 0;
+  // 見出しの文字を説明文から取り除いた残りの長さ＝見出しに無い情報の量
+  const squash = function (x) { return String(x || "").replace(/[\s|｜\-–—:：]/g, ""); };
+  const t = squash(a.title).slice(0, 15), s = squash(a.summary);
+  const info = (t && s.indexOf(t) === 0 ? s.slice(t.length) : s).length;
+  return [sub, paid, -info];
+}
+function pickLead(c) {
+  const ranks = c.map(topicRank);
+  let best = 0;
+  for (let i = 1; i < c.length; i++) {
+    for (let k = 0; k < 3; k++) {
+      if (ranks[i][k] !== ranks[best][k]) { if (ranks[i][k] < ranks[best][k]) best = i; break; }
+    }
+  }
+  // 代表を先頭へ。残りは元の並びのまま
+  return [c[best]].concat(c.filter(function (_, i) { return i !== best; }));
+}
+
 function topicCards(theme, items) {
   let h = "";
   const g = (ALL_GROUPS.find(function (x) { return x.group.name === theme; }) || {}).group;
-  topicClusters(theme, items, g ? g.items : null).forEach(function (c) {
+  topicClusters(theme, items, g ? g.items : null).map(pickLead).forEach(function (c) {
     h += cardList([c[0]], true);
     if (c.length < 2) return;
     const key = theme + "|" + favKey(c[0]);
@@ -1215,7 +1301,7 @@ function topicCards(theme, items) {
     } else {
       h += '<button class="topic-more" type="button" data-topic="' + esc(key) + '">'
         + "▸ 同じ話題 ほか" + (c.length - 1) + "件"
-        + "<small>" + esc(c.slice(1).map(function (a) { return a.via || ""; }).filter(Boolean).join("・")) + "</small>"
+        + "<small>" + esc(c.slice(1).map(sourceName).filter(Boolean).join("・")) + "</small>"
         + "</button>";
     }
   });
@@ -1257,7 +1343,7 @@ function morningEdition() {
         + '" title="このテーマの新着を片づける（あとで戻せます）">✓ 片づけ</button></div>'
         + (open ? freshCards(b)
             + '<button class="mseen" type="button" data-fresh-done="' + esc(b.name) + '">'
-            + "✓ ここまで見た（" + b.items.length + "件を片づけて次へ）</button>" : "")
+            + "✓ ここまで見た（" + b.items.length + "件を片づけて次へ）</button>" : freshPeek(b))
         + "</div>";
     });
   }
@@ -1810,10 +1896,19 @@ APP.addEventListener("click", function (ev) {
     }
     return;
   }
-  // 新着画面：テーマを開く／畳む
-  const freshOpen = ev.target.closest("[data-fresh-open]");
+  // 朝刊：件数の多いテーマの「残り◯件を見る」
+  const moreBtn = ev.target.closest("[data-fresh-more]");
+  if (moreBtn) {
+    MORE_OPEN[moreBtn.dataset.freshMore] = true;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // 新着画面：テーマを開く／畳む（閉じた行の下の見出しを押しても開く）
+  const freshOpen = ev.target.closest("[data-fresh-open]") || ev.target.closest("[data-fresh-peek]");
   if (freshOpen) {
-    const k = freshOpen.dataset.freshOpen;
+    const k = freshOpen.dataset.freshOpen || freshOpen.dataset.freshPeek;
     FRESH_OPEN[k] = !FRESH_OPEN[k];
     ssSave();
     const y = window.scrollY;
