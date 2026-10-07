@@ -669,6 +669,12 @@ def expand_topic(entry):
                     "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections"):
             if key in entry:
                 feed[key] = entry[key]
+        # 検索語に site: が入っているフィード（例: "生成AI" 使い方 site:note.com）は、
+        # そのサイトの記事しか集めない。蓄積に必須語を当て直すときも、
+        # その必須語はそのサイトの記事にだけ使う（ほかのサイトの記事まで通してしまわないため）。
+        hosts = re.findall(r"site:(\S+)", str(entry.get("topic", "")))
+        if hosts:
+            feed["site_hosts"] = hosts
         # 蓄積が少ないときに過去へ遡るための材料（囲む前の検索語を持つ）
         if tpl.get("backfill"):
             feed["backfill"] = {"url": tpl["url"], "q": q}
@@ -1784,13 +1790,16 @@ def main():
     # 設定を直しても過去分が残っていては、無関係な記事が消えないため。
     # ただしサイト指定検索を使うテーマは対象外。あちらは「見出しに名前が無くても
     # 本文で語っている記事」を意図して拾っているので、当てると正しい記事まで消える。
+    # 必須語はフィードごとに持つ。site: 付きの検索のフィードは、そのサイトの記事にだけ当てる。
+    # （以前は全フィードの必須語を合わせて当てていたため、「生成AI」を note・Zenn だけで
+    #   探しているのに、報道サイトの「○○社が生成AIを導入」まで蓄積に残り続けていた）
     require_rules = {}
     for feeds in feeds_by_cat.values():
         for f in feeds:
             g = f.get("group") or f.get("name")
             if not g:
                 continue
-            words, also, has_site = require_rules.get(g, ([], [], False))
+            word_rules, also, has_site = require_rules.get(g, ([], [], False))
             # require_always: サイト指定の情報源があっても必須語を当てる。
             # （Amazonのセールに、昔まぎれ込んだ競馬予想のnote記事が残っていたため）
             # 直接登録した配信（会社の公式RSSなど）は、見出しにテーマ名が無いのが普通。
@@ -1798,18 +1807,29 @@ def main():
             # 入り直して毎日「新着」に出てしまう（実教出版の公式お知らせで起きた）。
             direct = bool(f.get("url")) and not f.get("gnews") and not f.get("site_search")
             site = (bool(f.get("site_search")) or direct) and not f.get("require_always")
-            require_rules[g] = (words + (f.get("require") or []),
+            if f.get("require"):
+                word_rules = word_rules + [(f["require"], f.get("site_hosts") or [])]
+            require_rules[g] = (word_rules,
                                 also + (f.get("require_also") or []),
                                 has_site or site)
+
+    def host_of(a):
+        h = (a.get("via_host") or urlparse(a.get("link") or "").netloc or "").lower()
+        return h[4:] if h.startswith("www.") else h
+
     off_topic = 0
     for g, items in archive.items():
-        words, also, has_site = require_rules.get(g, ([], [], True))
-        if has_site or not words:
+        word_rules, also, has_site = require_rules.get(g, ([], [], True))
+        if has_site or not word_rules:
             continue
 
         def ok(a):
             t = a.get("title") or ""
-            if not any(w in t for w in words):
+            h = host_of(a)
+            # どれか1つのフィードの条件（必須語、site: があればそのサイト）を満たせば残す
+            if not any(any(w in t for w in words)
+                       and (not hosts or any(h == s or h.endswith("." + s) for s in hosts))
+                       for words, hosts in word_rules):
                 return False
             if also:
                 low = (t + " " + (a.get("summary") or "")).lower()

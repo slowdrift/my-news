@@ -1129,6 +1129,7 @@
             "gnews_ja",
             "hatebu"
           ],
+          "require_always": true,
           "require": [
             "Claude",
             "クロード"
@@ -1585,12 +1586,8 @@
           "name": "生成AIの使いこなし（プロンプト）",
           "require": [
             "プロンプト",
-            "生成AI",
-            "ChatGPT",
             "Claude",
-            "Gemini",
-            "Copilot",
-            "AIエージェント"
+            "クロード"
           ]
         },
         {
@@ -1614,7 +1611,7 @@
             "claude code"
           ],
           "exclude_in": "title",
-          "topic": "\"生成AI\" site:note.com",
+          "topic": "\"生成AI\" 使い方 site:note.com",
           "name": "生成AIの使いこなし（note・生成AI）",
           "require": [
             "生成AI"
@@ -1641,11 +1638,104 @@
             "claude code"
           ],
           "exclude_in": "title",
-          "topic": "\"生成AI\" site:zenn.dev",
+          "topic": "\"生成AI\" 使い方 site:zenn.dev",
           "name": "生成AIの使いこなし（Zenn・生成AI）",
           "require": [
             "生成AI"
           ]
+        },
+        {
+          "topic": "自治体 生成AI 削減",
+          "name": "自治体の生成AI活用",
+          "sources": [
+            "gnews_ja"
+          ],
+          "require": [
+            "自治体",
+            "市",
+            "町",
+            "村",
+            "県",
+            "区",
+            "庁",
+            "職員",
+            "行政",
+            "役所",
+            "住民",
+            "議会",
+            "公務員",
+            "民生委員"
+          ],
+          "require_also": [
+            "削減",
+            "短縮",
+            "軽減",
+            "効果",
+            "成果",
+            "時間",
+            "件数",
+            "倍",
+            "改善",
+            "効率"
+          ],
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "申し込み",
+            "講座"
+          ],
+          "exclude_in": "title",
+          "minor": true,
+          "deep": false
+        },
+        {
+          "topic": "自治体 生成AI 効果",
+          "name": "自治体の生成AI活用（効果）",
+          "group": "自治体の生成AI活用",
+          "sources": [
+            "gnews_ja"
+          ],
+          "require": [
+            "自治体",
+            "市",
+            "町",
+            "村",
+            "県",
+            "区",
+            "庁",
+            "職員",
+            "行政",
+            "役所",
+            "住民",
+            "議会",
+            "公務員",
+            "民生委員"
+          ],
+          "require_also": [
+            "削減",
+            "短縮",
+            "軽減",
+            "効果",
+            "成果",
+            "時間",
+            "件数",
+            "倍",
+            "改善",
+            "効率"
+          ],
+          "exclude": [
+            "セミナー",
+            "ウェビナー",
+            "説明会",
+            "無料相談",
+            "申し込み",
+            "講座"
+          ],
+          "exclude_in": "title",
+          "minor": true,
+          "deep": false
         },
         {
           "topic": "グロービス",
