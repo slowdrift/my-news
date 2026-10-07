@@ -29,8 +29,10 @@
   ],
   "_天気と株価": [
     "weather の area は気象庁の地域コード（080000＝茨城県）。point は気温を出す地点名。",
-    "stocks に銘柄を並べると、記事とは別のブロックに表示します。",
+    "stocks は「ウォッチ銘柄」（気にしている銘柄。保有とは限らない一覧）です。",
+    "  記事とは別のブロック（最下部）に、値段・前日比・過去1年の1株配当を表示します。",
     "  code は Yahoo Finance の記号（東証は 数字.T、日経平均は ^N225、ドル円は JPY=X）。",
+    "  会社のニュースは、カテゴリ「お金」のテーマ「ウォッチ銘柄のニュース」で集めます（銘柄を足したらそちらにも1行足す）。",
     "※株価の取得先は公式に開放されたものではないため、使えなくなったら黙って消えます。"
   ],
   "weather": {
@@ -39,11 +41,552 @@
   },
   "stocks": [
     {
+      "code": "1419.T",
+      "name": "タマホーム"
+    },
+    {
+      "code": "1720.T",
+      "name": "東急建設"
+    },
+    {
+      "code": "1911.T",
+      "name": "住友林業"
+    },
+    {
+      "code": "2685.T",
+      "name": "アンドエスティHD"
+    },
+    {
       "code": "2726.T",
       "name": "パルグループHD"
+    },
+    {
+      "code": "3048.T",
+      "name": "ビックカメラ"
+    },
+    {
+      "code": "3315.T",
+      "name": "日本コークス工業"
+    },
+    {
+      "code": "3834.T",
+      "name": "朝日ネット"
+    },
+    {
+      "code": "4008.T",
+      "name": "住友精化"
+    },
+    {
+      "code": "4452.T",
+      "name": "花王"
+    },
+    {
+      "code": "4832.T",
+      "name": "JFEシステムズ"
+    },
+    {
+      "code": "4901.T",
+      "name": "富士フイルムHD"
+    },
+    {
+      "code": "4926.T",
+      "name": "シーボン"
+    },
+    {
+      "code": "4927.T",
+      "name": "ポーラ・オルビスHD"
+    },
+    {
+      "code": "4967.T",
+      "name": "小林製薬"
+    },
+    {
+      "code": "5011.T",
+      "name": "ニチレキG"
+    },
+    {
+      "code": "5020.T",
+      "name": "ENEOS HD"
+    },
+    {
+      "code": "6113.T",
+      "name": "アマダ"
+    },
+    {
+      "code": "7270.T",
+      "name": "SUBARU"
+    },
+    {
+      "code": "7751.T",
+      "name": "キヤノン"
+    },
+    {
+      "code": "7820.T",
+      "name": "ニホンフラッシュ"
+    },
+    {
+      "code": "7956.T",
+      "name": "ピジョン"
+    },
+    {
+      "code": "8053.T",
+      "name": "住友商事"
+    },
+    {
+      "code": "8058.T",
+      "name": "三菱商事"
+    },
+    {
+      "code": "8316.T",
+      "name": "三井住友FG"
+    },
+    {
+      "code": "8591.T",
+      "name": "オリックス"
+    },
+    {
+      "code": "9069.T",
+      "name": "センコーGHD"
+    },
+    {
+      "code": "9831.T",
+      "name": "ヤマダHD"
+    },
+    {
+      "code": "9986.T",
+      "name": "蔵王産業"
     }
   ],
   "categories": [
+    {
+      "name": "お金",
+      "feeds": [
+        {
+          "topic": "タマホーム",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "タマホーム",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "東急建設",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "東急建設",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "住友林業",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "住友林業",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "\"アンドエスティ\" OR \"アダストリア\"",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "アンドエスティHD",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "アンドエスティ",
+            "アダストリア"
+          ]
+        },
+        {
+          "topic": "パルグループ",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "パルグループHD",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "ビックカメラ",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "ビックカメラ",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "日本コークス",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "日本コークス工業",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "\"朝日ネット\" OR \"ASAHIネット\"",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "朝日ネット",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "朝日ネット",
+            "ASAHIネット"
+          ]
+        },
+        {
+          "topic": "住友精化",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "住友精化",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "花王",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "花王",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "JFEシステムズ",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "JFEシステムズ",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "JFEシステムズ",
+            "ＪＦＥシステムズ"
+          ]
+        },
+        {
+          "topic": "富士フイルム",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "富士フイルムHD",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "富士フイルム",
+            "富士フィルム"
+          ]
+        },
+        {
+          "topic": "シーボン",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "シーボン",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "\"ポーラ・オルビス\" OR \"ポーラオルビス\"",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "ポーラ・オルビスHD",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "ポーラ・オルビス",
+            "ポーラオルビス"
+          ]
+        },
+        {
+          "topic": "小林製薬",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "小林製薬",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "ニチレキ",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "ニチレキG",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "\"ENEOS\" -サンフラワーズ -野球 -バスケ -Wリーグ -都市対抗 -選手",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "ENEOS HD",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "ENEOS",
+            "ＥＮＥＯＳ",
+            "エネオス"
+          ],
+          "exclude": [
+            "サンフラワーズ",
+            "野球",
+            "バスケ",
+            "Wリーグ",
+            "都市対抗",
+            "選手"
+          ]
+        },
+        {
+          "topic": "アマダ",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "アマダ",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "SUBARU",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "SUBARU",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "SUBARU",
+            "ＳＵＢＡＲＵ",
+            "スバル"
+          ]
+        },
+        {
+          "topic": "キヤノン",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "キヤノン",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "ニホンフラッシュ",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "ニホンフラッシュ",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "ニホンフラ"
+          ]
+        },
+        {
+          "topic": "ピジョン",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "ピジョン",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "exclude": [
+            "サラ・ピジョン",
+            "ヤモマーク"
+          ]
+        },
+        {
+          "topic": "住友商事",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "住友商事",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "三菱商事",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "三菱商事",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        },
+        {
+          "topic": "\"三井住友フィナンシャルグループ\" OR \"三井住友FG\"",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "三井住友FG",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "三井住友フィナンシャル",
+            "三井住友FG",
+            "三井住友ＦＧ",
+            "SMFG"
+          ]
+        },
+        {
+          "topic": "オリックス -バファローズ -野球 -投手 -選手 -球団 -ドラフト -監督 -打者",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "オリックス",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "オリックス"
+          ],
+          "exclude": [
+            "バファローズ",
+            "野球",
+            "投手",
+            "打者",
+            "球団",
+            "ドラフト",
+            "戦力外",
+            "最多勝",
+            "本塁打",
+            "登板"
+          ]
+        },
+        {
+          "topic": "センコーグループ",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "センコーGHD",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "センコー"
+          ]
+        },
+        {
+          "topic": "\"ヤマダホールディングス\" OR \"ヤマダデンキ\"",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "ヤマダHD",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true,
+          "require": [
+            "ヤマダホールディングス",
+            "ヤマダHD",
+            "ヤマダＨＤ",
+            "ヤマダデンキ",
+            "ヤマダ電機"
+          ]
+        },
+        {
+          "topic": "蔵王産業",
+          "group": "ウォッチ銘柄のニュース",
+          "name": "蔵王産業",
+          "sources": [
+            "gnews_ja"
+          ],
+          "max_age_days": 30,
+          "no_backfill": true,
+          "daily_max": 15,
+          "top": true
+        }
+      ]
+    },
     {
       "name": "人物・作品",
       "feeds": [

@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.30.0";
+const APP_VERSION = "v1.31.0";
 const CHANGELOG = [
+  ["v1.31.0", "2026-10-08", "保有株の CSV を読み込み、含み損益と取得利回りを表示（この端末だけ）。ウォッチ銘柄を増やして会社のニュースを朝刊の先頭に。前日比の誤りを修正。👎は発信元の回数を数えず、設定に発信元ごとの読み方を表示"],
   ["v1.30.0", "2026-10-07", "生成AIの使いこなしから導入ニュースを外し、自治体の成果事例を別テーマに。Claude Code は読む傾向の記事を前に"],
   ["v1.29.0", "2026-10-07", "端末の記録をファイルに書き出し・読み込めるように。既読にした操作（開いた・片づけた等）も記録"],
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
@@ -940,10 +941,21 @@ function weatherLineFull(w) {
 
 // 天気の下に添える一行。株価そのものは最下部に置いたまま
 // （記事を優先したいというご指示のため）、朝のひと目だけここで済ませる。
-// 押すと最下部の株価ブロックへ飛ぶ。
+// 押すと最下部のウォッチ銘柄ブロックへ飛ぶ。
+// 保有株を読み込んだ端末では、銘柄ごとの値段の代わりに「含み損益と取得利回りの合計」を出す
+// （ウォッチ銘柄が29あり、銘柄ごとに並べると何行にもなるため）。
+const STRIP_MAX = 3;   // 保有株が無い端末で、天気の下に並べる銘柄の数
 function stockStrip(list) {
+  const rows = holdingRows();
+  if (rows.length) {
+    const t = holdingTotals(rows);
+    return '<a class="wstocks" href="#stocks"><span class="wst"><b>💼 含み損益</b>'
+      + fmtYen(t.pl, true) + '<i class="' + signCls(t.pl) + '">' + fmtPct(t.plPct, true) + "</i></span>"
+      + (t.yieldPct != null ? '<span class="wst"><b>取得利回り</b>' + fmtPct(t.yieldPct) + "</span>" : "")
+      + "</a>";
+  }
   if (!list || !list.length) return "";
-  const cells = list.map(function (s) {
+  const cells = list.slice(0, STRIP_MAX).map(function (s) {
     const up = s.diff > 0, down = s.diff < 0;
     return '<span class="wst"><b>' + esc(s.name) + "</b> "
       + Number(s.price).toLocaleString("ja-JP")
@@ -951,22 +963,65 @@ function stockStrip(list) {
       + (up ? "▲" : down ? "▼" : "―") + Math.abs(s.diff).toLocaleString("ja-JP")
       + "</i></span>";
   }).join("");
-  return '<a class="wstocks" href="#stocks">' + cells + "</a>";
+  const rest = list.length - STRIP_MAX;
+  return '<a class="wstocks" href="#stocks">' + cells
+    + (rest > 0 ? '<span class="wst"><b>ほか' + rest + "銘柄</b></span>" : "") + "</a>";
 }
 
+// 保有している銘柄の2行目（株数・取得単価・損益・配当・取得利回り）
+function holdLine(r) {
+  return '<div class="shold">'
+    + "<span>" + fmtNum(r.qty) + "株・取得 " + fmtNum(r.cost) + "円</span>"
+    + (r.pl != null ? '<span class="' + signCls(r.pl) + '">' + fmtYen(r.pl, true)
+      + "（" + fmtPct(r.plPct, true) + "）</span>" : "")
+    + (r.div != null
+      ? "<span>配当 " + fmtNum(r.div) + "円・取得利回り <b>" + fmtPct(r.yieldPct) + "</b></span>"
+      : "<span>配当 —</span>")
+    + "</div>";
+}
+
+// 最下部のブロック。ウォッチ銘柄の値段・前日比を並べ、保有している銘柄には2行目を添える。
+// 上に保有株の合計（この端末だけ）を置く。
 function stockBlock(list) {
-  if (!list || !list.length) return "";
-  const rows = list.map(function (s) {
+  const rows = holdingRows();
+  if ((!list || !list.length) && !rows.length) return "";
+  const held = {};
+  rows.forEach(function (r) { held[r.code] = r; });
+  let h = '<section class="stocks" id="stocks"><h2>📈 ウォッチ銘柄</h2>';
+  if (rows.length) {
+    const t = holdingTotals(rows);
+    h += '<div class="stotal"><div><b>💼 保有 ' + t.n + "銘柄</b>（この端末だけ）</div>"
+      + "<div>取得 " + fmtYen(t.cost) + " → 評価 " + fmtYen(t.value) + "</div>"
+      + '<div>含み損益 <b class="' + signCls(t.pl) + '">' + fmtYen(t.pl, true)
+      + "（" + fmtPct(t.plPct, true) + "）</b></div>"
+      + (t.yieldPct != null ? "<div>取得利回り <b>" + fmtPct(t.yieldPct) + "</b>"
+        + (t.nDiv < t.n ? "（配当が分かった " + t.nDiv + "/" + t.n + "銘柄）" : "") + "</div>" : "")
+      + "<small>株数・取得単価は CSV（" + esc(shortDay(HOLD.asof)) + " 時点）。株価は "
+      + esc(((window.NEWS_DATA || {}).generated_at || "").slice(5, 16).replace("-", "/"))
+      + " の更新。配当は過去1年の実績。"
+      + (t.nCsv ? "ウォッチ銘柄に無い " + t.nCsv + "銘柄は CSV の現在値で計算。" : "")
+      + "</small></div>";
+  }
+  (list || []).forEach(function (s) {
     const up = s.diff > 0, down = s.diff < 0;
     const sign = up ? "▲" : (down ? "▼" : "―");
     const cls = up ? " up" : (down ? " down" : "");
-    return '<div class="srow"><span class="sname">' + esc(s.name) + "</span>"
+    const r = held[String(s.code || "").replace(/\.T$/, "")];
+    h += '<div class="sitem' + (r ? " held" : "") + '"><div class="srow"><span class="sname">' + esc(s.name) + "</span>"
       + '<span class="sprice">' + Number(s.price).toLocaleString("ja-JP") + "</span>"
       + '<span class="sdiff' + cls + '">' + sign + " "
       + Math.abs(s.diff).toLocaleString("ja-JP") + "（" + (up ? "+" : down ? "-" : "")
-      + Math.abs(s.pct).toFixed(2) + "%）</span></div>";
-  }).join("");
-  return '<section class="stocks" id="stocks"><h2>📈 株価</h2>' + rows + "</section>";
+      + Math.abs(s.pct).toFixed(2) + "%）</span></div>"
+      + (r ? holdLine(r) : "") + "</div>";
+  });
+  // ウォッチ銘柄に無い保有株（CSV の現在値で計算）
+  rows.filter(function (r) { return r.fromCsv; }).forEach(function (r) {
+    h += '<div class="sitem held"><div class="srow"><span class="sname">' + esc(r.name) + "</span>"
+      + '<span class="sprice">' + (r.price != null ? fmtNum(r.price) : "—") + "</span>"
+      + '<span class="sdiff">CSV ' + esc(shortDay(HOLD.asof)) + " 時点</span></div>"
+      + holdLine(r) + "</div>";
+  });
+  return h + "</section>";
 }
 
 function versionBlock(generatedAt) {
@@ -1050,6 +1105,7 @@ function toolbar(sources) {
       + orderRow()
       + sourceRow()
       + troubleRow(sources)
+      + holdingsRow()
       + backupRow()
       + '<details class="howto"><summary>使い方</summary><ul>'
       + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
@@ -1063,7 +1119,10 @@ function toolbar(sources) {
       + "<li>記事の<b>👍</b>は「この発信元をもっと」の印です（既読にしません）。"
       + "<b>👎</b>は「読まずに片づける」印です（発信元の評価には数えません）</li>"
       + "<li>見出しの<b>⚠</b>は、取得できなかった配信元がある印です</li>"
+      + "<li><b>保有株</b>：SBI証券のポートフォリオの CSV を読み込むと、天気の下に含み損益と取得利回り、"
+      + "最下部のウォッチ銘柄に銘柄ごとの損益が出ます（株数・取得単価はこの端末だけに置き、公開されません）</li>"
       + "<li><b>⬇ 書き出す</b>は、この端末だけにある記録（既読・お気に入り・👍👎など）をファイルに保存します。"
+      + "保有株は「保有株も入れる」を選んだときだけ入ります。"
       + "機種変更やデータを消したあとは<b>⬆ 読み込む</b>で戻せます</li>"
       + "</ul></details>"
       + "</div>";
@@ -1171,7 +1230,7 @@ let IMPORT_PREVIEW = null;   // 読み込もうとしているファイルの中
 
 // 中身が「名前→値」の形でないといけない記録。形が違えば読み込まない。
 const BACKUP_OBJECT_KEYS = [READ_KEY, FAV_KEY, UI_KEY, ORDER_KEY, GOOD_KEY, GOODED_KEY,
-  BORING_KEY, OPENED_KEY, SESSION_KEY];
+  BORING_KEY, OPENED_KEY, SESSION_KEY, "mynews_holdings"];
 const BACKUP_ARRAY_KEYS = [READLOG_KEY];
 
 const HOW_LABEL = {
@@ -1236,13 +1295,16 @@ function countStorage(raw) {
   [GOOD_KEY, BORING_KEY, OPENED_KEY].forEach(function (k) {
     Object.keys(obj(k)).forEach(function (s) { srcs[s] = 1; });
   });
-  const known = [READ_KEY, FAV_KEY, READLOG_KEY, GOOD_KEY, BORING_KEY, OPENED_KEY];
+  const known = [READ_KEY, FAV_KEY, READLOG_KEY, GOOD_KEY, BORING_KEY, OPENED_KEY, HOLD_KEY];
+  const hold = obj(HOLD_KEY);
   return {
     // 1記事につきリンクと見出しの2つの鍵を持つので、リンクの鍵の数を記事数の目安にする
     read: read.filter(function (k) { return k.indexOf("t:") !== 0; }).length,
     fav: Object.keys(obj(FAV_KEY)).length,
     log: Array.isArray(log) ? log.length : 0,
     sources: Object.keys(srcs).length,
+    // 保有株は「入っていない」と「0銘柄」を分ける（入っていなければ端末の分を残すため）
+    hold: HOLD_KEY in raw ? (Array.isArray(hold.items) ? hold.items.length : 0) : null,
     other: Object.keys(raw).filter(function (k) { return known.indexOf(k) < 0; }).length,
   };
 }
@@ -1347,8 +1409,12 @@ function buildAnalysis(raw) {
   };
 }
 
-function buildBackup() {
+// withHoldings が true のときだけ保有株を入れる。書き出したファイルは分析のため
+// Claude Chat に渡すこともあるので、既定では金額の情報を入れない（利用者の決定・2026-10-08）。
+// 分析用の写し（analysis）には、選んでも入れない（読み方の分析に保有株は要らないため）。
+function buildBackup(withHoldings) {
   const raw = snapshotStorage();
+  if (!withHoldings) delete raw[HOLD_KEY];
   const storage = {};
   Object.keys(raw).forEach(function (k) { storage[k] = decodeValue(raw[k]); });
   return {
@@ -1362,7 +1428,8 @@ function buildBackup() {
       analysis: "分析用の写し（読み込みでは使わない）。read は1記事1行で、acts に [いつ, どの操作で, どの画面で] を古い順に並べる",
       read_unknown: "蓄積から消え、何の記事か引けなかった既読の鍵。link か title_key（見出しの先頭30字・記号抜き）だけが分かる",
       sources: "発信元ごとの 👍(good)・👎(boring。v1.31.0 からは数えていない)・開いた回数(opened)",
-      storage: "復元用。端末に保存している記録そのもの（⚙設定の「読み込む」で戻す）",
+      storage: "復元用。端末に保存している記録そのもの（⚙設定の「読み込む」で戻す）。"
+        + "保有株（mynews_holdings）は、書き出すときに選んだ場合だけ入る",
     },
     analysis: buildAnalysis(raw),
     storage: storage,
@@ -1376,8 +1443,8 @@ function backupFileName() {
 }
 
 // ファイルとして保存させる（Android の Chrome では「ダウンロード」フォルダに入る）
-function downloadBackup() {
-  const text = JSON.stringify(buildBackup());
+function downloadBackup(withHoldings) {
+  const text = JSON.stringify(buildBackup(withHoldings));
   const blob = new Blob([text], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -1441,7 +1508,16 @@ function replaceStorage(storage) {
 }
 
 // 読み込みを確定する。直前の記録をこのタブの間だけ控えておく。
+// ファイルに保有株が入っていなければ、端末の保有株はそのまま残す
+// （置き換えなので、何もしないと「保有株を入れずに書き出したファイル」で消えてしまうため）。
 function applyBackup(storage) {
+  const myHold = lsGet(HOLD_KEY, null);
+  if (myHold !== null && !(HOLD_KEY in storage)) {
+    const merged = {};
+    Object.keys(storage).forEach(function (k) { merged[k] = storage[k]; });
+    merged[HOLD_KEY] = myHold;
+    storage = merged;
+  }
   let kept = false;
   try {
     sessionStorage.setItem(BEFORE_IMPORT_KEY,
@@ -1473,7 +1549,10 @@ function backupRow() {
     + "<small>既読 約" + c.read + "件・お気に入り " + c.fav + "件・読み方の記録 " + c.log + "件"
     + (since ? "（" + dayLabel(since) + "から）" : "") + "</small></span>"
     + '<button class="tool-btn" type="button" id="backup-export">⬇ 書き出す</button>'
-    + '<button class="tool-btn" type="button" id="backup-import">⬆ 読み込む</button></div>'
+    + '<button class="tool-btn" type="button" id="backup-import">⬆ 読み込む</button>'
+    // 毎回外れた状態から始める（分析のために渡すファイルへ、うっかり金額を入れないため）
+    + (HOLD ? '<label class="hold-opt"><input type="checkbox" id="backup-hold"> 保有株も入れる</label>' : "")
+    + "</div>"
     // Android では accept で絞ると .json を選べなくなることがあるので、絞らずに中身で見分ける
     + '<input type="file" id="backup-file" hidden>';
   const prev = beforeImport();
@@ -1498,6 +1577,8 @@ function backupRow() {
       + line("お気に入り", n.fav, f.fav)
       + line("読み方の記録", n.log, f.log)
       + line("👍👎・開いた数の発信元", n.sources, f.sources)
+      + line("保有株", n.hold == null ? "なし" : n.hold + "銘柄",
+        f.hold == null ? (n.hold == null ? "入っていない" : "入っていない（今のまま残す）") : f.hold + "銘柄")
       + line("そのほかの設定", n.other, f.other)
       + "</table>"
       + (p.info.skipped ? "<p>形の合わない記録 " + p.info.skipped + " 件は読み込みません。</p>" : "")
@@ -1509,6 +1590,199 @@ function backupRow() {
   return h;
 }
 
+// ---- 保有株（この端末だけ）------------------------------------------------
+// 株数と取得単価は、どこにも公開しない。SBI証券のポートフォリオの CSV を端末に読み込み、
+// 公開側のウォッチ銘柄の株価・配当（data.js）と組み合わせて、この画面の中だけで計算する。
+// ウォッチ銘柄に無い銘柄（あとで買った株など）は、CSV に書かれた現在値で代わりに計算する。
+const HOLD_KEY = "mynews_holdings";   // { asof: CSVの保存日時(ms), at: 読み込んだ時刻(ms), items: [{code, name, qty, cost, price}] }
+const HOLD_FILE_MAX = 2 * 1024 * 1024;   // これより大きいファイルは CSV ではないとみなす
+let HOLD = loadHoldings();
+let HOLD_PREVIEW = null;   // 読み込もうとしている CSV の中身（確定前）
+
+function loadHoldings() {
+  try {
+    const v = JSON.parse(lsGet(HOLD_KEY, "null") || "null");
+    return isPlainObject(v) && Array.isArray(v.items) && v.items.length ? v : null;
+  } catch (e) { return null; }
+}
+
+// CSV の1行をセルに分ける（"…" の中のカンマは区切りにしない）
+function csvCells(line) {
+  const out = [];
+  let cur = "", quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") { out.push(cur.trim()); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+// 「+1,234.5」のような数を読む。空や読めないものは NaN
+function csvNum(s) {
+  const t = String(s == null ? "" : s).replace(/[,+\s]/g, "");
+  return t === "" ? NaN : Number(t);
+}
+
+// SBI証券「ポートフォリオ一覧」の CSV（2026-10 の実物で形を確認）から、株式の段だけを読む。
+// 段は「株式（現物/特定預り）」のような1つだけの見出しで始まり、次の行が列名、その下が銘柄。
+// 投資信託・国債の段と「…合計」の段は読まない。同じ銘柄が2つの段にあれば足し合わせる。
+// 返り値：{ ok: true, items, skipped } か { ok: false, msg }
+function parseHoldingsCsv(text) {
+  const NG = { ok: false, msg: "SBI証券のポートフォリオの CSV ではないようです。何も変えていません。" };
+  const lines = String(text == null ? "" : text).replace(/^﻿/, "").split(/\r?\n/);
+  const byCode = {};
+  const order = [];
+  let inStock = false, cols = null, sections = 0, skipped = 0;
+  lines.forEach(function (line) {
+    const c = csvCells(line);
+    const filled = c.filter(function (x) { return x !== ""; });
+    if (filled.length === 1 && c[0] !== "") {   // 段の見出し
+      inStock = /^株式[（(]/.test(c[0]) && c[0].indexOf("合計") < 0;
+      if (inStock) sections += 1;
+      cols = null;
+      return;
+    }
+    if (!inStock || !filled.length) return;
+    if (!cols) {   // 段の見出しのすぐ下は列名
+      cols = { qty: c.indexOf("数量"), cost: c.indexOf("取得単価"), price: c.indexOf("現在値") };
+      if (cols.qty < 0 || cols.cost < 0) { cols = null; inStock = false; }
+      return;
+    }
+    const m = (c[0] || "").match(/^([0-9][0-9A-Z]{3})\s+(.+)$/);   // 「2685 アンドエスティＨＤ」
+    const qty = csvNum(c[cols.qty]), cost = csvNum(c[cols.cost]);
+    const price = cols.price >= 0 ? csvNum(c[cols.price]) : NaN;
+    if (!m || !(qty > 0) || !(cost > 0)) { skipped += 1; return; }
+    const k = m[1];
+    if (!byCode[k]) {
+      byCode[k] = { code: k, name: m[2], qty: 0, cost: 0, price: price > 0 ? price : null };
+      order.push(k);
+    }
+    const h = byCode[k];
+    // 取得単価は株数で重みを付けて平均する
+    h.cost = (h.cost * h.qty + cost * qty) / (h.qty + qty);
+    h.qty += qty;
+  });
+  if (!sections) return NG;
+  if (!order.length) return { ok: false, msg: "株式の段に読める銘柄がありませんでした。何も変えていません。" };
+  return { ok: true, items: order.map(function (k) { return byCode[k]; }), skipped: skipped };
+}
+
+// SBI の CSV は Shift_JIS。念のため UTF-8 でも試し、中身の言葉で見分ける
+function decodeHoldingsCsv(buf) {
+  const tries = ["shift_jis", "utf-8"];
+  for (let i = 0; i < tries.length; i++) {
+    try {
+      const t = new TextDecoder(tries[i]).decode(buf);
+      if (t.indexOf("取得単価") >= 0) return t;
+    } catch (e) { /* その文字コードを使えない環境なら次へ */ }
+  }
+  return "";
+}
+
+function watchByCode() {
+  const out = {};
+  ((window.NEWS_DATA || {}).stocks || []).forEach(function (s) {
+    out[String(s.code || "").replace(/\.T$/, "")] = s;
+  });
+  return out;
+}
+
+// 1銘柄ずつの損益と取得利回り。取得利回り＝1株配当（過去1年の実績）÷取得単価（現在値は使わない）
+function holdingRows() {
+  if (!HOLD) return [];
+  const watch = watchByCode();
+  return HOLD.items.map(function (h) {
+    const w = watch[h.code];
+    const price = w ? Number(w.price) : h.price;
+    const div = w && typeof w.div === "number" ? w.div : null;
+    const costTotal = h.cost * h.qty;
+    const value = price != null ? price * h.qty : null;
+    return {
+      code: h.code, name: w ? w.name : h.name, qty: h.qty, cost: h.cost, price: price,
+      fromCsv: !w, div: div, costTotal: costTotal, value: value,
+      pl: value != null ? value - costTotal : null,
+      plPct: value != null && costTotal ? (value - costTotal) / costTotal * 100 : null,
+      yieldPct: div != null && h.cost ? div / h.cost * 100 : null,
+    };
+  });
+}
+
+// 合計。取得利回りは「配当が分かった銘柄」だけで出し、何銘柄分かを添える
+// （配当の記録が無い銘柄は、無配なのか取れなかったのか見分けられないため）
+function holdingTotals(rows) {
+  const t = { n: rows.length, cost: 0, value: 0, nDiv: 0, divSum: 0, divCost: 0, nCsv: 0 };
+  rows.forEach(function (r) {
+    if (r.value == null) return;
+    t.cost += r.costTotal;
+    t.value += r.value;
+    if (r.fromCsv) t.nCsv += 1;
+    if (r.div != null) { t.nDiv += 1; t.divSum += r.div * r.qty; t.divCost += r.costTotal; }
+  });
+  t.pl = t.value - t.cost;
+  t.plPct = t.cost ? t.pl / t.cost * 100 : null;
+  t.yieldPct = t.divCost ? t.divSum / t.divCost * 100 : null;
+  return t;
+}
+
+// 金額と率の書き方（上げは赤・下げは青。日本の慣習）
+function signCls(v) { return v > 0 ? "up" : v < 0 ? "down" : ""; }
+function fmtYen(v, signed) {
+  const s = Math.round(Math.abs(v)).toLocaleString("ja-JP") + "円";
+  return signed ? (v > 0 ? "+" : v < 0 ? "-" : "±") + s : s;
+}
+function fmtPct(v, signed) {
+  if (v == null) return "";
+  return (signed ? (v > 0 ? "+" : v < 0 ? "-" : "±") : "") + Math.abs(v).toFixed(2) + "%";
+}
+function fmtNum(v) { return Number(v).toLocaleString("ja-JP", { maximumFractionDigits: 2 }); }
+function shortDay(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  return (d.getMonth() + 1) + "/" + d.getDate();
+}
+
+// 設定の中の1段。CSV を読み込むボタンと、置き換える前の確認
+function holdingsRow() {
+  const n = HOLD ? HOLD.items.length : 0;
+  let h = '<div class="srow backup"><span>保有株（この端末だけ・公開されません）<small>'
+    + (n ? n + "銘柄（CSV " + shortDay(HOLD.asof) + " 時点の株数・取得単価）"
+      : "SBI証券のポートフォリオの CSV を読み込むと、含み損益と取得利回りを出します")
+    + "</small></span>"
+    + '<button class="tool-btn" type="button" id="hold-import">⬆ CSV を読み込む</button>'
+    + (n ? '<button class="tool-btn" type="button" id="hold-clear">消す</button>' : "")
+    + "</div>"
+    + '<input type="file" id="hold-file" hidden>';
+  const p = HOLD_PREVIEW;
+  if (p && !p.ok) {
+    h += '<div class="trouble-list import-box"><p>⚠ ' + esc(p.msg) + "</p>"
+      + '<button class="tool-btn" type="button" id="hold-cancel">閉じる</button></div>';
+  } else if (p) {
+    const watch = watchByCode();
+    const missing = p.items.filter(function (x) { return !watch[x.code]; });
+    h += '<div class="trouble-list import-box">'
+      + "<p>この CSV の株式は <b>" + p.items.length + "銘柄</b>"
+      + (p.asof ? "（" + esc(fmtTime(p.asof)) + " 保存）" : "")
+      + "。今の端末は " + n + "銘柄です。</p>"
+      + (p.skipped ? "<p>読めなかった行 " + p.skipped + " 行は入れません。</p>" : "")
+      + (missing.length
+        ? "<p>ウォッチ銘柄に無い " + missing.length + "銘柄（"
+          + esc(missing.map(function (x) { return x.code + " " + x.name; }).join("、"))
+          + "）は、CSV の現在値で計算し、配当は出ません。毎朝の株価と配当がほしければ、ウォッチ銘柄に足してください。</p>"
+        : "")
+      + "<p><b>置き換え</b>です。株数と取得単価は、この端末の中だけに置きます。</p>"
+      + '<div class="import-btns"><button class="tool-btn on" type="button" id="hold-apply">この内容に置き換える</button>'
+      + '<button class="tool-btn" type="button" id="hold-cancel">やめる</button></div></div>';
+  }
+  return h;
+}
+
 // ---- きょうの新着だけの画面 ------------------------------------------------
 // 新着があっても、どのテーマにあるかスクロールして探すしかなかった。
 // テーマの並びは feeds.json 順のまま動かさず（毎日同じ場所にある安心感を保つ）、
@@ -1516,8 +1790,12 @@ function backupRow() {
 
 // 新着のあるテーマを、設定の並び順で（動画は後ろ）
 function freshBlocks() {
-  const ordered = sortByOrder(ALL_GROUPS.filter(function (x) { return !isVideoGroup(x.group); }))
+  const sorted = sortByOrder(ALL_GROUPS.filter(function (x) { return !isVideoGroup(x.group); }))
     .concat(sortByOrder(ALL_GROUPS.filter(function (x) { return isVideoGroup(x.group); })));
+  // 「朝刊で一番上」の印があるテーマ（ウォッチ銘柄のニュース）は、並べ替えの設定より前に置く。
+  // 持っている会社のニュースは、他より先に目に入ってほしいというご要望のため（CODE_TASK_02 ③）。
+  const ordered = sorted.filter(function (x) { return x.group.top; })
+    .concat(sorted.filter(function (x) { return !x.group.top; }));
   return ordered.map(function (x) {
     const items = (x.group.items || []).filter(isFresh);
     return items.length ? { name: x.group.name, cat: x.cat, items: items } : null;
@@ -2493,15 +2771,47 @@ APP.addEventListener("click", function (ev) {
   // 設定の開閉
   if (ev.target.closest("#toggle-settings")) {
     SETTINGS_OPEN = !SETTINGS_OPEN;
-    if (!SETTINGS_OPEN) IMPORT_PREVIEW = null;
+    if (!SETTINGS_OPEN) { IMPORT_PREVIEW = null; HOLD_PREVIEW = null; }
+    rerender();
+    return;
+  }
+  // 保有株の CSV を読み込む・消す
+  if (ev.target.closest("#hold-import")) {
+    const input = document.getElementById("hold-file");
+    if (input) { input.value = ""; input.click(); }
+    return;
+  }
+  if (ev.target.closest("#hold-cancel")) {
+    HOLD_PREVIEW = null;
+    rerender();
+    return;
+  }
+  if (ev.target.closest("#hold-apply")) {
+    const p = HOLD_PREVIEW;
+    HOLD_PREVIEW = null;
+    if (p && p.ok) {
+      const v = { asof: p.asof || Date.now(), at: Date.now(), items: p.items };
+      lsSet(HOLD_KEY, JSON.stringify(v));
+      HOLD = loadHoldings();
+      toast(HOLD ? "保有株を " + HOLD.items.length + "銘柄 読み込みました" : "保存できませんでした");
+    }
+    rerender();
+    return;
+  }
+  if (ev.target.closest("#hold-clear")) {
+    if (!confirm("保有株の記録をこの端末から消します。よろしいですか？（CSV を読み込み直せば戻せます）")) return;
+    try { localStorage.removeItem(HOLD_KEY); } catch (e) { /* 消せなくても続行 */ }
+    HOLD = loadHoldings();
     rerender();
     return;
   }
   // 記録の書き出し・読み込み
   if (ev.target.closest("#backup-export")) {
     try {
-      const size = downloadBackup();
-      toast("書き出しました（" + Math.max(1, Math.round(size / 1024)) + "KB）");
+      const opt = document.getElementById("backup-hold");
+      const size = downloadBackup(!!(opt && opt.checked));
+      toast("書き出しました（" + Math.max(1, Math.round(size / 1024)) + "KB"
+        + (opt && opt.checked ? "・保有株を含む" : "") + "）");
     } catch (e) {
       toast("書き出せませんでした：" + String(e && e.message || e));
     }
@@ -2794,6 +3104,27 @@ APP.addEventListener("change", function (ev) {
   reader.onload = function () { show(parseBackup(reader.result)); };
   reader.onerror = function () { show({ ok: false, msg: "ファイルを読めませんでした。何も変えていません。" }); };
   reader.readAsText(file);
+});
+
+// 保有株の CSV が選ばれたら、中身を調べて確認を出す（まだ何も変えない）。
+// SBI の CSV は Shift_JIS なので、文字として読む前に文字コードを見分ける。
+APP.addEventListener("change", function (ev) {
+  if (!ev.target.matches("#hold-file")) return;
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  function show(p) { HOLD_PREVIEW = p; SETTINGS_OPEN = true; rerender(); }
+  if (file.size > HOLD_FILE_MAX) {
+    show({ ok: false, msg: "ファイルが大きすぎます（ポートフォリオの CSV ではないようです）。何も変えていません。" });
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function () {
+    const p = parseHoldingsCsv(decodeHoldingsCsv(reader.result));
+    if (p.ok) p.asof = file.lastModified || 0;   // CSV に日付が無いので、ファイルの保存日時を「時点」にする
+    show(p);
+  };
+  reader.onerror = function () { show({ ok: false, msg: "ファイルを読めませんでした。何も変えていません。" }); };
+  reader.readAsArrayBuffer(file);
 });
 
 // data.js（<script src> で先に読み込まれ window.NEWS_DATA に入っている）を描画。

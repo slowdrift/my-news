@@ -23,6 +23,7 @@ import json
 import os
 import re
 import socket
+import time
 import unicodedata
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -667,7 +668,7 @@ def expand_topic(entry):
                     "min_views", "views_exempt", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
                     "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections",
-                    "related_also"):
+                    "related_also", "no_backfill", "top"):
             if key in entry:
                 feed[key] = entry[key]
         # 検索語に site: が入っているフィード（例: "生成AI" 使い方 site:note.com）は、
@@ -1233,7 +1234,8 @@ def is_duplicate_title(norm: str, seen_titles) -> bool:
 # ----------------------------------------------------------------------------
 
 JMA_URL = "https://www.jma.go.jp/bosai/forecast/data/forecast/{area}.json"
-STOCK_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{code}?range=5d&interval=1d"
+# 1年分の日足と配当を1回で取る（配当は過去1年の実績を足すため。問い合わせは1銘柄1回のまま）
+STOCK_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{code}?range=1y&interval=1d&events=div"
 
 
 def get_json(url: str, timeout: int = 12):
@@ -1350,11 +1352,41 @@ def fetch_bookmarks(links):
     return out
 
 
+def prev_close(result):
+    """最新の値の「前の取引日」の終値を返す（無ければ None）。
+
+    以前は chartPreviousClose を使っていたが、これは「取ってきた期間の直前」の終値で、
+    5日分を取ると約5営業日前との差になっていた（10/7 実測：本当の前日比 +49 が +17 と出ていた）。
+    そこで日足を並べ、最新の値の日付より前の、いちばん新しい終値を使う。
+    """
+    m = result["meta"]
+    off = int(m.get("gmtoffset") or 0)          # 取引所の時差（東証は +9時間）
+    last_t = m.get("regularMarketTime")
+    stamps = result.get("timestamp") or []
+    closes = ((result.get("indicators") or {}).get("quote") or [{}])[0].get("close") or []
+    if not last_t or not stamps:
+        return None
+    last_day = (int(last_t) + off) // 86400
+    prev = None
+    for t, c in zip(stamps, closes):
+        if c is not None and (int(t) + off) // 86400 < last_day:
+            prev = c
+    return prev
+
+
+def year_dividend(result):
+    """過去1年に支払われた1株配当の合計。記録が無ければ None（無配か、取れなかったか区別できないため）。"""
+    divs = ((result.get("events") or {}).get("dividends") or {}).values()
+    amounts = [d.get("amount") for d in divs if isinstance(d.get("amount"), (int, float))]
+    return round(sum(amounts), 2) if amounts else None
+
+
 def fetch_stocks(items):
-    """設定した銘柄の値段と前日比を取る。
+    """ウォッチ銘柄の値段・前日比・過去1年の1株配当を取る。
 
     ※取得先は公式に開放されたものではない。使えなくなったら黙って消える作りにする
       （1つ落ちても全体を止めない、という既存の方針と同じ）。
+    ※配当だけ取れないときは、値段は出して配当を空にする（利回りの欄が空くだけ）。
     """
     if not items:
         return []
@@ -1365,23 +1397,29 @@ def fetch_stocks(items):
             continue
         try:
             data = get_json(STOCK_URL.format(code=quote(code)))
-            m = data["chart"]["result"][0]["meta"]
+            result = data["chart"]["result"][0]
+            m = result["meta"]
             price = m.get("regularMarketPrice")
-            prev = m.get("chartPreviousClose") or m.get("previousClose")
+            prev = prev_close(result)
             if price is None or prev in (None, 0):
                 continue
-            out.append({
+            row = {
                 "name": it.get("name") or m.get("shortName") or code,
                 "code": code,
                 "price": price,
                 "diff": round(price - prev, 2),
                 "pct": round((price - prev) / prev * 100, 2),
                 "currency": m.get("currency", ""),
-            })
+            }
+            div = year_dividend(result)
+            if div is not None:
+                row["div"] = div
+            out.append(row)
         except Exception as e:
             print(f"株価 {code}: 取得できず（{type(e).__name__}）")
+        time.sleep(0.2)   # 銘柄が増えたので、続けざまに聞かない（止められないための間）
     if out:
-        print(f"株価: {len(out)}/{len(items)}銘柄を取得")
+        print(f"株価: {len(out)}/{len(items)}銘柄を取得（配当あり {sum(1 for r in out if 'div' in r)}銘柄）")
     return out
 
 
@@ -1621,6 +1659,7 @@ def main():
     view_rules = {}       # テーマごとの再生回数の下限
     daily_rules = {}      # テーマごとの「1日に新着として名乗れる数」
     minor_rules = set()   # ときどき見れば良いテーマ
+    top_rules = set()     # 朝刊で一番上に出すテーマ
     fresh_rules = {}      # 期限つき情報のテーマ（何日で捨てるか）
     exclude_rules = {}    # テーマごとのNG語（貯めてある分にも当て直す）
     keepif_rules = {}     # NG語に当たっても残す救済語
@@ -1683,6 +1722,9 @@ def main():
             # 「ときどき見る」テーマ。新着に数えず、画面では畳んでおく。
             if f.get("minor"):
                 minor_rules.add(g)
+            # 朝刊で一番上に出すテーマ（ウォッチ銘柄のニュース）。並べ替えの設定より優先する。
+            if f.get("top"):
+                top_rules.add(g)
             # 期限つきの情報（セール等）は、古くなったら蓄積からも消す。
             # 「消さずに貯める」の例外。終わったセールは読んでも仕方がないため。
             if f.get("fresh_only"):
@@ -1969,6 +2011,10 @@ def main():
             g = feed.get("group") or feed["name"]
             if fresh_rules.get(g):
                 continue   # 期限つきの情報は、過去へ遡っても意味がない
+            # 会社のニュース（ウォッチ銘柄）は、20年前の記事まで掘っても読まない。
+            # 1社ずつ掘ると初回だけで100回以上問い合わせることにもなるので、掘らない。
+            if feed.get("no_backfill"):
+                continue
             # 「実際に貯まっている件数」だけで判断する。
             # 今回取得した分を足すと、その大半は蓄積済みの記事と重複しているため、
             # 二重に数えて「足りている」と誤判定してしまう（沢木耕太郎が補充されなかった原因）。
@@ -2165,6 +2211,7 @@ def main():
                 items.sort(key=lambda a: order.get(a.get("sec"), tail))
             groups_out.append({"name": g, "items": items,
                                "minor": g in minor_rules,
+                               "top": g in top_rules,
                                "sections": [x.get("name") for x in secs] if secs else None,
                                "links": link_rules.get(g) or None})
         categories_out.append({"name": cat, "groups": groups_out})
