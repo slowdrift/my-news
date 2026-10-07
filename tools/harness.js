@@ -82,10 +82,20 @@ const localStorage = {
   getItem: k => (k in store ? store[k] : null),
   setItem: (k, v) => { store[k] = String(v); },
   removeItem: k => { delete store[k]; },
+  // 記録の書き出しが、保存されている名前を順に数えるのに使う
+  get length() { return Object.keys(store).length; },
+  key: i => (Object.keys(store)[i] === undefined ? null : Object.keys(store)[i]),
+};
+// ページを開いている間だけの保存場所（タブを閉じると消える）。1回の実行の間だけ覚える。
+const sessionMem = {};
+const sessionStorage = {
+  getItem: k => (k in sessionMem ? sessionMem[k] : null),
+  setItem: (k, v) => { sessionMem[k] = String(v); },
+  removeItem: k => { delete sessionMem[k]; },
 };
 
 const ctx = {
-  document, localStorage, Date: FakeDate, setTimeout, clearTimeout,
+  document, localStorage, sessionStorage, Date: FakeDate, setTimeout, clearTimeout,
   // app.js がコンソールに出す取得サマリーなどは黙らせる（エラーだけ表示）
   console: new Proxy({}, { get: (t, k) => (k === "error" ? console.error : () => {}) }),
   confirm: () => true, URL, URLSearchParams, Intl,
@@ -105,7 +115,8 @@ ctx.__loadError = loadError ? String(loadError) : null;
 // ボタンを押したことにする。app.js は画面全体で押下を受けて closest() で振り分けるので、
 // その形に合わせた「押された物」を作って渡す。
 ctx.__click = function (selector, dataset) {
-  const hit = { dataset: dataset || {}, matches: s => s === selector };
+  // closest は「どの画面の中で押されたか」を調べるのに使われる。仮の画面には外側が無いので null を返す
+  const hit = { dataset: dataset || {}, matches: s => s === selector, closest: () => null };
   const target = {
     closest: s => (s === selector || s.split(",").map(x => x.trim()).includes(selector) ? hit : null),
     matches: s => s === selector,

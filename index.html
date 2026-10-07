@@ -135,6 +135,18 @@
     font-size: calc(12px * var(--fs)); color: var(--sub);
   }
   .settings .srow span { flex: 1 1 auto; }
+  /* 項目名の下に添える小さな説明（記録の件数など） */
+  .settings .srow span small {
+    display: block; font-size: calc(10.5px * var(--fs)); color: var(--sub); opacity: .85;
+  }
+  /* 記録の控え：説明が長いので、スマホ幅ではボタンを下の段へ（ボタンの文字が途中で折れないように） */
+  .settings .srow.backup { flex-wrap: wrap; row-gap: 6px; }
+  .settings .srow.backup span { flex-basis: 100%; }
+  .settings .srow.backup .tool-btn { white-space: nowrap; }
+  /* 記録を読み込む前の確認（今の端末とファイルの件数を並べる） */
+  .import-box td:nth-child(n+2) { text-align: right; white-space: nowrap; }
+  .import-box b { color: var(--ink); }
+  .import-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 
   /* テーマごとの「読めない記事を既読に」 */
   .ghead .lock-btn { /* 旧：テーマごとの鍵ボタン（設定の切り替えに統合したため未使用） */

@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.28.0";
+const APP_VERSION = "v1.29.0";
 const CHANGELOG = [
+  ["v1.29.0", "2026-10-07", "端末の記録をファイルに書き出し・読み込めるように。既読にした操作（開いた・片づけた等）も記録"],
   ["v1.13.0", "2026-09-13", "記事を探せるように。つまらないの記録とはてなブックマーク数を追加"],
   ["v1.12.0", "2026-09-13", "読めない記事をまとめて隠せるように。テーマ名を押すと最小化"],
   ["v1.11.0", "2026-09-13", "終わったセールを残さないように。同じ出来事の重複をまとめ、届かず表示を設定へ移動"],
@@ -139,6 +140,14 @@ const FIRSTOPEN_KEY = "mynews_firstopen";  // このアプリを初めて開い�
 // 増えすぎたときだけ、古い記録から減らして容量を抑える。
 const READ_MAX = 5000;
 
+// どの操作で既読にしたかの記録（v1.29.0 から）。分析で「開いた記事」と
+// 「開かずに流した記事」を分けるため。READ は鍵と時刻しか持たず、蓄積から消えた記事は
+// 何だったか分からないので、テーマと見出しもここに残す。
+// 1行 = [時刻(ms), 操作, 画面, テーマ, 見出し, 発信元]。操作・画面の略号は HOW_LABEL / WHERE_LABEL。
+const READLOG_KEY = "mynews_readlog";
+const READLOG_MAX = 5000;      // 既読の記録と同じく、超えたら古いものから減らす
+const READLOG_TITLE_MAX = 80;  // 見出しはこの文字数で切る（保存領域を圧迫しないため）
+
 function lsGet(key, fallback) {
   try {
     const v = localStorage.getItem(key);
@@ -176,6 +185,63 @@ function saveFav() { lsSet(FAV_KEY, JSON.stringify(FAV)); }
 
 let READ = loadRead();
 let FAV = loadFav();
+
+function loadReadLog() {
+  try {
+    const v = JSON.parse(lsGet(READLOG_KEY, "[]") || "[]");
+    // 形の崩れた行（時刻が数でない等）は捨てる
+    return Array.isArray(v) ? v.filter(function (r) { return Array.isArray(r) && typeof r[0] === "number"; }) : [];
+  } catch (e) { return []; }
+}
+
+// 保存に失敗しても既読そのものは READ に入っているので、動きは変わらない。
+// 端末の保存領域がいっぱいのときだけ、古い半分を捨てて1回やり直す。
+function saveReadLog() {
+  if (READLOG.length > READLOG_MAX) READLOG = READLOG.slice(READLOG.length - READLOG_MAX);
+  try {
+    localStorage.setItem(READLOG_KEY, JSON.stringify(READLOG));
+  } catch (e) {
+    READLOG = READLOG.slice(Math.floor(READLOG.length / 2));
+    lsSet(READLOG_KEY, JSON.stringify(READLOG));
+  }
+}
+
+let READLOG = loadReadLog();
+
+// 既読にした記事を、操作の種類と一緒に記録する。返した行は「元に戻す」で消すのに使う。
+function logRead(items, how, where) {
+  const now = Date.now();
+  const rows = (items || []).map(function (a) {
+    return [now, how, where || "", GROUP_OF[a.link] || "",
+      String(a.title || "").slice(0, READLOG_TITLE_MAX), sourceOf(a)];
+  });
+  if (!rows.length) return rows;
+  rows.forEach(function (r) { READLOG.push(r); });
+  saveReadLog();
+  return rows;
+}
+
+// 「元に戻す」を押したら記録からも外す（流したと誤って数えないため）
+function unlogRead(rows) {
+  if (!rows || !rows.length) return;
+  const drop = new Set(rows);
+  READLOG = READLOG.filter(function (r) { return !drop.has(r); });
+  saveReadLog();
+}
+
+// 押された場所が、どの画面のどこか。render() の振り分けと同じ順に見る。
+function screenOf(el) {
+  if (SHOW_READ) return "read";
+  if (SHOW_FAV) return "fav";
+  if (SEARCH_OPEN) return "search";
+  if (SHOW_FRESH) return "fresh";
+  if (SHOW_FOUND) return "found";
+  if (el && typeof el.closest === "function") {
+    if (el.closest("#morning")) return "morning";
+    if (el.closest("#videos")) return "video";
+  }
+  return "shelf";
+}
 
 // 初めて開いた時刻を覚えておく（NEWの基準に使う）
 let FIRST_OPEN = Number(lsGet(FIRSTOPEN_KEY, "0")) || 0;
@@ -916,13 +982,18 @@ function isVideoGroup(g) {
 
 const ALL_GROUPS = [];   // [{cat, group, video}, ...] data.js の並び順そのまま
 const BY_LINK = {};      // リンク → 記事（押された記事を引くため）
+const GROUP_OF = {};     // リンク → テーマ名（記事そのものはテーマ名を持たないため）
 
 (function indexData() {
   const cats = (window.NEWS_DATA || {}).categories || [];
   cats.forEach(function (c) {
     (c.groups || []).forEach(function (g) {
       ALL_GROUPS.push({ cat: c.name, group: g, video: isVideoGroup(g) });
-      (g.items || []).forEach(function (a) { if (a.link) BY_LINK[a.link] = a; });
+      (g.items || []).forEach(function (a) {
+        if (!a.link) return;
+        BY_LINK[a.link] = a;
+        if (!GROUP_OF[a.link]) GROUP_OF[a.link] = g.name;
+      });
     });
   });
   // お気に入りは一覧から消えても引けるようにしておく
@@ -965,6 +1036,7 @@ function toolbar(sources) {
       + orderRow()
       + boringRow()
       + troubleRow(sources)
+      + backupRow()
       + '<details class="howto"><summary>使い方</summary><ul>'
       + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
       + "<li><b>朝刊と書庫</b>：一番上の<b>「きょうの新着」</b>が朝刊です。見出しを見て、読むものは開き、"
@@ -977,6 +1049,8 @@ function toolbar(sources) {
       + "<li>記事の<b>👍</b>は「この発信元をもっと」、<b>👎</b>は「もう要らない」の印です"
       + "（👍は既読にしません）</li>"
       + "<li>見出しの<b>⚠</b>は、取得できなかった配信元がある印です</li>"
+      + "<li><b>⬇ 書き出す</b>は、この端末だけにある記録（既読・お気に入り・👍👎など）をファイルに保存します。"
+      + "機種変更やデータを消したあとは<b>⬆ 読み込む</b>で戻せます</li>"
       + "</ul></details>"
       + "</div>";
   }
@@ -1061,6 +1135,364 @@ function renderReadView(data) {
   parts.push('<div class="empty"><small>見出しだけで既読にした記事（同じ記事が別の経路で'
     + "届いた分など）は、元をたどれないためここには出ません。</small></div>");
   APP.innerHTML = parts.join("");
+}
+
+// ---- 記録の書き出し・読み込み ----------------------------------------------
+// 既読・お気に入り・👍👎などは、この端末のブラウザにしか無い。データ削除や機種変更で
+// 一度に失われるので、ファイルに書き出して守れるようにする。書き出したファイルは
+// 分析（どの記事を開き、どれを流したか）にも使う。
+//
+// ・対象は localStorage の「mynews_」で始まる記録すべて。名前で拾うので、
+//   これから記録を増やしても（保有株など）書き足さずに対象に入る。
+// ・ファイルには「復元用（storage）」と「分析用（analysis）」の2つを入れる。
+//   読み込みに使うのは storage だけ。analysis は人や Claude が読むための写し。
+// ・読み込みは合算ではなく置き換え。中身を見せてから確定し、直前の記録は
+//   このタブを閉じるまで控えておく（sessionStorage）ので、1回だけ戻せる。
+
+const BACKUP_PREFIX = "mynews_";
+const BACKUP_FORMAT = 1;                       // ファイルの形の版。形を変えたら上げる
+const BEFORE_IMPORT_KEY = "mynews_beforeimport";  // sessionStorage：読み込む直前の控え
+const BACKUP_FILE_MAX = 20 * 1024 * 1024;      // これより大きいファイルは読まない（別物とみなす）
+let IMPORT_PREVIEW = null;   // 読み込もうとしているファイルの中身（確定前）
+
+// 中身が「名前→値」の形でないといけない記録。形が違えば読み込まない。
+const BACKUP_OBJECT_KEYS = [READ_KEY, FAV_KEY, UI_KEY, ORDER_KEY, GOOD_KEY, GOODED_KEY,
+  BORING_KEY, OPENED_KEY, SESSION_KEY];
+const BACKUP_ARRAY_KEYS = [READLOG_KEY];
+
+const HOW_LABEL = {
+  open: "開いた", swipe: "右へ払った", boring: "👎つまらない",
+  tidy: "テーマの✓片づけ", seen: "ここまで見た", found: "発掘の片づけ",
+  tidyall: "全部片づけ", pick: "選んで既読", all: "すべて既読",
+};
+const WHERE_LABEL = {
+  morning: "朝刊", shelf: "書庫", video: "動画", fresh: "新着画面", found: "発掘画面",
+  search: "検索", fav: "お気に入り", read: "読んだ記事",
+};
+
+function storageKeys() {
+  const keys = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf(BACKUP_PREFIX) === 0) keys.push(k);
+    }
+  } catch (e) { /* 読めない環境では空のまま */ }
+  return keys.sort();
+}
+
+// 今の端末の記録を { 名前: 保存されている文字列 } で写し取る
+function snapshotStorage() {
+  const out = {};
+  storageKeys().forEach(function (k) {
+    const v = lsGet(k, null);
+    if (v !== null) out[k] = v;
+  });
+  return out;
+}
+
+// ファイルでは読みやすいよう、中身が JSON のものは開いた形で持つ。
+// 戻すときは開いたものを文字列に、文字列はそのまま書く（元と一字一句同じになる）。
+function decodeValue(raw) {
+  try {
+    const v = JSON.parse(raw);
+    if (v !== null && typeof v === "object") return v;
+  } catch (e) { /* JSON でない値（"auto" など）は文字列のまま */ }
+  return raw;
+}
+
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+// 端末の時計（日本時間）で「2026-10-07 06:12:33」の形にする
+function fmtTime(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate())
+    + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+}
+
+function isPlainObject(v) { return v !== null && typeof v === "object" && !Array.isArray(v); }
+
+// 件数の数え方は「今の端末」と「ファイル」で同じにする（読み込む前に並べて見せるため）
+function countStorage(raw) {
+  function obj(k) { const v = decodeValue(raw[k] || "{}"); return isPlainObject(v) ? v : {}; }
+  const read = Object.keys(obj(READ_KEY));
+  const log = decodeValue(raw[READLOG_KEY] || "[]");
+  const srcs = {};
+  [GOOD_KEY, BORING_KEY, OPENED_KEY].forEach(function (k) {
+    Object.keys(obj(k)).forEach(function (s) { srcs[s] = 1; });
+  });
+  const known = [READ_KEY, FAV_KEY, READLOG_KEY, GOOD_KEY, BORING_KEY, OPENED_KEY];
+  return {
+    // 1記事につきリンクと見出しの2つの鍵を持つので、リンクの鍵の数を記事数の目安にする
+    read: read.filter(function (k) { return k.indexOf("t:") !== 0; }).length,
+    fav: Object.keys(obj(FAV_KEY)).length,
+    log: Array.isArray(log) ? log.length : 0,
+    sources: Object.keys(srcs).length,
+    other: Object.keys(raw).filter(function (k) { return known.indexOf(k) < 0; }).length,
+  };
+}
+
+// 分析用の写し。記事ごとに「テーマ・見出し・発信元・いつ・どう読んだか」を並べる。
+function buildAnalysis(raw) {
+  function obj(k) { const v = decodeValue(raw[k] || "{}"); return isPlainObject(v) ? v : {}; }
+  const read = obj(READ_KEY);
+  const fav = obj(FAV_KEY);
+  const log = decodeValue(raw[READLOG_KEY] || "[]");
+
+  // 見出しの鍵（t:…）から記事を引く表。今の蓄積とお気に入りから作る
+  const byTitle = {};
+  ALL_GROUPS.forEach(function (x) {
+    (x.group.items || []).forEach(function (a) { const k = titleKey(a); if (k && !byTitle[k]) byTitle[k] = a; });
+  });
+  Object.keys(fav).forEach(function (k) {
+    const a = fav[k];
+    if (!a) return;
+    const t = titleKey(a);
+    if (t && !byTitle[t]) byTitle[t] = a;
+  });
+  function themeOf(a) { return GROUP_OF[a.link] || ""; }
+  // 同じ記事を1行にまとめるための名札。短い見出しは鍵を作らないので、テーマと見出しで代える
+  function idOf(theme, title) {
+    return titleKey({ title: title }) || ("s:" + theme + "|" + title);
+  }
+
+  const rows = {};   // 名札 → { theme, title, source, acts }
+  function row(theme, title, source) {
+    const id = idOf(theme, title);
+    if (!rows[id]) rows[id] = { theme: theme, title: title, source: source, acts: [] };
+    return rows[id];
+  }
+
+  // 1) これから先の記録（どの操作で既読にしたかが分かる）
+  (Array.isArray(log) ? log : []).forEach(function (r) {
+    if (!Array.isArray(r)) return;
+    if (r[1] === "all") return;   // 「すべて既読」の目印は下の markers に分けて出す
+    row(r[3] || "", r[4] || "", r[5] || "").acts.push(
+      [fmtTime(r[0]), HOW_LABEL[r[1]] || String(r[1] || ""), WHERE_LABEL[r[2]] || String(r[2] || "")]);
+  });
+
+  // 2) これまでの既読（操作は分からない）。上の記録に同じ記事があれば足さない
+  const unknown = [];
+  const seen = {};
+  Object.keys(read).forEach(function (k) {
+    const a = k.indexOf("t:") === 0 ? byTitle[k] : (BY_LINK[k] || fav[k]);
+    if (!a) {
+      // 蓄積から消えた記事。リンクの鍵と見出しの鍵が別の行に出る（同じ時刻なら同じ記事のことが多い）
+      unknown.push(k.indexOf("t:") === 0
+        ? { time: fmtTime(read[k]), title_key: k.slice(2) }
+        : { time: fmtTime(read[k]), link: k });
+      return;
+    }
+    const theme = themeOf(a);
+    const title = String(a.title || "").slice(0, READLOG_TITLE_MAX);
+    const id = idOf(theme, title);
+    if (seen[id]) return;   // リンクと見出しの2つの鍵で同じ記事に2回当たる
+    seen[id] = 1;
+    const r = row(theme, title, sourceOf(a));
+    if (!r.acts.length) r.acts.push([fmtTime(read[k]), "不明（v1.29.0より前）", ""]);
+  });
+
+  const list = Object.keys(rows).map(function (id) { return rows[id]; });
+  list.forEach(function (r) { r.acts.sort(function (x, y) { return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0; }); });
+  list.sort(function (x, y) {
+    const a = x.acts[x.acts.length - 1][0], b = y.acts[y.acts.length - 1][0];
+    return a < b ? 1 : a > b ? -1 : 0;
+  });
+
+  const markers = (Array.isArray(log) ? log : []).filter(function (r) { return Array.isArray(r) && r[1] === "all"; })
+    .map(function (r) { return { time: fmtTime(r[0]), what: HOW_LABEL.all + r[4] }; });
+
+  const favList = Object.keys(fav).map(function (k) {
+    const a = fav[k] || {};
+    return { saved: fmtTime(a.saved_at), theme: themeOf(a), title: a.title || "", source: sourceOf(a), link: a.link || "" };
+  }).sort(function (x, y) { return x.saved < y.saved ? 1 : -1; });
+
+  const good = obj(GOOD_KEY), boring = obj(BORING_KEY), opened = obj(OPENED_KEY);
+  const sources = {};
+  [good, boring, opened].forEach(function (src) { Object.keys(src).forEach(function (s) { sources[s] = {}; }); });
+  Object.keys(sources).forEach(function (s) {
+    sources[s] = { good: good[s] || 0, boring: boring[s] || 0, opened: opened[s] || 0 };
+  });
+
+  const logTimes = (Array.isArray(log) ? log : []).map(function (r) { return r[0]; }).filter(Boolean);
+  return {
+    summary: {
+      read_articles: list.length,
+      read_unknown_keys: unknown.length,
+      log_rows: logTimes.length,
+      log_since: logTimes.length ? fmtTime(Math.min.apply(null, logTimes)) : "",
+      fav: favList.length,
+      sources: Object.keys(sources).length,
+    },
+    read: list,
+    read_unknown: unknown,
+    markers: markers,
+    fav: favList,
+    sources: sources,
+  };
+}
+
+function buildBackup() {
+  const raw = snapshotStorage();
+  const storage = {};
+  Object.keys(raw).forEach(function (k) { storage[k] = decodeValue(raw[k]); });
+  return {
+    app: "mynews",
+    kind: "backup",
+    format: BACKUP_FORMAT,
+    version: APP_VERSION,
+    exported_at: fmtTime(Date.now()),
+    data_generated_at: (window.NEWS_DATA || {}).generated_at || "",
+    guide: {
+      analysis: "分析用の写し（読み込みでは使わない）。read は1記事1行で、acts に [いつ, どの操作で, どの画面で] を古い順に並べる",
+      read_unknown: "蓄積から消え、何の記事か引けなかった既読の鍵。link か title_key（見出しの先頭30字・記号抜き）だけが分かる",
+      sources: "発信元ごとの 👍(good)・👎(boring)・開いた回数(opened)",
+      storage: "復元用。端末に保存している記録そのもの（⚙設定の「読み込む」で戻す）",
+    },
+    analysis: buildAnalysis(raw),
+    storage: storage,
+  };
+}
+
+function backupFileName() {
+  const d = new Date();
+  return "mynews-backup-" + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate())
+    + "-" + pad2(d.getHours()) + pad2(d.getMinutes()) + ".json";
+}
+
+// ファイルとして保存させる（Android の Chrome では「ダウンロード」フォルダに入る）
+function downloadBackup() {
+  const text = JSON.stringify(buildBackup());
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = backupFileName();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+  return text.length;
+}
+
+// 読み込もうとしているファイルを調べる。何を渡されても例外を外へ出さない。
+// 返り値：{ ok: true, storage: {名前: 文字列}, info } か { ok: false, msg }
+function parseBackup(text) {
+  const NG = { ok: false, msg: "マイニュースの記録ファイルではありません。何も変えていません。" };
+  let obj;
+  try { obj = JSON.parse(String(text == null ? "" : text)); } catch (e) { return NG; }
+  if (!isPlainObject(obj) || obj.app !== "mynews" || !isPlainObject(obj.storage)) return NG;
+  if (typeof obj.format === "number" && obj.format > BACKUP_FORMAT) {
+    return { ok: false, msg: "新しい版のアプリで書き出したファイルです。アプリを最新にしてから読み込んでください。" };
+  }
+  const storage = {};
+  let skipped = 0;
+  Object.keys(obj.storage).forEach(function (k) {
+    const v = obj.storage[k];
+    if (k.indexOf(BACKUP_PREFIX) !== 0 || k === BEFORE_IMPORT_KEY) { skipped += 1; return; }
+    if (BACKUP_OBJECT_KEYS.indexOf(k) >= 0 && !isPlainObject(v)) { skipped += 1; return; }
+    if (BACKUP_ARRAY_KEYS.indexOf(k) >= 0 && !Array.isArray(v)) { skipped += 1; return; }
+    if (typeof v === "string") storage[k] = v;
+    else if (typeof v === "number" || typeof v === "boolean") storage[k] = String(v);
+    else if (v !== null && typeof v === "object") storage[k] = JSON.stringify(v);
+    else skipped += 1;
+  });
+  if (!Object.keys(storage).length) {
+    return { ok: false, msg: "ファイルに記録が入っていませんでした。何も変えていません。" };
+  }
+  return {
+    ok: true, storage: storage,
+    info: {
+      exported_at: String(obj.exported_at || ""), version: String(obj.version || ""),
+      skipped: skipped, file: countStorage(storage), now: countStorage(snapshotStorage()),
+    },
+  };
+}
+
+// 端末の記録を、渡された中身に入れ替える。途中で書けなくなったら元に戻して false を返す。
+function replaceStorage(storage) {
+  const before = snapshotStorage();
+  function put(src) {
+    let ok = true;
+    storageKeys().forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { ok = false; } });
+    Object.keys(src).forEach(function (k) {
+      try { localStorage.setItem(k, src[k]); } catch (e) { ok = false; }
+    });
+    return ok;
+  }
+  if (put(storage)) return true;
+  put(before);
+  return false;
+}
+
+// 読み込みを確定する。直前の記録をこのタブの間だけ控えておく。
+function applyBackup(storage) {
+  let kept = false;
+  try {
+    sessionStorage.setItem(BEFORE_IMPORT_KEY,
+      JSON.stringify({ at: Date.now(), notice: true, storage: snapshotStorage() }));
+    kept = true;
+  } catch (e) { /* 控えを置けなかった */ }
+  if (!kept && !confirm("今の記録の控えを残せませんでした。置き換えると元に戻せません。続けますか？")) {
+    return false;
+  }
+  if (!replaceStorage(storage)) {
+    alert("端末に書き込めませんでした。記録は元のままです。");
+    return false;
+  }
+  return true;
+}
+
+function beforeImport() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(BEFORE_IMPORT_KEY) || "null");
+    return isPlainObject(v) && isPlainObject(v.storage) ? v : null;
+  } catch (e) { return null; }
+}
+
+// 設定の中の1段。書き出し・読み込みのボタンと、読み込む前の確認を出す。
+function backupRow() {
+  const c = countStorage(snapshotStorage());
+  const since = READLOG.length ? READLOG[0][0] : 0;
+  let h = '<div class="srow backup"><span>記録の控え（機種変更・分析用）'
+    + "<small>既読 約" + c.read + "件・お気に入り " + c.fav + "件・読み方の記録 " + c.log + "件"
+    + (since ? "（" + dayLabel(since) + "から）" : "") + "</small></span>"
+    + '<button class="tool-btn" type="button" id="backup-export">⬇ 書き出す</button>'
+    + '<button class="tool-btn" type="button" id="backup-import">⬆ 読み込む</button></div>'
+    // Android では accept で絞ると .json を選べなくなることがあるので、絞らずに中身で見分ける
+    + '<input type="file" id="backup-file" hidden>';
+  const prev = beforeImport();
+  if (prev) {
+    h += '<div class="srow"><span>読み込む前の記録<small>このタブを閉じるまで戻せます</small></span>'
+      + '<button class="tool-btn" type="button" id="import-undo">↩ 読み込む前に戻す</button></div>';
+  }
+  const p = IMPORT_PREVIEW;
+  if (p && !p.ok) {
+    h += '<div class="trouble-list import-box"><p>⚠ ' + esc(p.msg) + "</p>"
+      + '<button class="tool-btn" type="button" id="import-cancel">閉じる</button></div>';
+  } else if (p) {
+    const f = p.info.file, n = p.info.now;
+    const line = function (label, a, b) {
+      return "<tr><td>" + label + "</td><td>" + a + "</td><td><b>" + b + "</b></td></tr>";
+    };
+    h += '<div class="trouble-list import-box">'
+      + "<p>このファイルの中身" + (p.info.exported_at ? "（" + esc(p.info.exported_at) + " に書き出し"
+        + (p.info.version ? "・" + esc(p.info.version) : "") + "）" : "") + "</p>"
+      + "<table><tr><td></td><td>今の端末</td><td>ファイル</td></tr>"
+      + line("既読（約）", n.read, f.read)
+      + line("お気に入り", n.fav, f.fav)
+      + line("読み方の記録", n.log, f.log)
+      + line("👍👎・開いた数の発信元", n.sources, f.sources)
+      + line("そのほかの設定", n.other, f.other)
+      + "</table>"
+      + (p.info.skipped ? "<p>形の合わない記録 " + p.info.skipped + " 件は読み込みません。</p>" : "")
+      + "<p><b>置き換え</b>です（合わせるのではありません）。今の端末の記録はファイルの中身に入れ替わります。"
+      + "置き換えたあとも、このタブを閉じるまでは「読み込む前に戻す」で戻せます。</p>"
+      + '<div class="import-btns"><button class="tool-btn on" type="button" id="import-apply">この内容に置き換える</button>'
+      + '<button class="tool-btn" type="button" id="import-cancel">やめる</button></div></div>';
+  }
+  return h;
 }
 
 // ---- きょうの新着だけの画面 ------------------------------------------------
@@ -1684,12 +2116,15 @@ function rerender() {
 // テーマ内の記事をまとめて既読にする
 // まとめて片づける（既読にする）。確認のダイアログは出さず、押したあとで戻せるようにする。
 // スワイプと同じ考え方：迷わず押せて、間違えたら5秒以内に戻す。
-function tidyUp(items, label) {
+// how / where は「どう読んだか」の記録に残す操作と画面（logRead を参照）。
+function tidyUp(items, label, how, where) {
   if (!items.length) return;
   const done = items.slice();
   done.forEach(markRead);
+  const rows = logRead(done, how, where);
   pushUndo(label + " " + done.length + "件を片づけました", function () {
     done.forEach(unmarkRead);
+    unlogRead(rows);
   });
 }
 
@@ -1720,10 +2155,13 @@ APP.addEventListener("click", function (ev) {
       return;
     }
     if (ev.target.closest("#pick-read")) {
+      const picked = [];
       SELECTED.forEach(function (key) {
         const a = BY_LINK[key] || { link: key, title: "" };
         markRead(a);
+        picked.push(a);
       });
+      logRead(picked, "pick", screenOf(null));
       SELECTED.clear();
       SELECT_MODE = false;
       rerender();
@@ -1786,6 +2224,7 @@ APP.addEventListener("click", function (ev) {
     if (!a) return;
     tally(BORING_KEY, BORING, a);
     markRead(a);
+    const rows = logRead([a], "boring", screenOf(boring));
     pushUndo("つまらないとして片づけました", function () {
       const k = sourceOf(a);
       if (BORING[k]) { BORING[k] -= 1; if (!BORING[k]) delete BORING[k]; }
@@ -1794,6 +2233,7 @@ APP.addEventListener("click", function (ev) {
       const t = titleKey(a);
       if (t) delete READ[t];
       saveRead(READ);
+      unlogRead(rows);
     });
     const y = window.scrollY;
     rerender();
@@ -1885,7 +2325,7 @@ APP.addEventListener("click", function (ev) {
     const entry = ALL_GROUPS.find(function (x) { return x.group.name === name; });
     const rows = [].slice.call(document.querySelectorAll("[data-fresh-open]"));
     const idx = rows.findIndex ? rows.findIndex(function (r) { return r.dataset.freshOpen === name; }) : -1;
-    if (entry) tidyUp((entry.group.items || []).filter(isFresh), "「" + name + "」の新着");
+    if (entry) tidyUp((entry.group.items || []).filter(isFresh), "「" + name + "」の新着", "seen", "morning");
     FRESH_OPEN[name] = false;
     ssSave();
     rerender();
@@ -1922,7 +2362,7 @@ APP.addEventListener("click", function (ev) {
     if (!entry) return;
     const y0 = window.scrollY;
     tidyUp((entry.group.items || []).filter(FOUND_TODAY ? isFoundToday : isFound),
-      "「" + entry.group.name + "」の発掘");
+      "「" + entry.group.name + "」の発掘", "found", screenOf(null));
     rerender();
     window.scrollTo(0, y0);
     return;
@@ -1932,7 +2372,8 @@ APP.addEventListener("click", function (ev) {
     const entry = ALL_GROUPS.find(function (x) { return x.group.name === readFresh.dataset.fresh; });
     if (!entry) return;
     const y = window.scrollY;
-    tidyUp((entry.group.items || []).filter(isFresh), "「" + entry.group.name + "」の新着");
+    tidyUp((entry.group.items || []).filter(isFresh), "「" + entry.group.name + "」の新着",
+      "tidy", SHOW_FRESH ? "fresh" : "morning");
     rerender();
     window.scrollTo(0, y);
     return;
@@ -1940,7 +2381,7 @@ APP.addEventListener("click", function (ev) {
   if (ev.target.closest("#tidy-all-fresh")) {
     const items = [];
     ALL_GROUPS.forEach(function (x) { (x.group.items || []).filter(isFresh).forEach(function (a) { items.push(a); }); });
-    tidyUp(items, "きょうの新着");
+    tidyUp(items, "きょうの新着", "tidyall", SHOW_FRESH ? "fresh" : "morning");
     rerender();
     window.scrollTo(0, 0);
     return;
@@ -2041,14 +2482,54 @@ APP.addEventListener("click", function (ev) {
   // 設定の開閉
   if (ev.target.closest("#toggle-settings")) {
     SETTINGS_OPEN = !SETTINGS_OPEN;
+    if (!SETTINGS_OPEN) IMPORT_PREVIEW = null;
     rerender();
+    return;
+  }
+  // 記録の書き出し・読み込み
+  if (ev.target.closest("#backup-export")) {
+    try {
+      const size = downloadBackup();
+      toast("書き出しました（" + Math.max(1, Math.round(size / 1024)) + "KB）");
+    } catch (e) {
+      toast("書き出せませんでした：" + String(e && e.message || e));
+    }
+    return;
+  }
+  if (ev.target.closest("#backup-import")) {
+    const input = document.getElementById("backup-file");
+    if (input) { input.value = ""; input.click(); }
+    return;
+  }
+  if (ev.target.closest("#import-cancel")) {
+    IMPORT_PREVIEW = null;
+    rerender();
+    return;
+  }
+  if (ev.target.closest("#import-apply")) {
+    const p = IMPORT_PREVIEW;
+    IMPORT_PREVIEW = null;
+    if (p && p.ok && applyBackup(p.storage)) { location.reload(); return; }
+    rerender();
+    return;
+  }
+  if (ev.target.closest("#import-undo")) {
+    const prev = beforeImport();
+    if (!prev || !confirm("読み込む前の記録に戻します。よろしいですか？")) return;
+    if (!replaceStorage(prev.storage)) { alert("端末に書き込めませんでした。記録は今のままです。"); return; }
+    try { sessionStorage.removeItem(BEFORE_IMPORT_KEY); } catch (e) { /* 消せなくても続行 */ }
+    location.reload();
     return;
   }
   // すべて既読（取り返しがつかないので確認する）
   if (ev.target.closest("#read-everything")) {
     if (!confirm("表示中のすべての記事を既読にします。よろしいですか？")) return;
-    ALL_GROUPS.forEach(function (x) { markGroupRead(x.group.items); });
+    let n = 0;
+    ALL_GROUPS.forEach(function (x) { markGroupRead(x.group.items); n += (x.group.items || []).length; });
     saveRead(READ);
+    // 全件を1行ずつ残すと、ほかの記録が押し出されてしまう。「すべて既読にした」の1行だけ残す
+    READLOG.push([Date.now(), "all", "", "", "（" + n + "件をまとめて既読）", ""]);
+    saveReadLog();
     rerender();
     window.scrollTo(0, 0);
     return;
@@ -2091,6 +2572,7 @@ APP.addEventListener("click", function (ev) {
     const a = BY_LINK[link.dataset.link] || { link: link.dataset.link, title: "" };
     tally(OPENED_KEY, OPENED, a);
     markRead(a);
+    logRead([a], "open", screenOf(link));
     const card = link.closest(".card");
     if (card) card.classList.add("read");
   }
@@ -2230,10 +2712,12 @@ APP.addEventListener("touchend", function () {
     if (dx > 0) {
       const link = a.link, key = titleKey(a);
       markRead(a);
+      const rows = logRead([a], "swipe", screenOf(card));
       pushUndo("既読にしました", function () {
         if (link) delete READ[link];
         if (key) delete READ[key];
         saveRead(READ);
+        unlogRead(rows);
       });
     } else {
       const was = isFav(a);
@@ -2285,6 +2769,22 @@ APP.addEventListener("input", function (ev) {
   scheduleSearch(ev.target.value, 250);
 });
 
+// 読み込むファイルが選ばれたら、中身を調べて確認の表を出す（まだ何も変えない）
+APP.addEventListener("change", function (ev) {
+  if (!ev.target.matches("#backup-file")) return;
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  function show(p) { IMPORT_PREVIEW = p; SETTINGS_OPEN = true; rerender(); }
+  if (file.size > BACKUP_FILE_MAX) {
+    show({ ok: false, msg: "ファイルが大きすぎます（マイニュースの記録ではないようです）。何も変えていません。" });
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function () { show(parseBackup(reader.result)); };
+  reader.onerror = function () { show({ ok: false, msg: "ファイルを読めませんでした。何も変えていません。" }); };
+  reader.readAsText(file);
+});
+
 // data.js（<script src> で先に読み込まれ window.NEWS_DATA に入っている）を描画。
 try {
   const data = window.NEWS_DATA;
@@ -2299,6 +2799,13 @@ try {
   });
   // ※「最後に開いた時刻」の記録は上（NEW_BASE の算出直後）で済ませている。
   //   ここで更新すると、再読み込みのたびに基準が動いて NEW が消えてしまう。
+  // 記録を読み込んで開き直した直後だけ、知らせを出す
+  const prev = beforeImport();
+  if (prev && prev.notice) {
+    prev.notice = false;
+    try { sessionStorage.setItem(BEFORE_IMPORT_KEY, JSON.stringify(prev)); } catch (e) { /* 続行 */ }
+    toast("記録を読み込みました（設定の「読み込む前に戻す」で戻せます）");
+  }
 } catch (err) {
   APP.innerHTML = '<div class="loaderr">ニュースデータを読み込めませんでした。'
     + "<br><small>" + esc(String(err)) + "</small></div>";

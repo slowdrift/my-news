@@ -11,3 +11,6 @@ _site/
 # Python
 __pycache__/
 *.pyc
+
+# ⚙設定の「書き出す」で作った記録ファイル（個人の閲覧記録なので、リポジトリに入れない）
+mynews-backup-*.json
