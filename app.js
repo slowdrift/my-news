@@ -279,8 +279,8 @@ let SHOW_FAV = lsGet(SHOWFAV_KEY, "0") === "1";
 let HIDE_LOCKED = lsGet(HIDELOCK_KEY, "0") === "1";
 
 // 個人ブログの9割は、Googleの中継URLのため機械では質を測れない。
-// そこで「つまらない」と押した回数と、実際に開いた回数を発信元ごとに数える。
-// この2つを並べると、切ってよい発信元が見えてくる。
+// そこで「良かった（👍）」と押した回数と、実際に開いた回数を発信元ごとに数える。
+// （「つまらない（👎）」の回数も数えていたが、v1.31.0 でやめた。判断は読み方の記録で行う）
 function loadTally(key) {
   try { return JSON.parse(lsGet(key, "{}") || "{}"); } catch (e) { return {}; }
 }
@@ -553,11 +553,11 @@ function metaRow(a) {
     + (t ? '<span class="time">' + esc(t) + "</span>" : "");
   const k = favKey(a);
   // 👍 は「この発信元をもっと」の票。読むつもりの記事なので既読にはしない。
-  // 👎 は「もう要らない」の票。こちらは片づける（既読にする）。
+  // 👎 は「読まずに片づける」印。発信元の回数は数えない（v1.31.0）。
   const good = '<button class="good' + (GOODED[k] ? " on" : "") + '" type="button" data-good="'
     + esc(k) + '" title="良かった。この発信元を大事にします">👍</button>';
   const boring = '<button class="boring" type="button" data-boring="'
-    + esc(k) + '" title="つまらない。以後この発信元を見直す材料にします">👎</button>';
+    + esc(k) + '" title="つまらない。読まずに片づけます（発信元の評価には数えません）">👎</button>';
   return '<div class="meta">' + inner + '<span class="votes">' + good + boring + "</span></div>";
 }
 
@@ -755,30 +755,43 @@ function troubled(sources) {
 
 // 取れなかった配信元の知らせは、設定の中に置く。
 // 毎朝見る場所に出しても、読めないことに変わりはなく判断は変わらないため。
-// 「つまらない」と押した回数を、発信元ごとに集計して見せる。
-// 押した数だけでなく「開いた数」も並べる。よく開く発信元なら、
-// たまたま1本つまらなかっただけかもしれないため。
-function boringRow() {
-  const names = [];
-  [GOOD, BORING, OPENED].forEach(function (src) {
-    Object.keys(src).forEach(function (k) { if (names.indexOf(k) < 0) names.push(k); });
+//
+// 発信元ごとの読み方。読み方の記録（v1.29.0 から）を発信元でまとめ、
+// 「開いた」と「開かずに片づけた（払った・✓片づけ・ここまで見た・👎など）」を並べる。
+// 以前は👎を押した回数を発信元ごとに数えていたが、押すと note など媒体まるごとが
+// 悪者になるので、ほとんど押されていなかった（v1.31.0 で数えるのをやめた。これまでの回数は端末に残してある）。
+const SOURCE_ROWS_MAX = 100;   // 表に出す発信元の数（多い順）
+function sourceRow() {
+  const tally = {};
+  READLOG.forEach(function (r) {
+    if (!Array.isArray(r) || r[1] === "all") return;   // 「すべて既読」の目印は1記事の記録ではない
+    const k = r[5] || "（発信元不明）";
+    if (!tally[k]) tally[k] = { k: k, o: 0, p: 0, g: 0 };
+    if (r[1] === "open") tally[k].o += 1; else tally[k].p += 1;
   });
-  if (!names.length) return "";
-  const votes = names.filter(function (k) { return GOOD[k] || BORING[k]; }).length;
-  let h = '<div class="srow"><span>良かった・つまらないの記録</span>'
-    + '<button class="tool-btn" type="button" id="show-boring">' + votes
+  Object.keys(GOOD).forEach(function (k) {
+    if (!tally[k]) tally[k] = { k: k, o: 0, p: 0, g: 0 };
+    tally[k].g = GOOD[k] || 0;
+  });
+  const rows = Object.keys(tally).map(function (k) { return tally[k]; })
+    .sort(function (a, b) { return (b.o + b.p) - (a.o + a.p) || b.g - a.g; });
+  if (!rows.length) return "";
+  const since = READLOG.length ? READLOG[0][0] : 0;
+  let h = '<div class="srow"><span>発信元ごとの読み方'
+    + (since ? "<small>読み方の記録（" + esc(dayLabel(since)) + "から）で数えています</small>" : "")
+    + '</span><button class="tool-btn" type="button" id="show-boring">' + rows.length
     + "件の発信元</button></div>";
   if (BORING_OPEN) {
-    const rows = names.map(function (k) {
-      return { k: k, g: GOOD[k] || 0, n: BORING[k] || 0, o: OPENED[k] || 0 };
-    }).sort(function (a, b) { return (b.g + b.n) - (a.g + a.n) || b.o - a.o; });
     h += '<div class="trouble-list"><table>'
-      + rows.map(function (r) {
-        return "<tr><td>" + esc(r.k) + "</td><td>" + (r.g ? "👍" + r.g : "")
-          + "</td><td>" + (r.n ? "👎" + r.n : "") + "</td><td>開いた" + r.o + "</td></tr>";
+      + "<tr><td></td><td>開いた</td><td>流した</td><td></td></tr>"
+      + rows.slice(0, SOURCE_ROWS_MAX).map(function (r) {
+        return "<tr><td>" + esc(r.k) + "</td><td>" + r.o + "</td><td>" + r.p
+          + "</td><td>" + (r.g ? "👍" + r.g : "") + "</td></tr>";
       }).join("")
       + "</table>"
-      + "<p>👎が多く開いた数が0に近い発信元は、除外の相談ができます。"
+      + (rows.length > SOURCE_ROWS_MAX ? "<p>ほかに " + (rows.length - SOURCE_ROWS_MAX) + "件の発信元があります。</p>" : "")
+      + "<p>「流した」は、開かずに片づけた数（払った・✓片づけ・ここまで見た・👎など）です。"
+      + "開いた数が0で流した数の多い発信元は、外す相談ができます。"
       + "👍が多い発信元は、情報源として増やせないか調べられます。</p></div>";
   }
   return h;
@@ -1035,7 +1048,7 @@ function toolbar(sources) {
       + '<div class="srow"><span>読んだ記事をふり返る</span>'
       + '<button class="tool-btn" type="button" id="show-read">📖 読んだ記事</button></div>'
       + orderRow()
-      + boringRow()
+      + sourceRow()
       + troubleRow(sources)
       + backupRow()
       + '<details class="howto"><summary>使い方</summary><ul>'
@@ -1047,8 +1060,8 @@ function toolbar(sources) {
       + "<li>記事右上の<b>☆</b>は、一覧から消えても残る保存です</li>"
       + "<li>テーマ名を押すと<b>畳めます</b>（並び順は設定の「並べ替え」で変えられます）</li>"
       + "<li><b>📖読んだ記事</b>は、読んだ順にさかのぼって見直せます</li>"
-      + "<li>記事の<b>👍</b>は「この発信元をもっと」、<b>👎</b>は「もう要らない」の印です"
-      + "（👍は既読にしません）</li>"
+      + "<li>記事の<b>👍</b>は「この発信元をもっと」の印です（既読にしません）。"
+      + "<b>👎</b>は「読まずに片づける」印です（発信元の評価には数えません）</li>"
       + "<li>見出しの<b>⚠</b>は、取得できなかった配信元がある印です</li>"
       + "<li><b>⬇ 書き出す</b>は、この端末だけにある記録（既読・お気に入り・👍👎など）をファイルに保存します。"
       + "機種変更やデータを消したあとは<b>⬆ 読み込む</b>で戻せます</li>"
@@ -1348,7 +1361,7 @@ function buildBackup() {
     guide: {
       analysis: "分析用の写し（読み込みでは使わない）。read は1記事1行で、acts に [いつ, どの操作で, どの画面で] を古い順に並べる",
       read_unknown: "蓄積から消え、何の記事か引けなかった既読の鍵。link か title_key（見出しの先頭30字・記号抜き）だけが分かる",
-      sources: "発信元ごとの 👍(good)・👎(boring)・開いた回数(opened)",
+      sources: "発信元ごとの 👍(good)・👎(boring。v1.31.0 からは数えていない)・開いた回数(opened)",
       storage: "復元用。端末に保存している記録そのもの（⚙設定の「読み込む」で戻す）",
     },
     analysis: buildAnalysis(raw),
@@ -2217,19 +2230,16 @@ APP.addEventListener("click", function (ev) {
     window.scrollTo(0, y0);
     return;
   }
-  // 👎 つまらない（記事は開かない）
+  // 👎 つまらない（記事は開かない）。片づけて、読み方の記録に「👎」と残すだけ。
+  // 発信元ごとの回数は数えない（v1.31.0。媒体まるごとが悪者になるのを避けるため）
   const boring = ev.target.closest(".boring");
   if (boring) {
     ev.preventDefault();
     const a = BY_LINK[boring.dataset.boring] || FAV[boring.dataset.boring];
     if (!a) return;
-    tally(BORING_KEY, BORING, a);
     markRead(a);
     const rows = logRead([a], "boring", screenOf(boring));
     pushUndo("つまらないとして片づけました", function () {
-      const k = sourceOf(a);
-      if (BORING[k]) { BORING[k] -= 1; if (!BORING[k]) delete BORING[k]; }
-      lsSet(BORING_KEY, JSON.stringify(BORING));
       if (a.link) delete READ[a.link];
       const t = titleKey(a);
       if (t) delete READ[t];
@@ -2421,7 +2431,7 @@ APP.addEventListener("click", function (ev) {
     window.scrollTo(0, 0);
     return;
   }
-  // つまらないと押した記録
+  // 発信元ごとの読み方の表を開く・閉じる
   if (ev.target.closest("#show-boring")) {
     BORING_OPEN = !BORING_OPEN;
     rerender();
