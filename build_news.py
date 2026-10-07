@@ -666,7 +666,8 @@ def expand_topic(entry):
         for key in ("prefer", "demote", "blog_last", "keep", "no_ng",
                     "min_views", "views_exempt", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections",
+                    "related_also"):
             if key in entry:
                 feed[key] = entry[key]
         # 検索語に site: が入っているフィード（例: "生成AI" 使い方 site:note.com）は、
@@ -704,7 +705,8 @@ def expand_topic(entry):
         for key in ("exclude", "prefer", "demote", "blog_last", "keep",
                     "no_ng", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
-                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections", "require_also"):
+                    "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections", "require_also",
+                    "related_also"):
             if key in entry and entry[key] != []:
                 site_feed[key] = entry[key]
         if entry.get("fresh_only"):
@@ -1630,6 +1632,7 @@ def main():
     link_rules = {}       # テーマの見出しに置く入口リンク（X・TVer など）
     curate_rules = {}     # 読みごたえのある記事だけに絞るテーマ
     quiet_sec_rules = {}  # 朝刊（新着）に出さない小分類（企業の発表など。書庫には残す）
+    related_rules = {}    # 「関連」（見出しにテーマ名が無い記事）に求める語
     ng_title_groups = set()  # NG語を見出しだけで判定するテーマ
     video_groups = set()  # 動画フィードを持つテーマ
     for feeds in feeds_by_cat.values():
@@ -1663,6 +1666,8 @@ def main():
                 curate_rules[g] = f["curate"]
             if f.get("quiet_sections"):
                 quiet_sec_rules[g] = f["quiet_sections"]
+            if f.get("related_also"):
+                related_rules[g] = f["related_also"]
             for x in f.get("links") or []:
                 have_urls = {y["url"] for y in link_rules.get(g, [])}
                 if x.get("url") and x["url"] not in have_urls:
@@ -2075,6 +2080,20 @@ def main():
                     del a["related"]
                 if a.get("blog"):
                     a["corp"] = looks_like_corp(a.get("via", ""), a.get("title", ""))
+
+            # 「関連」の記事は、related_also の語が見出しにあるときだけ残す（蓄積済みの分にも当てる）。
+            # サイト指定検索は見出しにテーマ名が無くても拾うので、Claude Code の検索に
+            # 鉄道の運休や動画編集ソフトの記事が混ざっていた。媒体まるごとは外さず、
+            # AIの話かどうかを見出しで見分ける（大文字小文字は区別する。"AI" が "mail" に当たらないように）。
+            ra = related_rules.get(g)
+            if ra:
+                n0 = len(merged)
+                merged[:] = [a for a in merged
+                             if not a.get("related") or any(w in (a.get("title") or "") for w in ra)]
+                if len(merged) < n0:
+                    line = f"整理: {g} の「関連」のうちAIの話でない{n0 - len(merged)}件を削除"
+                    log_lines.append(line)
+                    print(line)
 
             # 並べ替え：新しい順 →「読めないもの・個人ブログは後ろ」の順に安定ソート。
             # 先に読める報道を持ってくることで、冒頭が有料記事だらけになるのを防ぐ。
