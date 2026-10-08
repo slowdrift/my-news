@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.31.0";
+const APP_VERSION = "v1.32.0";
 const CHANGELOG = [
+  ["v1.32.0", "2026-10-09", "新着で「動画」「人物・作品」をそれぞれ1行にまとめた（開くとテーマ名で区切る）。新着画面の並びを朝刊とそろえた"],
   ["v1.31.0", "2026-10-08", "保有株の CSV を読み込み、含み損益と取得利回りを表示（この端末だけ）。ウォッチ銘柄を増やして会社のニュースを朝刊の先頭に。前日比の誤りを修正。👎は発信元の回数を数えず、設定に発信元ごとの読み方を表示"],
   ["v1.30.0", "2026-10-07", "生成AIの使いこなしから導入ニュースを外し、自治体の成果事例を別テーマに。Claude Code は読む傾向の記事を前に"],
   ["v1.29.0", "2026-10-07", "端末の記録をファイルに書き出し・読み込めるように。既読にした操作（開いた・片づけた等）も記録"],
@@ -1788,7 +1789,19 @@ function holdingsRow() {
 // テーマの並びは feeds.json 順のまま動かさず（毎日同じ場所にある安心感を保つ）、
 // 別の入口として「新着だけ」を集める。
 
-// 新着のあるテーマを、設定の並び順で（動画は後ろ）
+// 新着でテーマを1行にまとめるカテゴリ（feeds.json のカテゴリに "fresh_merge": true）
+function mergeCats() {
+  const out = {};
+  ((window.NEWS_DATA || {}).categories || []).forEach(function (c) { if (c.fresh_merge) out[c.name] = true; });
+  return out;
+}
+
+// 新着の「行」を、設定の並び順で（動画は後ろ）。朝刊と新着画面はどちらもこれを使う。
+// 行はふつうテーマ1つ。まとめるカテゴリ（動画・人物・作品）は、カテゴリ1つで1行にし、
+// 中のテーマを members に持つ（1〜2件のテーマが1行ずつ並び、開く・片づけるが増えていたため。CODE_TASK_03）。
+// key は開閉・片づけの目印。まとめた行は "cat:" を付けてテーマ名と区別する
+// （カテゴリ「テレビ情報」とテーマ「テレビ情報」のように、同じ名前があるため）。
+// まとめた行は、中のテーマのうち一番前のものの位置に置く。
 function freshBlocks() {
   const sorted = sortByOrder(ALL_GROUPS.filter(function (x) { return !isVideoGroup(x.group); }))
     .concat(sortByOrder(ALL_GROUPS.filter(function (x) { return isVideoGroup(x.group); })));
@@ -1796,10 +1809,27 @@ function freshBlocks() {
   // 持っている会社のニュースは、他より先に目に入ってほしいというご要望のため（CODE_TASK_02 ③）。
   const ordered = sorted.filter(function (x) { return x.group.top; })
     .concat(sorted.filter(function (x) { return !x.group.top; }));
-  return ordered.map(function (x) {
+  const merge = mergeCats();
+  const out = [];
+  const byCat = {};
+  ordered.forEach(function (x) {
     const items = (x.group.items || []).filter(isFresh);
-    return items.length ? { name: x.group.name, cat: x.cat, items: items } : null;
-  }).filter(Boolean);
+    if (!items.length) return;
+    const one = { key: x.group.name, name: x.group.name, cat: x.cat, items: items };
+    if (!merge[x.cat]) { out.push(one); return; }
+    let b = byCat[x.cat];
+    if (!b) {
+      b = byCat[x.cat] = { key: "cat:" + x.cat, name: x.cat, cat: x.cat, items: [], members: [] };
+      out.push(b);
+    }
+    b.members.push(one);
+    b.items = b.items.concat(items);
+  });
+  return out;
+}
+
+function freshBlockByKey(key) {
+  return freshBlocks().find(function (b) { return b.key === key; }) || null;
 }
 
 // 件数の多いテーマは、開いても最初の数枚だけ見せ、残りはボタンの奥に置く
@@ -1828,25 +1858,41 @@ function morningUnits(b) {
   return units;
 }
 
+// 行の「まとまり」。まとめた行は、中のテーマごとに並べ、どのテーマの記事かを持たせる
+function blockUnits(b) {
+  if (!b.members) return morningUnits(b);
+  const units = [];
+  b.members.forEach(function (m) {
+    morningUnits(m).forEach(function (u) {
+      u.member = m.name;
+      u.memberCount = m.items.length;
+      units.push(u);
+    });
+  });
+  return units;
+}
+
 // 朝刊でテーマを開いたときのカード。小分類のあるテーマは小見出しを入れて並べる
-// （20件が1列に並ぶと読みたいものを探しにくい）。
+// （20件が1列に並ぶと読みたいものを探しにくい）。まとめた行は、テーマ名（チャンネル名）を小見出しにする。
 function freshCards(b) {
   IN_MORNING = true;
   let h = "";
   try {
-    const units = morningUnits(b);
-    const split = b.items.length >= MORNING_SPLIT && !MORE_OPEN[b.name] && units.length > MORNING_SHOW;
-    let sec;
+    const units = blockUnits(b);
+    const split = b.items.length >= MORNING_SPLIT && !MORE_OPEN[b.key] && units.length > MORNING_SHOW;
+    let head;
     (split ? units.slice(0, MORNING_SHOW) : units).forEach(function (u) {
-      if (u.sec !== null && u.sec !== sec) {
-        h += '<div class="msec">' + esc(u.sec) + "<i>" + u.secCount + "</i></div>";
+      const label = b.members ? u.member : u.sec;
+      const count = b.members ? u.memberCount : u.secCount;
+      if (label !== null && label !== undefined && label !== head) {
+        h += '<div class="msec">' + esc(label) + "<i>" + count + "</i></div>";
       }
-      sec = u.sec;
-      h += topicCards(b.name, u.items);
+      head = label;
+      h += topicCards(u.member || b.name, u.items);
     });
     if (split) {
       const rest = units.slice(MORNING_SHOW).reduce(function (t, u) { return t + u.items.length; }, 0);
-      h += '<button class="mmore" type="button" data-fresh-more="' + esc(b.name) + '">'
+      h += '<button class="mmore" type="button" data-fresh-more="' + esc(b.key) + '">'
         + "▾ 残り" + rest + "件を見る</button>";
     }
   } finally { IN_MORNING = false; }
@@ -1856,11 +1902,20 @@ function freshCards(b) {
 // 閉じたテーマの行の下に、代表の見出しを2本まで出す（Google ニュースのまとめ方）。
 // 開かなくても「読むか、片づけるか」を決められるように。押すとテーマが開く。
 // 長い見出しは1行で切る（画面の幅で「…」になるだけで、要約はしない）。
+// まとめた行は、中身の種類が分かるよう、テーマごとに1本ずつ選んでテーマ名を添える。
 function freshPeek(b) {
-  const units = morningUnits(b).slice(0, PEEK_MAX);
+  let units = blockUnits(b);
+  if (b.members) {
+    const firsts = [], seen = {};
+    units.forEach(function (u) { if (!seen[u.member]) { seen[u.member] = 1; firsts.push(u); } });
+    units = firsts.concat(units.filter(function (u) { return firsts.indexOf(u) < 0; }));
+  }
+  units = units.slice(0, PEEK_MAX);
   if (!units.length) return "";
-  return '<button class="mpeek" type="button" data-fresh-peek="' + esc(b.name) + '">'
-    + units.map(function (u) { return "<span>" + esc(u.items[0].title) + "</span>"; }).join("")
+  return '<button class="mpeek" type="button" data-fresh-peek="' + esc(b.key) + '">'
+    + units.map(function (u) {
+      return "<span>" + (u.member ? "<b>" + esc(u.member) + "</b>" : "") + esc(u.items[0].title) + "</span>";
+    }).join("")
     + "</button>";
 }
 
@@ -2056,17 +2111,17 @@ function morningEdition() {
     h += '<div class="mdone">✓ きょうの分はおしまいです。新しい記事は次の更新で届きます。</div>';
   } else {
     blocks.forEach(function (b) {
-      const open = !!FRESH_OPEN[b.name];
+      const open = !!FRESH_OPEN[b.key];
       const bs = b.items.filter(isSinceLast).length;
       h += '<div class="mtheme' + (open ? " open" : "") + '"><div class="mrow">'
-        + '<button class="mname" type="button" data-fresh-open="' + esc(b.name) + '">'
+        + '<button class="mname" type="button" data-fresh-open="' + esc(b.key) + '">'
         + '<span class="mcaret">' + (open ? "▾" : "▸") + "</span>" + esc(b.name) + "</button>"
         + '<span class="mnum">' + b.items.length + "</span>"
         + (bs && bs < b.items.length ? '<span class="since" title="前回見てから届いた数">●' + bs + "</span>" : "")
-        + '<button class="read-all mtidy" type="button" data-fresh="' + esc(b.name)
+        + '<button class="read-all mtidy" type="button" data-fresh="' + esc(b.key)
         + '" title="このテーマの新着を片づける（あとで戻せます）">✓ 片づけ</button></div>'
         + (open ? freshCards(b)
-            + '<button class="mseen" type="button" data-fresh-done="' + esc(b.name) + '">'
+            + '<button class="mseen" type="button" data-fresh-done="' + esc(b.key) + '">'
             + "✓ ここまで見た（" + b.items.length + "件を片づけて次へ）</button>" : freshPeek(b))
         + "</div>";
     });
@@ -2106,13 +2161,9 @@ function ssSave(extra) {
 let FRESH_OPEN = ssGet().open || {};
 
 function renderFreshView(data) {
-  // 並びは設定の「テーマの並べ替え」の順。動画は記事の後ろへ。
-  const ordered = sortByOrder(ALL_GROUPS.filter(function (x) { return !isVideoGroup(x.group); }))
-    .concat(sortByOrder(ALL_GROUPS.filter(function (x) { return isVideoGroup(x.group); })));
-  const blocks = ordered.map(function (x) {
-    const items = (x.group.items || []).filter(isFresh);
-    return items.length ? { name: x.group.name, cat: x.cat, items: items } : null;
-  }).filter(Boolean);
+  // 行の分け方・並びは朝刊と同じ（freshBlocks）。以前はここだけ別に作っていて、
+  // ウォッチ銘柄のニュースを先頭に出す並びが新着画面に効いていなかった。
+  const blocks = freshBlocks();
   const total = blocks.reduce(function (n, b) { return n + b.items.length; }, 0);
 
   const parts = ["<header><h1>⚡ きょうの新着</h1>"
@@ -2130,20 +2181,23 @@ function renderFreshView(data) {
       + "新しい記事は次の更新で届きます。古い記事や発掘は「← 書庫へ」でいつでも読めます。</div>");
   } else {
     blocks.forEach(function (b) {
-      const open = !!FRESH_OPEN[b.name];
+      const open = !!FRESH_OPEN[b.key];
       const since = b.items.filter(isSinceLast).length;
+      // まとめた行は、テーマ名（チャンネル名）の小見出しで区切る
+      const cards = b.members
+        ? b.members.map(function (m) {
+          return '<div class="msec">' + esc(m.name) + "<i>" + m.items.length + "</i></div>"
+            + m.items.map(function (a) { return renderCard(a, false, false); }).join("");
+        }).join("")
+        : b.items.map(function (a) { return renderCard(a, false, false); }).join("");
       parts.push('<section class="group' + (open ? "" : " folded hasnew") + '"><h3 class="ghead">'
-        + '<button class="gname" type="button" data-fresh-open="' + esc(b.name) + '">'
+        + '<button class="gname" type="button" data-fresh-open="' + esc(b.key) + '">'
         + (open ? "▾ " : "▸ ") + esc(b.name) + "</button>"
         + '<span class="gcount">' + b.items.length + "件</span>"
         + (since ? '<span class="since">●前回から ' + since + "</span>" : "")
-        + '<button class="read-all" type="button" data-fresh="' + esc(b.name)
+        + '<button class="read-all" type="button" data-fresh="' + esc(b.key)
         + '" title="このテーマの新着を片づける（あとで戻せます）">✓ 片づけ</button></h3>'
-        + (open
-          ? '<div class="gitems expanded">'
-            + b.items.map(function (a) { return renderCard(a, false, false); }).join("")
-            + "</div>"
-          : "")
+        + (open ? '<div class="gitems expanded">' + cards + "</div>" : "")
         + "</section>");
     });
   }
@@ -2610,12 +2664,13 @@ APP.addEventListener("click", function (ev) {
   }
   const seenBtn = ev.target.closest("[data-fresh-done]");
   if (seenBtn) {
-    const name = seenBtn.dataset.freshDone;
-    const entry = ALL_GROUPS.find(function (x) { return x.group.name === name; });
+    // 行の目印（テーマ名、まとめた行は "cat:カテゴリ名"）。まとめた行は中の全テーマの新着を片づける
+    const key = seenBtn.dataset.freshDone;
+    const block = freshBlockByKey(key);
     const rows = [].slice.call(document.querySelectorAll("[data-fresh-open]"));
-    const idx = rows.findIndex ? rows.findIndex(function (r) { return r.dataset.freshOpen === name; }) : -1;
-    if (entry) tidyUp((entry.group.items || []).filter(isFresh), "「" + name + "」の新着", "seen", "morning");
-    FRESH_OPEN[name] = false;
+    const idx = rows.findIndex ? rows.findIndex(function (r) { return r.dataset.freshOpen === key; }) : -1;
+    if (block) tidyUp(block.items, "「" + block.name + "」の新着", "seen", "morning");
+    FRESH_OPEN[key] = false;
     ssSave();
     rerender();
     // 片づけたテーマの行は消えるので、同じ位置に来た「次のテーマ」へ移る
@@ -2658,11 +2713,10 @@ APP.addEventListener("click", function (ev) {
   }
   const readFresh = ev.target.closest(".read-all[data-fresh]");
   if (readFresh) {
-    const entry = ALL_GROUPS.find(function (x) { return x.group.name === readFresh.dataset.fresh; });
-    if (!entry) return;
+    const block = freshBlockByKey(readFresh.dataset.fresh);
+    if (!block) return;
     const y = window.scrollY;
-    tidyUp((entry.group.items || []).filter(isFresh), "「" + entry.group.name + "」の新着",
-      "tidy", SHOW_FRESH ? "fresh" : "morning");
+    tidyUp(block.items, "「" + block.name + "」の新着", "tidy", SHOW_FRESH ? "fresh" : "morning");
     rerender();
     window.scrollTo(0, y);
     return;

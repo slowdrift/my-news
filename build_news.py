@@ -1632,6 +1632,10 @@ def main():
     generated_at = now.strftime("%Y-%m-%d %H:%M")
 
     feeds_by_cat = load_feeds(FEEDS_FILE)
+    # 新着（朝刊・新着画面）でテーマを1行にまとめるカテゴリ（feeds.json のカテゴリに "fresh_merge": true）。
+    # 1〜2件しかないテーマが1行ずつ並び、開く・片づけるの操作が増えていたため（CODE_TASK_03）。
+    fresh_merge_cats = {c.get("name") for c in json.loads(FEEDS_FILE.read_text(encoding="utf-8")).get("categories", [])
+                        if c.get("fresh_merge")}
 
     categories_out = []   # 出力用：[{name, groups:[...]}, ...]
     cat_items = []        # [(カテゴリ名, 記事リスト), ...] 有料判定の後にまとめる
@@ -2214,7 +2218,10 @@ def main():
                                "top": g in top_rules,
                                "sections": [x.get("name") for x in secs] if secs else None,
                                "links": link_rules.get(g) or None})
-        categories_out.append({"name": cat, "groups": groups_out})
+        cat_out = {"name": cat, "groups": groups_out}
+        if cat in fresh_merge_cats:
+            cat_out["fresh_merge"] = True
+        categories_out.append(cat_out)
 
     # 蓄積を保存（次回以降、未読の記事が消えないようにするため）
     save_archive(ARCHIVE_FILE, archive)
