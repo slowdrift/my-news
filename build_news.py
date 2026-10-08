@@ -1374,6 +1374,21 @@ def prev_close(result):
     return prev
 
 
+def year_range(result):
+    """取ってきた日足（1年分）の高値・安値と、日数を返す。取れなければ (None, None, 0)。
+
+    高値・安値はその日の値幅（high・low）から取る。欠けていれば終値で代える。
+    上場して1年たっていない銘柄は日数が少なくなるので、画面で「○か月分」と添えるのに使う。
+    """
+    q = ((result.get("indicators") or {}).get("quote") or [{}])[0]
+    closes = [c for c in (q.get("close") or []) if c is not None]
+    highs = [h for h in (q.get("high") or []) if h is not None] or closes
+    lows = [lo for lo in (q.get("low") or []) if lo is not None] or closes
+    if not highs or not lows:
+        return None, None, 0
+    return max(highs), min(lows), len(closes)
+
+
 def year_dividend(result):
     """過去1年に支払われた1株配当の合計。記録が無ければ None（無配か、取れなかったか区別できないため）。"""
     divs = ((result.get("events") or {}).get("dividends") or {}).values()
@@ -1414,6 +1429,13 @@ def fetch_stocks(items):
             div = year_dividend(result)
             if div is not None:
                 row["div"] = div
+            # 1年の高値・安値（買い増しの目安に、いまがその間のどのあたりかを画面で示す。CODE_TASK_04 ②）。
+            # 今の値が日足の範囲の外にあれば（取引中の値など）、範囲を広げて合わせる
+            hi, lo, days = year_range(result)
+            if hi is not None and lo is not None:
+                row["hi"] = round(max(hi, price), 2)
+                row["lo"] = round(min(lo, price), 2)
+                row["days"] = days
             out.append(row)
         except Exception as e:
             print(f"株価 {code}: 取得できず（{type(e).__name__}）")

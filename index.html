@@ -16,6 +16,7 @@
     --videos-bg:#fdf2f2;   /* 動画ブロックの下地（記事と見分けるため） */
     --pick-bg:#eff6ff;     /* 選択中のカード */
     --up:#b91c1c; --down:#1d4ed8;   /* 株価の上げ・下げ（日本の慣習で上げは赤） */
+    --role-long:#0f766e; --role-perk:#b45309;   /* ウォッチ銘柄の役割の札（長期保有・優待） */
     --fs:1;           /* 文字サイズの倍率 */
   }
   /* 端末が暗い設定のとき（手動指定が無い＝自動のとき）だけ暗くする */
@@ -29,6 +30,7 @@
       --videos-bg:#1a1416;
       --pick-bg:#16233a;
       --up:#f87171; --down:#93c5fd;
+      --role-long:#5eead4; --role-perk:#fbbf24;
     }
   }
   /* 手動で「暗い」を選んだとき */
@@ -41,6 +43,7 @@
     --videos-bg:#1a1416;
     --pick-bg:#16233a;
     --up:#f87171; --down:#93c5fd;
+    --role-long:#5eead4; --role-perk:#fbbf24;
   }
   /* 文字サイズ */
   :root[data-font="s"] { --fs:.92; }
@@ -381,6 +384,47 @@
     font-size: calc(12px * var(--fs)); font-variant-numeric: tabular-nums;
   }
   .stocks .stotal small { display: block; margin-top: 3px; color: var(--sub); font-size: calc(10.5px * var(--fs)); }
+  /* 「持っている」「気になる」の区切り */
+  .stocks .ssec {
+    display: flex; align-items: center; gap: 6px; margin: 8px 0 2px;
+    font-size: calc(11.5px * var(--fs)); font-weight: 800; color: var(--sub);
+  }
+  .stocks .ssec i { font-style: normal; font-weight: 400; }
+  /* 2行目：配当と利回り・1年の位置 */
+  .stocks .sinfo {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; padding: 1px 0;
+    font-size: calc(11px * var(--fs)); color: var(--sub); font-variant-numeric: tabular-nums;
+  }
+  .stocks .sinfo b { color: var(--ink); }
+  .stocks .sinfo.muted b { color: var(--sub); font-weight: 400; }   /* 長期保有・優待は高配当の物差しで見ない */
+  /* 1年の位置：安値・棒・高値を決まった幅の枠に入れて右へ寄せる（29銘柄で棒の位置をそろえ、点だけで見比べられるように） */
+  .stocks .sr {
+    margin-left: auto; display: inline-grid; grid-template-columns: 7.2em 64px 5.2em; align-items: center;
+    white-space: nowrap;
+  }
+  .stocks .sr .slo { text-align: right; }
+  .stocks .sr .shi { text-align: left; }
+  .stocks .sr small { font-size: calc(10px * var(--fs)); }
+  .stocks .sr .sshort { grid-column: 1 / -1; text-align: right; }
+  /* 1年の安値〜高値の棒と、いまの位置の点 */
+  .stocks .srange {
+    position: relative; display: inline-block; width: 56px; height: 4px; margin: 0 4px;
+    border-radius: 2px; background: var(--line);
+  }
+  .stocks .srange i {
+    position: absolute; top: -3px; width: 10px; height: 10px; margin-left: -5px;
+    border-radius: 50%; background: var(--accent);
+  }
+  /* 役割の札（押すと替わる） */
+  .stocks .srole {
+    margin-left: 6px; padding: 1px 7px; min-height: 24px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: transparent; color: var(--sub);
+    font-size: calc(10px * var(--fs)); font-weight: 600; white-space: nowrap;
+  }
+  /* 既定の「高配当」は全行に出るので、枠を消して控えめにする（押せることは変わらない） */
+  .stocks .srole.r-div { border-color: transparent; opacity: .75; }
+  .stocks .srole.r-long { color: var(--role-long); border-color: var(--role-long); }
+  .stocks .srole.r-perk { color: var(--role-perk); border-color: var(--role-perk); }
   /* 書き出しの「保有株も入れる」 */
   .hold-opt { display: inline-flex; align-items: center; gap: 4px; font-size: calc(11.5px * var(--fs)); white-space: nowrap; }
 
