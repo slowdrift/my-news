@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.33.0";
+const APP_VERSION = "v1.34.0";
 const CHANGELOG = [
+  ["v1.34.0", "2026-10-11", "新着で「地元」「海外ニュース」もそれぞれ1行にまとめ、アクアワールド大洗とアーミル・カーンを行の先頭に。アーミル・カーンは海外ニュースのカテゴリへ"],
   ["v1.33.0", "2026-10-09", "ウォッチ銘柄に、いまの株価での配当利回りと1年の高値・安値の中の位置を表示。持っている銘柄を上に分け、高配当・長期保有・優待の札を付けられるように（この端末だけ）"],
   ["v1.32.0", "2026-10-09", "新着で「動画」「人物・作品」をそれぞれ1行にまとめた（開くとテーマ名で区切る）。新着画面の並びを朝刊とそろえた"],
   ["v1.31.0", "2026-10-08", "保有株の CSV を読み込み、含み損益と取得利回りを表示（この端末だけ）。ウォッチ銘柄を増やして会社のニュースを朝刊の先頭に。前日比の誤りを修正。👎は発信元の回数を数えず、設定に発信元ごとの読み方を表示"],
@@ -1871,11 +1872,14 @@ function mergeCats() {
 }
 
 // 新着の「行」を、設定の並び順で（動画は後ろ）。朝刊と新着画面はどちらもこれを使う。
-// 行はふつうテーマ1つ。まとめるカテゴリ（動画・人物・作品）は、カテゴリ1つで1行にし、
+// 行はふつうテーマ1つ。まとめるカテゴリ（動画・人物・作品・地元・海外ニュース）は、カテゴリ1つで1行にし、
 // 中のテーマを members に持つ（1〜2件のテーマが1行ずつ並び、開く・片づけるが増えていたため。CODE_TASK_03）。
 // key は開閉・片づけの目印。まとめた行は "cat:" を付けてテーマ名と区別する
 // （カテゴリ「テレビ情報」とテーマ「テレビ情報」のように、同じ名前があるため）。
 // まとめた行は、中のテーマのうち一番前のものの位置に置く。
+// 行の中では「先頭に出す」印（feeds.json の merge_top）のテーマを件数に関係なく前に置く
+// （件数の多い茨城のニュース・海外ニュースと一緒にすると、大洗・アーミル・カーンが
+//  「残り◯件」の奥に沈むため。CODE_TASK_05 ①②）。のぞき見も開いたカードも、この順に並ぶ。
 function freshBlocks() {
   const sorted = sortByOrder(ALL_GROUPS.filter(function (x) { return !isVideoGroup(x.group); }))
     .concat(sortByOrder(ALL_GROUPS.filter(function (x) { return isVideoGroup(x.group); })));
@@ -1889,7 +1893,7 @@ function freshBlocks() {
   ordered.forEach(function (x) {
     const items = (x.group.items || []).filter(isFresh);
     if (!items.length) return;
-    const one = { key: x.group.name, name: x.group.name, cat: x.cat, items: items };
+    const one = { key: x.group.name, name: x.group.name, cat: x.cat, items: items, first: !!x.group.merge_top };
     if (!merge[x.cat]) { out.push(one); return; }
     let b = byCat[x.cat];
     if (!b) {
@@ -1897,7 +1901,13 @@ function freshBlocks() {
       out.push(b);
     }
     b.members.push(one);
-    b.items = b.items.concat(items);
+  });
+  // まとめた行の中を「先頭に出す」テーマ → ほかのテーマ の順にし、記事もその順で持たせる
+  Object.keys(byCat).forEach(function (c) {
+    const b = byCat[c];
+    b.members = b.members.filter(function (m) { return m.first; })
+      .concat(b.members.filter(function (m) { return !m.first; }));
+    b.items = b.members.reduce(function (all, m) { return all.concat(m.items); }, []);
   });
   return out;
 }

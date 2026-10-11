@@ -668,7 +668,7 @@ def expand_topic(entry):
                     "min_views", "views_exempt", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
                     "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections",
-                    "related_also", "no_backfill", "top"):
+                    "related_also", "no_backfill", "top", "merge_top"):
             if key in entry:
                 feed[key] = entry[key]
         # 検索語に site: が入っているフィード（例: "生成AI" 使い方 site:note.com）は、
@@ -738,7 +738,14 @@ def load_feeds(path: Path):
         # （例: 地元のニュースは情報源が3つあるが、除外語は1か所に書けば足りる）
         shared = cat.get("shared") or {}
         for f0 in cat.get("feeds", []):
-            f = dict(shared, **f0) if shared else f0
+            # 自分で別のテーマ名（group）を書いたフィードには乗せない。
+            # 海外ニュースに移したアーミル・カーンに、海外ニュース用の「10日で書庫から消す」
+            # 「1日10件まで」などが乗ってしまうため（CODE_TASK_05 ②）。
+            mine = f0.get("group")
+            if shared and (mine is None or mine == shared.get("group")):
+                f = dict(shared, **f0)
+            else:
+                f = f0
             if f.get("topic"):
                 items.extend(expand_topic(f))
                 continue
@@ -1686,6 +1693,7 @@ def main():
     daily_rules = {}      # テーマごとの「1日に新着として名乗れる数」
     minor_rules = set()   # ときどき見れば良いテーマ
     top_rules = set()     # 朝刊で一番上に出すテーマ
+    merge_top_rules = set()  # 新着でまとめた行の中で先頭に出すテーマ
     fresh_rules = {}      # 期限つき情報のテーマ（何日で捨てるか）
     exclude_rules = {}    # テーマごとのNG語（貯めてある分にも当て直す）
     keepif_rules = {}     # NG語に当たっても残す救済語
@@ -1751,6 +1759,10 @@ def main():
             # 朝刊で一番上に出すテーマ（ウォッチ銘柄のニュース）。並べ替えの設定より優先する。
             if f.get("top"):
                 top_rules.add(g)
+            # まとめた行（地元・海外ニュースなど）の中で、件数に関係なく先頭に出すテーマ。
+            # 件数の少ない大洗・アーミル・カーンが「残り◯件」の奥に沈まないように（CODE_TASK_05 ①②）。
+            if f.get("merge_top"):
+                merge_top_rules.add(g)
             # 期限つきの情報（セール等）は、古くなったら蓄積からも消す。
             # 「消さずに貯める」の例外。終わったセールは読んでも仕方がないため。
             if f.get("fresh_only"):
@@ -2238,6 +2250,7 @@ def main():
             groups_out.append({"name": g, "items": items,
                                "minor": g in minor_rules,
                                "top": g in top_rules,
+                               "merge_top": g in merge_top_rules,
                                "sections": [x.get("name") for x in secs] if secs else None,
                                "links": link_rules.get(g) or None})
         cat_out = {"name": cat, "groups": groups_out}

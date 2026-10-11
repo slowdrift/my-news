@@ -25,7 +25,9 @@
     "",
     "■ 新着でカテゴリをまとめて1行にする",
     "  カテゴリの name の次に \"fresh_merge\": true を足すと、朝刊と新着画面で、そのカテゴリのテーマの新着を1行にまとめます。",
-    "  開くとテーマ名の小見出しで区切って並べます。書庫のテーマはそのままです（今は「人物・作品」と「動画」）。",
+    "  開くとテーマ名の小見出しで区切って並べます。書庫のテーマはそのままです（今は「人物・作品」「地元」「動画」「海外ニュース」）。",
+    "  まとめた行の中で、件数に関係なく先頭に出したいテーマには \"merge_top\": true を足します",
+    "  （今はアクアワールド大洗とアーミル・カーン。件数の多いテーマの「残り◯件」の奥に沈まないように）。",
     "",
     "■ このファイルについて",
     "  GitHub上のこのファイルが本番で使われます。編集して Commit すると数分で公開ページに反映されます。",
@@ -406,7 +408,6 @@
           "exclude": [
             "サンフラワーズ",
             "野球",
-            "バスケ",
             "Wリーグ",
             "都市対抗",
             "選手"
@@ -605,6 +606,10 @@
             "ヤマダＨＤ",
             "ヤマダデンキ",
             "ヤマダ電機"
+          ],
+          "exclude": [
+            "陸上男子",
+            "陸上女子"
           ]
         },
         {
@@ -866,114 +871,6 @@
           ]
         },
         {
-          "topic": "アーミル・カーン",
-          "topic_en": "\"Aamir Khan\"",
-          "sources": [
-            "gnews_ja",
-            "gnews_in"
-          ],
-          "require": [
-            "アーミル・カーン",
-            "アーミル",
-            "きっとうまくいく",
-            "3 Idiots"
-          ],
-          "require_en": [
-            "Aamir Khan",
-            "Aamir"
-          ],
-          "require_also": [
-            "映画",
-            "公開",
-            "続編",
-            "出演",
-            "監督",
-            "主演",
-            "来日",
-            "上映",
-            "配信",
-            "受賞",
-            "アニメ",
-            "インタビュー",
-            "きっと、うまくいく",
-            "きっとうまくいく",
-            "3 idiots"
-          ],
-          "require_also_en": [
-            "film",
-            "movie",
-            "sequel",
-            "release",
-            "trailer",
-            "shoot",
-            "director",
-            "directs",
-            "box office",
-            "cinema",
-            "starrer",
-            "casting",
-            "teaser",
-            "poster",
-            "award",
-            "3 idiots",
-            "lagaan",
-            "dangal",
-            "taare zameen",
-            "sitaare",
-            "ghajini",
-            "swades"
-          ],
-          "exclude": [
-            "ex-husband",
-            "ex-wife",
-            "divorce",
-            "dating",
-            "girlfriend",
-            "boyfriend",
-            "breaks silence",
-            "slams",
-            "trolled",
-            "spotted",
-            "gossip",
-            "koffee with karan",
-            "birthday",
-            "netizens",
-            "viral",
-            "net worth",
-            "crore",
-            "paparazzi",
-            "roasts",
-            "hits back",
-            "blasted",
-            "slapped",
-            "scolding",
-            "scolded",
-            "熱愛",
-            "破局",
-            "離婚",
-            "不倫",
-            "炎上",
-            "私生活",
-            "responds to",
-            "denies",
-            "reacts to",
-            "row over"
-          ]
-        },
-        {
-          "topic": "\"きっとうまくいく\" アーミル",
-          "name": "きっと、うまくいく",
-          "group": "アーミル・カーン",
-          "sources": [
-            "gnews_ja"
-          ],
-          "require": [
-            "きっと、うまくいく",
-            "きっとうまくいく",
-            "アーミル"
-          ]
-        },
-        {
           "name": "沢木耕太郎（アラート）",
           "group": "沢木耕太郎",
           "url_env": "ALERT_SAWAKI_URL",
@@ -986,6 +883,7 @@
     },
     {
       "name": "地元",
+      "fresh_merge": true,
       "feeds": [
         {
           "name": "茨城新聞 県内ニュース",
@@ -1079,7 +977,8 @@
             "クーポン",
             "前売り券",
             "チケット販売"
-          ]
+          ],
+          "merge_top": true
         },
         {
           "name": "アクアワールド大洗（アラート）",
@@ -2913,6 +2812,7 @@
     },
     {
       "name": "海外ニュース",
+      "fresh_merge": true,
       "shared": {
         "group": "海外ニュース",
         "keep": 120,
@@ -2938,6 +2838,116 @@
         ]
       },
       "feeds": [
+        {
+          "topic": "アーミル・カーン",
+          "group": "アーミル・カーン",
+          "topic_en": "\"Aamir Khan\"",
+          "sources": [
+            "gnews_ja",
+            "gnews_in"
+          ],
+          "require": [
+            "アーミル・カーン",
+            "アーミル",
+            "きっとうまくいく",
+            "3 Idiots"
+          ],
+          "require_en": [
+            "Aamir Khan",
+            "Aamir"
+          ],
+          "require_also": [
+            "映画",
+            "公開",
+            "続編",
+            "出演",
+            "監督",
+            "主演",
+            "来日",
+            "上映",
+            "配信",
+            "受賞",
+            "アニメ",
+            "インタビュー",
+            "きっと、うまくいく",
+            "きっとうまくいく",
+            "3 idiots"
+          ],
+          "require_also_en": [
+            "film",
+            "movie",
+            "sequel",
+            "release",
+            "trailer",
+            "shoot",
+            "director",
+            "directs",
+            "box office",
+            "cinema",
+            "starrer",
+            "casting",
+            "teaser",
+            "poster",
+            "award",
+            "3 idiots",
+            "lagaan",
+            "dangal",
+            "taare zameen",
+            "sitaare",
+            "ghajini",
+            "swades"
+          ],
+          "exclude": [
+            "ex-husband",
+            "ex-wife",
+            "divorce",
+            "dating",
+            "girlfriend",
+            "boyfriend",
+            "breaks silence",
+            "slams",
+            "trolled",
+            "spotted",
+            "gossip",
+            "koffee with karan",
+            "birthday",
+            "netizens",
+            "viral",
+            "net worth",
+            "crore",
+            "paparazzi",
+            "roasts",
+            "hits back",
+            "blasted",
+            "slapped",
+            "scolding",
+            "scolded",
+            "熱愛",
+            "破局",
+            "離婚",
+            "不倫",
+            "炎上",
+            "私生活",
+            "responds to",
+            "denies",
+            "reacts to",
+            "row over"
+          ],
+          "merge_top": true
+        },
+        {
+          "topic": "\"きっとうまくいく\" アーミル",
+          "name": "きっと、うまくいく",
+          "group": "アーミル・カーン",
+          "sources": [
+            "gnews_ja"
+          ],
+          "require": [
+            "きっと、うまくいく",
+            "きっとうまくいく",
+            "アーミル"
+          ]
+        },
         {
           "name": "ロイター",
           "topic": "ロイター",
