@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.34.0";
+const APP_VERSION = "v1.35.0";
 const CHANGELOG = [
+  ["v1.35.0", "2026-10-12", "同じ出来事の記事を、言い回しが違っても1枚にまとめやすく（大きな出来事・同じ会社の決算）。ウォッチ銘柄のニュースは買い物情報・レビュー・掲示板などを朝刊に出さない（書庫には残る）。生成AIの使いこなしの古い記事を発掘に出さない"],
   ["v1.34.0", "2026-10-11", "新着で「地元」「海外ニュース」もそれぞれ1行にまとめ、アクアワールド大洗とアーミル・カーンを行の先頭に。アーミル・カーンは海外ニュースのカテゴリへ"],
   ["v1.33.0", "2026-10-09", "ウォッチ銘柄に、いまの株価での配当利回りと1年の高値・安値の中の位置を表示。持っている銘柄を上に分け、高配当・長期保有・優待の札を付けられるように（この端末だけ）"],
   ["v1.32.0", "2026-10-09", "新着で「動画」「人物・作品」をそれぞれ1行にまとめた（開くとテーマ名で区切る）。新着画面の並びを朝刊とそろえた"],
@@ -436,10 +437,13 @@ function isOldArticle(a) {
   return t < Date.now() - NEW_MAX_AGE_DAYS * 86400000;
 }
 
+// 朝刊（新着）に出さない記事の印（aside）。ウォッチ銘柄のニュースの買い物情報・掲示板・
+// 製品紹介など（feeds.json の aside で決め、build_news.py が付ける）。書庫には残る。CODE_TASK_06 ②
+
 // 前回見てから届いた未読の記事（古い記事の発掘は含めない）
 function isSinceLast(a) {
   // 1日の上限を超えて「新着」と名乗らない分（quiet）は、ここでも数えない
-  if (!SINCE_LAST || isRead(a) || a.quiet) return false;
+  if (!SINCE_LAST || isRead(a) || a.quiet || a.aside) return false;
   if (HIDE_LOCKED && isLocked(a)) return false;
   if (isOldArticle(a)) return false;
   const t = new Date(a.first_seen || "").getTime();
@@ -448,7 +452,8 @@ function isSinceLast(a) {
 
 // 初めて入ってきたのが最近で、記事そのものは古いもの＝「発掘」
 function isFound(a) {
-  if (isRead(a) || a.quiet) return false;
+  // nofound … 古い記事を発掘に出さないテーマ（feeds.json の no_found。生成AIの使いこなし。CODE_TASK_06 ③）
+  if (isRead(a) || a.quiet || a.aside || a.nofound) return false;
   if (HIDE_LOCKED && isLocked(a)) return false;
   return arrivedWithin(a, NEW_DAYS * 86400000) && isOldArticle(a);
 }
@@ -459,14 +464,14 @@ function isFoundToday(a) {
 }
 
 function isFresh(a) {
-  if (isRead(a) || a.quiet) return false;   // 1日の上限を超えた分は騒がない
+  if (isRead(a) || a.quiet || a.aside) return false;   // 1日の上限を超えた分・朝刊に出さない分は騒がない
   if (HIDE_LOCKED && isLocked(a)) return false;
   if (isOldArticle(a)) return false;   // 掘り出した古い記事は「発掘」で数える
   return arrivedWithin(a, FRESH_HOURS * 3600000);
 }
 
 function isNew(a) {
-  if (isRead(a) || a.quiet) return false;   // 1日の上限を超えた分は騒がない
+  if (isRead(a) || a.quiet || a.aside) return false;   // 1日の上限を超えた分・朝刊に出さない分は騒がない
   if (HIDE_LOCKED && isLocked(a)) return false;
   // 初めて開いた日より前に集まっていた記事には付けない。
   // 付けてしまうと、初回や情報源を増やした日に全件が光って意味をなさなくなる。
@@ -1116,6 +1121,7 @@ const GROUP_OF = {};     // リンク → テーマ名（記事そのものは�
     (c.groups || []).forEach(function (g) {
       ALL_GROUPS.push({ cat: c.name, group: g, video: isVideoGroup(g) });
       (g.items || []).forEach(function (a) {
+        if (g.no_found) a.nofound = true;   // 記事はテーマ名を持たないので、発掘の判定用に印を移す
         if (!a.link) return;
         BY_LINK[a.link] = a;
         if (!GROUP_OF[a.link]) GROUP_OF[a.link] = g.name;
@@ -2020,6 +2026,15 @@ const TOPIC_STOP = ["オープン", "ローカル", "リニューアル", "イ�
   // 実測：「イオンリテールnews」と「CBC news」の一致で、開業の記事と地震の記事を畳んだ
   "news"];
 
+// 配信の近い記事をつなぐとき（topicClusters の最後の条件）に数えない、どの話題にも出る漢字の語
+// （見出しを2文字ずつに刻んだ形で書く）。実測（CODE_TASK_06 ①）：「対象・最大・価格・販売」で
+// Amazon の別々の商品の宣伝を、「動画・解説」でグロービスの別々の解説動画をつないだ。
+const NEAR_STOP = ["対象", "最大", "特別", "別価", "価格", "販売", "提供", "供開", "開始", "公開", "開中",
+  "動画", "解説", "株式", "式会", "会社", "商品", "製品", "発売", "開催", "情報", "登場", "予約", "受付",
+  "発表", "記事", "一覧", "今日", "本日", "全国"];
+// 決算の記事に出る語。同じ会社の決算は、言い回しが違っても同じ出来事とみなす
+const EARN_RE = /決算|月期|増益|減益|増収|減収|純利益|経常|営業益|業績|上方修正|下方修正/;
+
 // 見出しから「目印の語」を取り出す。値は { 重み, かたまりの番号 }。
 // 漢字は2文字ずつに刻む（「日本公開作」と「日本公開決定」を突き合わせるため）が、
 // 同じかたまり（例：「常陸太田」）から出た一致は1つと数える。
@@ -2088,7 +2103,23 @@ function topicClusters(theme, items, pool) {
     const t = String(a.title || "").normalize("NFKC");
     return (t.match(/(?:part|vol\.?|第|#)\s*(?:\d+|[一二三四五六七八九十]+)|(?:\d+|[一二三四五六七八九十]+)\s*(?:回|話|夜|弾)/gi) || []).join(",");
   });
+  // 配信の近い記事どうしで、少しありふれた漢字の語（テーマ全体で15件以下）が重なるかたまりの数。
+  // カタカナ・英字の語は数えない（固有名詞がテーマの中でくり返し出て、別の出来事をつないだ。
+  // 実測：「アンソロピック」で Claude の別々の発表を、「サッカー」「ゴール」で別々の選手の初ゴールを）
+  const nearRuns = function (i, j) {
+    const ri = {}, rj = {};
+    Object.keys(words[i]).forEach(function (w) {
+      if (!words[j][w] || df[w] > 15 || !/^[一-龠々]+$/.test(w) || NEAR_STOP.indexOf(w) >= 0) return;
+      ri[words[i][w].run] = true;
+      rj[words[j][w].run] = true;
+    });
+    return Math.max(Object.keys(ri).length, Object.keys(rj).length);
+  };
   const same = function (i, j) {
+    const A = items[i], B = items[j];
+    // 会社のテーマ（ウォッチ銘柄）で、別の会社の記事は別の出来事（co は build_news.py が付ける）。
+    // 実測：別々の会社の「AI株価診断」のページが、ありふれた語の一致で畳まれていた
+    if (A.co && B.co && A.co !== B.co) return false;
     // ほぼ同じ見出し（同じ地震を2社が報じた等）。ただし数字が違えば別の回
     if (overlap(i, j) >= 0.6 && nums[i] === nums[j]) return true;
     const ri = {}, rj = {};
@@ -2099,7 +2130,17 @@ function topicClusters(theme, items, pool) {
       rj[words[j][w].run] = true;          // 相手の見出し側でも数え、多いほうを採る
       if (words[i][w].w >= 2 && df[w] <= 2) strong = true;
     });
-    return strong || Math.max(Object.keys(ri).length, Object.keys(rj).length) >= 3;
+    if (strong || Math.max(Object.keys(ri).length, Object.keys(rj).length) >= 3) return true;
+    // ここから下の2つは CODE_TASK_06 ①。どちらも連載の別の回（数字が違う）はつながない
+    if (nums[i] !== nums[j]) return false;
+    // 同じ会社の決算の記事は、配信が2日以内なら同じ出来事。会社名・「決算」はそのテーマでは
+    // ありふれた語で、上の条件ではつながらなかった（ビックカメラの決算が5件別々に並んだ）
+    if (A.co && A.co === B.co && days(A, B) <= 2
+        && EARN_RE.test(A.title || "") && EARN_RE.test(B.title || "")) return true;
+    // 大きな出来事は、その出来事の語（閲覧・県警・暫定など）がテーマの中で何度も出て
+    // 「ありふれた語」になり、上の条件ではつながらなかった（茨城県HP障害の16件が12枚に分かれた）。
+    // 配信が1日以内で、見出しの重なりが一定あり、少しありふれた漢字の語が2かたまり以上重なればつなぐ
+    return days(A, B) <= 1 && overlap(i, j) >= 0.15 && nearRuns(i, j) >= 2;
   };
   const days = function (a, b) { return Math.abs(new Date(a.dt || 0) - new Date(b.dt || 0)) / 86400000; };
   const used = {}, clusters = [];

@@ -305,6 +305,59 @@ def section_of(title: str, sections, blog: bool = False):
     return None
 
 
+# ---- 会社のテーマ（ウォッチ銘柄のニュース）------------------------------------
+# フィード1本が会社1社の検索になっているテーマ（feeds.json の per_company）。
+# 記事にどの会社の話かを付け（co）、画面で「別の会社の記事は同じ話題にまとめない」
+# 「同じ会社の決算の記事はまとめる」に使う（CODE_TASK_06 ①）。
+# 会社名は公開している stocks と同じ一覧なので、保有に関わる情報は増えない。
+
+def company_terms(feed):
+    """会社のフィードから、見出しでその会社を見分ける語を取り出す。
+
+    require（見出しに必須の語）があればそれを使う。無ければ検索語（topic）から
+    引用符と「-除外語」を外した残り（OR で並べた語）を使う。
+    """
+    if feed.get("require"):
+        return list(feed["require"])
+    t = re.sub(r"\s-\S+", "", feed.get("topic") or "").replace('"', "")
+    return [w.strip() for w in t.split(" OR ") if w.strip()] or [feed.get("name") or ""]
+
+
+def company_of(title: str, companies) -> str:
+    """見出しに出てくる会社を、feeds.json の並び順で最初に当たった1社だけ返す（無ければ空）。"""
+    for name, words in companies:
+        if any(w and w in (title or "") for w in words):
+            return name
+    return ""
+
+
+def is_aside(a, rule) -> bool:
+    """朝刊（新着）に出さない記事か（feeds.json の aside。CODE_TASK_06 ②）。
+
+    書庫には残す（判定を誤っても後から読めるように）。見出しと発信元だけで判断する。
+      always   … 必ず出さない（掲示板・株価チャートなど、記事でないページ）
+      always_patterns … always の正規表現版（Yahoo!ファイナンスの銘柄ページ「(株)○○【1234】：…」）
+      words    … 見出しにあれば出さない（買い物情報・レビュー・製品紹介・同じ名前の別物など）
+      patterns … words の正規表現版（地域の店舗の話「【川口市】…」など）
+      via      … 発信元。Yahoo!ニュース経由は見出しの末尾の「（媒体名）」でも見る
+      keep     … 見出しにあれば words・patterns・via に当たっても出す（決算・配当・提携など）
+    言葉で一律に外すと中身のある記事まで落ちるので、keep を優先する。
+    """
+    t = a.get("title") or ""
+    if any(w in t for w in rule.get("always") or []):
+        return True
+    if any(re.search(p, t) for p in rule.get("always_patterns") or []):
+        return True
+    if any(w in t for w in rule.get("keep") or []):
+        return False
+    if any(w in t for w in rule.get("words") or []):
+        return True
+    if any(re.search(p, t) for p in rule.get("patterns") or []):
+        return True
+    via = a.get("via") or ""
+    return any(v in via or ("（" + v) in t or ("(" + v) in t for v in rule.get("via") or [])
+
+
 # ---- 同じ記事の付属ページ ----------------------------------------------------
 # 1本の記事が「画像だけのページ」や「2ページ目」として別々に入ってくる
 # （実測：電ファミの1本の記事が、本体＋画像ページ3つ＋記事一覧の5件になっていた）。
@@ -668,7 +721,8 @@ def expand_topic(entry):
                     "min_views", "views_exempt", "minor", "fresh_only",
                     "keep_if", "via_exclude", "daily_max", "foreign_ok",
                     "sale_check", "require_always", "exclude_in", "sections", "links", "deep", "curate", "allow_pr", "quiet_sections",
-                    "related_also", "no_backfill", "top", "merge_top"):
+                    "related_also", "no_backfill", "top", "merge_top",
+                    "aside", "per_company", "no_found"):
             if key in entry:
                 feed[key] = entry[key]
         # 検索語に site: が入っているフィード（例: "生成AI" 使い方 site:note.com）は、
@@ -1708,6 +1762,9 @@ def main():
     related_rules = {}    # 「関連」（見出しにテーマ名が無い記事）に求める語
     ng_title_groups = set()  # NG語を見出しだけで判定するテーマ
     video_groups = set()  # 動画フィードを持つテーマ
+    aside_rules = {}      # 朝刊（新着）に出さない記事の決まり（書庫には残す）
+    company_groups = set()   # フィード1本＝会社1社のテーマ（記事に会社名を付ける）
+    no_found_groups = set()  # 古い記事を「発掘」に出さないテーマ
     for feeds in feeds_by_cat.values():
         for f in feeds:
             g = f.get("group") or f.get("name")
@@ -1763,6 +1820,14 @@ def main():
             # 件数の少ない大洗・アーミル・カーンが「残り◯件」の奥に沈まないように（CODE_TASK_05 ①②）。
             if f.get("merge_top"):
                 merge_top_rules.add(g)
+            # ウォッチ銘柄のニュースで、買い物情報・掲示板などを朝刊に出さない（CODE_TASK_06 ②）
+            if f.get("aside"):
+                aside_rules[g] = f["aside"]
+            if f.get("per_company"):
+                company_groups.add(g)
+            # AIの使い方の記事は数か月で古くなるので、古い記事を発掘に出さない（CODE_TASK_06 ③）
+            if f.get("no_found"):
+                no_found_groups.add(g)
             # 期限つきの情報（セール等）は、古くなったら蓄積からも消す。
             # 「消さずに貯める」の例外。終わったセールは読んでも仕方がないため。
             if f.get("fresh_only"):
@@ -1773,6 +1838,16 @@ def main():
                 topic_words.setdefault(g, []).extend(f["require"])
             if f.get("site_search"):
                 site_groups.add(g)
+
+    # 会社のテーマは、フィード（会社）ごとに見出しで見分ける語を持つ。feeds.json の並び順のまま
+    company_words = {}
+    for feeds in feeds_by_cat.values():
+        for f in feeds:
+            g = f.get("group") or f.get("name")
+            if g in company_groups:
+                # フィード名は「タマホーム（Googleニュース）」の形なので、後ろの（情報源）を外して会社名にする
+                co_name = re.sub(r"（[^（）]*）$", "", f.get("name") or "")
+                company_words.setdefault(g, []).append((co_name, company_terms(f)))
 
     # 既に貯めてある記事にも、今の基準を当て直す。
     # 設定を直しても過去分が古いままだと、ラベル漏れや変な並びが残り続けるため。
@@ -2179,6 +2254,26 @@ def main():
                     log_lines.append(line)
                     print(line)
 
+            # 会社のテーマは、記事にどの会社の話かを付ける（co。上の company_of の説明）。
+            # 朝刊に出さない記事には印を付ける（aside。書庫には残す）。どちらも毎回付け直す
+            comp = company_words.get(g)
+            rule = aside_rules.get(g)
+            n_aside = 0
+            for a in merged:
+                if comp:
+                    co = company_of(a.get("title") or "", comp)
+                    if co:
+                        a["co"] = co
+                    else:
+                        a.pop("co", None)
+                if rule and is_aside(a, rule):
+                    a["aside"] = True
+                    n_aside += 1
+                else:
+                    a.pop("aside", None)
+            if n_aside:
+                print(f"朝刊に出さない: {g} {n_aside}件（買い物情報・掲示板など。書庫には残す）")
+
             # 並べ替え：新しい順 →「読めないもの・個人ブログは後ろ」の順に安定ソート。
             # 先に読める報道を持ってくることで、冒頭が有料記事だらけになるのを防ぐ。
             items = sorted(merged, key=lambda a: a.get("dt") or "", reverse=True)
@@ -2211,6 +2306,10 @@ def main():
                 if fresh and quiet_sec_rules.get(g) and section_rules.get(g) and \
                         section_of(a.get("title"), section_rules[g], bool(a.get("blog"))) in quiet_sec_rules[g]:
                     a["quiet"] = True   # 企業の発表などは新着に数えない（書庫の小分類には入る）
+                    continue
+                if fresh and a.get("aside"):
+                    # 朝刊に出さない記事は、1日の上限の枠を使わない（画面は aside の印で新着から外す）
+                    a.pop("quiet", None)
                     continue
                 if not fresh:
                     a.pop("quiet", None)
@@ -2251,6 +2350,7 @@ def main():
                                "minor": g in minor_rules,
                                "top": g in top_rules,
                                "merge_top": g in merge_top_rules,
+                               "no_found": g in no_found_groups,
                                "sections": [x.get("name") for x in secs] if secs else None,
                                "links": link_rules.get(g) or None})
         cat_out = {"name": cat, "groups": groups_out}
