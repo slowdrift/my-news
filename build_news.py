@@ -1295,8 +1295,13 @@ def is_duplicate_title(norm: str, seen_titles) -> bool:
 # ----------------------------------------------------------------------------
 
 JMA_URL = "https://www.jma.go.jp/bosai/forecast/data/forecast/{area}.json"
-# 1年分の日足と配当を1回で取る（配当は過去1年の実績を足すため。問い合わせは1銘柄1回のまま）
-STOCK_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{code}?range=1y&interval=1d&events=div"
+# 10年分の日足と配当を1回で取る。前日比・1年の高値と安値・過去1年の配当も、この中から切り出す
+# （3年・5年・10年の位置を画面で切り替えて見るため。CODE_TASK_05 ③。問い合わせは1銘柄1回のまま。
+#   1銘柄 約150〜210KB・0.3秒ほど＝10/13 実測。月足でも高値・安値は同じだったが、前日比に日足が要る）
+STOCK_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{code}?range=10y&interval=1d&events=div"
+# 10年分が取れなかったときの取り直し（v1.35.0 までの1年分の取り方。株価ごと消えないように）
+STOCK_URL_1Y = "https://query1.finance.yahoo.com/v8/finance/chart/{code}?range=1y&interval=1d&events=div"
+STOCK_SPANS = (3, 5, 10)   # 1年のほかに、画面で切り替えて見られる期間（年）
 
 
 def get_json(url: str, timeout: int = 12):
@@ -1435,34 +1440,83 @@ def prev_close(result):
     return prev
 
 
-def year_range(result):
-    """取ってきた日足（1年分）の高値・安値と、日数を返す。取れなければ (None, None, 0)。
+def local_day(t, off: int) -> datetime.date:
+    """時刻（秒）に取引所の時差を足した日付（東証なら日本の日付）。"""
+    return datetime.datetime.fromtimestamp(int(t) + off, datetime.timezone.utc).date()
 
-    高値・安値はその日の値幅（high・low）から取る。欠けていれば終値で代える。
-    上場して1年たっていない銘柄は日数が少なくなるので、画面で「○か月分」と添えるのに使う。
+
+def span_since(result, years: int):
+    """最新の日足の日付から years 年前の同じ日付。この日以降を「years 年分」として数える。
+
+    Yahoo の range=1y も同じ数え方（10/13 実測：最後が 2026-10-09 なら最初は 2025-10-09。
+    range=10y も最初は 2016-10-09 以降の最初の取引日）。そろえておくと、10年分から切り出した
+    1年分の高値・安値・配当が、以前の1年分の取り方と同じになる。
     """
+    stamps = result.get("timestamp") or []
+    if not stamps:
+        return None
+    last = local_day(stamps[-1], int(result["meta"].get("gmtoffset") or 0))
+    try:
+        return last.replace(year=last.year - years)
+    except ValueError:            # 2/29 の n 年前が無いとき
+        return last.replace(year=last.year - years, day=28)
+
+
+def span_range(result, since):
+    """since の日付以降の日足から、高値・安値・それぞれの日付・日足の本数・最初の日付を返す。取れなければ None。
+
+    高値・安値はその日の値幅（high・low）から取る。欠けていれば終値で代える（v1.35.0 までの year_range と同じ）。
+    上場して間もない銘柄は本数が少なくなるので、画面で「○か月分」「○年分」と添えるのに使う。
+    """
+    off = int(result["meta"].get("gmtoffset") or 0)
+    stamps = result.get("timestamp") or []
     q = ((result.get("indicators") or {}).get("quote") or [{}])[0]
-    closes = [c for c in (q.get("close") or []) if c is not None]
-    highs = [h for h in (q.get("high") or []) if h is not None] or closes
-    lows = [lo for lo in (q.get("low") or []) if lo is not None] or closes
+    days = [local_day(t, off) for t in stamps]
+    keep = [i for i, d in enumerate(days) if since is None or d >= since]
+
+    def col(key):   # (値, 日付) の並び。値の欠けた日は除く
+        vals = q.get(key) or []
+        return [(vals[i], days[i]) for i in keep if i < len(vals) and vals[i] is not None]
+
+    closes = col("close")
+    highs = col("high") or closes
+    lows = col("low") or closes
     if not highs or not lows:
-        return None, None, 0
-    return max(highs), min(lows), len(closes)
+        return None
+    hi = max(highs, key=lambda x: x[0])
+    lo = min(lows, key=lambda x: x[0])
+    return {"hi": hi[0], "hi_day": hi[1], "lo": lo[0], "lo_day": lo[1],
+            "days": len(closes), "first": days[keep[0]]}
 
 
-def year_dividend(result):
-    """過去1年に支払われた1株配当の合計。記録が無ければ None（無配か、取れなかったか区別できないため）。"""
-    divs = ((result.get("events") or {}).get("dividends") or {}).values()
-    amounts = [d.get("amount") for d in divs if isinstance(d.get("amount"), (int, float))]
+def span_dividend(result, since):
+    """since の日付以降に支払われた1株配当の合計。記録が無ければ None（無配か、取れなかったか区別できないため）。"""
+    off = int(result["meta"].get("gmtoffset") or 0)
+    divs = ((result.get("events") or {}).get("dividends") or {}).items()
+    amounts = [d.get("amount") for key, d in divs
+               if isinstance(d.get("amount"), (int, float))
+               and (since is None or local_day(d.get("date") or key, off) >= since)]
     return round(sum(amounts), 2) if amounts else None
 
 
+def get_chart(code):
+    """10年分の日足を取る。取れなければ1年分で取り直す。(result, 10年分か) を返す。"""
+    try:
+        data = get_json(STOCK_URL.format(code=quote(code)), timeout=20)
+        return data["chart"]["result"][0], True
+    except Exception as e:
+        print(f"株価 {code}: 10年分が取れず（{type(e).__name__}）、1年分で取り直し")
+        data = get_json(STOCK_URL_1Y.format(code=quote(code)))
+        return data["chart"]["result"][0], False
+
+
 def fetch_stocks(items):
-    """ウォッチ銘柄の値段・前日比・過去1年の1株配当を取る。
+    """ウォッチ銘柄の値段・前日比・過去1年の1株配当と、1・3・5・10年の高値・安値を取る。
 
     ※取得先は公式に開放されたものではない。使えなくなったら黙って消える作りにする
       （1つ落ちても全体を止めない、という既存の方針と同じ）。
     ※配当だけ取れないときは、値段は出して配当を空にする（利回りの欄が空くだけ）。
+    ※昔の株価は、株式分割のぶんを今の物差しに割り戻した値で届く（10/12 に分割13銘柄で確認）。
     """
     if not items:
         return []
@@ -1472,8 +1526,7 @@ def fetch_stocks(items):
         if not code:
             continue
         try:
-            data = get_json(STOCK_URL.format(code=quote(code)))
-            result = data["chart"]["result"][0]
+            result, long = get_chart(code)
             m = result["meta"]
             price = m.get("regularMarketPrice")
             prev = prev_close(result)
@@ -1487,22 +1540,46 @@ def fetch_stocks(items):
                 "pct": round((price - prev) / prev * 100, 2),
                 "currency": m.get("currency", ""),
             }
-            div = year_dividend(result)
+            since1 = span_since(result, 1)
+            div = span_dividend(result, since1)
             if div is not None:
                 row["div"] = div
             # 1年の高値・安値（買い増しの目安に、いまがその間のどのあたりかを画面で示す。CODE_TASK_04 ②）。
             # 今の値が日足の範囲の外にあれば（取引中の値など）、範囲を広げて合わせる
-            hi, lo, days = year_range(result)
-            if hi is not None and lo is not None:
-                row["hi"] = round(max(hi, price), 2)
-                row["lo"] = round(min(lo, price), 2)
-                row["days"] = days
+            r1 = span_range(result, since1)
+            if r1:
+                row["hi"] = round(max(r1["hi"], price), 2)
+                row["lo"] = round(min(r1["lo"], price), 2)
+                row["days"] = r1["days"]
+            # 3・5・10年の高値・安値（CODE_TASK_05 ③。1年は短すぎて買い時の目安にならないため）。
+            # 画面の期間の切り替えで使う。10年分の値動きそのものは出さない（判断に要る数字だけ）
+            if long:
+                stamps = result.get("timestamp") or []
+                last = local_day(stamps[-1], int(m.get("gmtoffset") or 0)) if stamps else None
+                span = {}
+                for y in STOCK_SPANS:
+                    r = span_range(result, span_since(result, y))
+                    if not r or not last:
+                        continue
+                    span[str(y)] = {
+                        "hi": round(max(r["hi"], price), 2),
+                        "lo": round(min(r["lo"], price), 2),
+                        # 高値・安値を付けた年月（10年の安値はコロナの暴落＝2020年3月の銘柄が多い。
+                        # 今の値で範囲を広げたときは、今月）
+                        "hi_at": (r["hi_day"] if price <= r["hi"] else last).strftime("%Y-%m"),
+                        "lo_at": (r["lo_day"] if price >= r["lo"] else last).strftime("%Y-%m"),
+                        # 実際に何年分あるか（上場して間もない銘柄は期間より短い。画面で「○年分」と添える）
+                        "yrs": round((last - r["first"]).days / 365.25, 1),
+                    }
+                if span:
+                    row["span"] = span
             out.append(row)
         except Exception as e:
             print(f"株価 {code}: 取得できず（{type(e).__name__}）")
         time.sleep(0.2)   # 銘柄が増えたので、続けざまに聞かない（止められないための間）
     if out:
-        print(f"株価: {len(out)}/{len(items)}銘柄を取得（配当あり {sum(1 for r in out if 'div' in r)}銘柄）")
+        print(f"株価: {len(out)}/{len(items)}銘柄を取得（配当あり {sum(1 for r in out if 'div' in r)}銘柄・"
+              f"10年分まで {sum(1 for r in out if 'span' in r)}銘柄）")
     return out
 
 

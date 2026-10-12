@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.35.0";
+const APP_VERSION = "v1.36.0";
 const CHANGELOG = [
+  ["v1.36.0", "2026-10-13", "ウォッチ銘柄の高値・安値の期間を、表の上で1年・3年・5年・10年に切り替えられるように（全銘柄いっしょ。開いたときは1年）"],
   ["v1.35.0", "2026-10-12", "同じ出来事の記事を、言い回しが違っても1枚にまとめやすく（大きな出来事・同じ会社の決算）。ウォッチ銘柄のニュースは買い物情報・レビュー・掲示板などを朝刊に出さない（書庫には残る）。生成AIの使いこなしの古い記事を発掘に出さない"],
   ["v1.34.0", "2026-10-11", "新着で「地元」「海外ニュース」もそれぞれ1行にまとめ、アクアワールド大洗とアーミル・カーンを行の先頭に。アーミル・カーンは海外ニュースのカテゴリへ"],
   ["v1.33.0", "2026-10-09", "ウォッチ銘柄に、いまの株価での配当利回りと1年の高値・安値の中の位置を表示。持っている銘柄を上に分け、高配当・長期保有・優待の札を付けられるように（この端末だけ）"],
@@ -108,6 +109,9 @@ let SHOW_READ = false;     // 読んだ記事の一覧を見ているか
 let SHOW_FRESH = false;
 let SHOW_FOUND = false;   // 掘り出した古い記事だけの画面
 let FOUND_TODAY = true;   // その画面で「きょう」に絞るか
+// ウォッチ銘柄の高値・安値の期間（"1"・"3"・"5"・"10" 年。全銘柄いっしょに替わる。CODE_TASK_05 ③）。
+// 端末には覚えさせない＝開くたびに1年から（利用者の決定 2026-10-13）
+let STOCK_SPAN = "1";
 // 蓄積が1900件を超え、「あの記事どこだっけ」を探せなくなった。
 // 既読も含めて見出しから絞り込む（探すのは読んだ記事のことが多いため）。
 let SEARCH = "";
@@ -987,23 +991,57 @@ function holdLine(r) {
     + "</div>";
 }
 
-// 1年の値動きの中で、いまどのあたりか（CODE_TASK_04 ②）。安値・高値の数字と、その間の点で示す。
+// 選んだ期間（1・3・5・10年）の値動きの中で、いまどのあたりか（CODE_TASK_04 ②、期間は CODE_TASK_05 ③）。
+// 安値・高値の数字と、その間の点で示す。
 // 29銘柄を見比べるので、棒の幅はそろえる（点の位置だけを目で比べられるように）。
-// 日足が1年分そろわない銘柄（上場して間もない等）は「○か月分」と添える。
+// 選んだ期間の分の値動きがそろわない銘柄（上場して間もない等）は「○か月分」「○年分」と添える。
 const RANGE_FULL_DAYS = 230;   // これより日足が少なければ「1年分そろっていない」とみなす（1年は約245営業日）
+const SPAN_LIST = ["1", "3", "5", "10"];
+// 選んだ期間の高値・安値。1年は data.js の hi・lo・days、3・5・10年は span（build_news.py が10年分の日足から出す）
+function spanOf(s) {
+  if (STOCK_SPAN === "1") {
+    if (typeof s.hi !== "number" || typeof s.lo !== "number") return null;
+    const short = s.days && s.days < RANGE_FULL_DAYS;
+    return { hi: s.hi, lo: s.lo, short: short ? Math.max(1, Math.round(s.days / 20.5)) + "か月分" : "" };
+  }
+  const v = s.span && s.span[STOCK_SPAN];
+  if (!v || typeof v.hi !== "number" || typeof v.lo !== "number") return null;
+  // 期間より半年以上短ければ「○年分」（1年に満たなければ「○か月分」）
+  const short = v.yrs < Number(STOCK_SPAN) - 0.5;
+  return { hi: v.hi, lo: v.lo, hiAt: v.hi_at, loAt: v.lo_at,
+    short: !short ? "" : v.yrs >= 1 ? v.yrs.toFixed(1) + "年分" : Math.max(1, Math.round(v.yrs * 12)) + "か月分" };
+}
+function fmtYm(ym) { return ym ? ym.replace(/^(\d{4})-0?(\d+)$/, "$1年$2月") : ""; }
 function rangeCell(s) {
-  if (typeof s.hi !== "number" || typeof s.lo !== "number" || !(s.hi > s.lo)) return "";
-  const pos = Math.max(0, Math.min(100, (Number(s.price) - s.lo) / (s.hi - s.lo) * 100));
-  const short = s.days && s.days < RANGE_FULL_DAYS ? "（" + Math.max(1, Math.round(s.days / 20.5)) + "か月分）" : "";
+  const r = spanOf(s);
+  if (!r || !(r.hi > r.lo)) return "";
+  const pos = Math.max(0, Math.min(100, (Number(s.price) - r.lo) / (r.hi - r.lo) * 100));
+  const label = STOCK_SPAN + "年";
+  // マウスを乗せると出る説明（スマホでは出ない見込み）。3年以上は安値・高値を付けた年月も添える
+  // （④の詳細ができるまでの仮の置き場所）
+  const tip = label + "の安値 " + fmtNum(r.lo) + (r.loAt ? "（" + fmtYm(r.loAt) + "）" : "")
+    + "から高値 " + fmtNum(r.hi) + (r.hiAt ? "（" + fmtYm(r.hiAt) + "）" : "")
+    + "までの、いまの位置（" + Math.round(pos) + "%）";
   // 安値・棒・高値を決まった幅の3つの枠に入れて右へ寄せ、どの行でも棒が同じ位置に来るようにする
-  return '<span class="sr" title="1年の安値から高値までの、いまの位置（' + Math.round(pos) + '%）">'
-    + '<span class="slo">' + (short ? "期間内" : "1年") + " <small>安</small>" + fmtNum(s.lo) + "</span>"
+  return '<span class="sr" title="' + esc(tip) + '">'
+    + '<span class="slo">' + (r.short ? "期間内" : label) + " <small>安</small>" + fmtNum(r.lo) + "</span>"
     + '<span class="srange"><i style="left:' + pos.toFixed(1) + '%"></i></span>'
-    + '<span class="shi"><small>高</small>' + fmtNum(s.hi) + "</span>"
-    + (short ? '<small class="sshort">' + short + "</small>" : "") + "</span>";
+    + '<span class="shi"><small>高</small>' + fmtNum(r.hi) + "</span>"
+    + (r.short ? '<small class="sshort">（' + r.short + "）</small>" : "") + "</span>";
 }
 
-// 2行目：配当と利回り（元の数字と並べる）、1年の位置。
+// 表の上の期間の切り替え（全銘柄いっしょに替わる。利用者の決定 2026-10-13）。
+// 3年以上の数字がどの銘柄にも無いとき（10年分が取れず1年分で取り直したとき）は出さない
+function spanSwitch(list) {
+  if (!(list || []).some(function (s) { return s.span; })) return "";
+  return '<div class="sspan">高値・安値の期間' + SPAN_LIST.map(function (y) {
+    const on = STOCK_SPAN === y;
+    return '<button class="tool-btn' + (on ? " on" : "") + '" type="button" data-stock-span="' + y + '"'
+      + ' aria-pressed="' + on + '">' + y + "年</button>";
+  }).join("") + "</div>";
+}
+
+// 2行目：配当と利回り（元の数字と並べる）、選んだ期間（1・3・5・10年）の位置。
 // いまの利回り＝過去1年の1株配当÷いまの株価。保有していれば取得利回りと並べる（取得 ○% ／ いま ○%）。
 // 配当の記録が無い銘柄は「配当 記録なし」（無配か取れなかったか見分けられないため、0% とは書かない）。
 // 長期保有・優待の札の銘柄は、高配当の物差しではないので利回りを控えめな色にする。
@@ -1027,7 +1065,7 @@ function roleChip(code) {
     + ' title="押すと役割が替わります（高配当→長期保有→優待）">' + ROLE_LABEL[role] + "</button>";
 }
 
-// 1銘柄ぶん。1行目＝名前・役割・株価・前日比、2行目＝配当と利回り・1年の位置、3行目＝保有（あれば）
+// 1銘柄ぶん。1行目＝名前・役割・株価・前日比、2行目＝配当と利回り・選んだ期間の位置、3行目＝保有（あれば）
 function stockItem(s, r) {
   const code = s ? String(s.code || "").replace(/\.T$/, "") : r.code;
   const role = roleOf(code);
@@ -1057,7 +1095,7 @@ function stockBlock(list) {
   const held = {};
   rows.forEach(function (r) { held[r.code] = r; });
   const codeOf = function (s) { return String(s.code || "").replace(/\.T$/, ""); };
-  let h = '<section class="stocks" id="stocks"><h2>📈 ウォッチ銘柄</h2>';
+  let h = '<section class="stocks" id="stocks"><h2>📈 ウォッチ銘柄</h2>' + spanSwitch(list);
   if (rows.length) {
     const t = holdingTotals(rows);
     h += '<div class="stotal"><div><b>💼 保有 ' + t.n + "銘柄</b>（この端末だけ）</div>"
@@ -2886,6 +2924,15 @@ APP.addEventListener("click", function (ev) {
     }
     rerender();
     window.scrollTo(0, 0);
+    return;
+  }
+  // ウォッチ銘柄の高値・安値の期間（1・3・5・10年）。全銘柄いっしょに替わる。端末には覚えさせない
+  const spanBtn = ev.target.closest("[data-stock-span]");
+  if (spanBtn) {
+    STOCK_SPAN = spanBtn.dataset.stockSpan;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
     return;
   }
   // ウォッチ銘柄の役割の札（高配当→長期保有→優待→高配当）。この端末だけに覚える
