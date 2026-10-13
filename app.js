@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.36.0";
+const APP_VERSION = "v1.37.0";
 const CHANGELOG = [
+  ["v1.37.0", "2026-10-13", "朝刊の見出しの［↕ 並べ替え］で、行の順番を自由に入れ替えられるように（この端末だけ）。ウォッチ銘柄のニュースの一番上の固定をやめた（最初の位置は一番上のまま）"],
   ["v1.36.0", "2026-10-13", "ウォッチ銘柄の高値・安値の期間を、表の上で1年・3年・5年・10年に切り替えられるように（全銘柄いっしょ。開いたときは1年）"],
   ["v1.35.0", "2026-10-12", "同じ出来事の記事を、言い回しが違っても1枚にまとめやすく（大きな出来事・同じ会社の決算）。ウォッチ銘柄のニュースは買い物情報・レビュー・掲示板などを朝刊に出さない（書庫には残る）。生成AIの使いこなしの古い記事を発掘に出さない"],
   ["v1.34.0", "2026-10-11", "新着で「地元」「海外ニュース」もそれぞれ1行にまとめ、アクアワールド大洗とアーミル・カーンを行の先頭に。アーミル・カーンは海外ニュースのカテゴリへ"],
@@ -103,6 +104,7 @@ let SETTINGS_OPEN = false;
 let TROUBLE_OPEN = false;
 let BORING_OPEN = false;
 let ORDER_OPEN = false;    // テーマの並べ替えを開いているか
+let MORNING_ARRANGE = false;   // 朝刊の行を並べ替えているところか（画面を見ている間だけ）
 let SHOW_READ = false;     // 読んだ記事の一覧を見ているか
 // 「きょうの新着だけ」を見る画面。ボタンを増やさず、見出しの数字を入口にする。
 // 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
@@ -131,7 +133,9 @@ const FAV_KEY = "mynews_fav";          // { 記事の鍵: 記事そのもの } �
 const SHOWALL_KEY = "mynews_showall";  // "1" なら既読も表示
 const SHOWFAV_KEY = "mynews_showfav";  // "1" ならお気に入りだけ表示
 const HIDELOCK_KEY = "mynews_hidelocked";  // "1" なら読めない記事を出さない
-const ORDER_KEY = "mynews_order";      // { テーマ名: 並び順の数字 }
+const ORDER_KEY = "mynews_order";      // { テーマ名: 並び順の数字 }（書庫の並び。カテゴリの中だけ）
+// { 朝刊の行の目印: 並び順の数字 }。目印はテーマ名、まとめた行は "cat:カテゴリ名"（v1.37.0）
+const MORNING_ORDER_KEY = "mynews_morning_order";
 const GOOD_KEY = "mynews_good";        // { 発信元: 良かったと押した回数 }
 const GOODED_KEY = "mynews_gooded";    // { 記事の鍵: 1 }（二度押しを避ける印）
 const BORING_KEY = "mynews_boring";    // { 発信元: つまらないと押した回数 }
@@ -294,6 +298,7 @@ function loadTally(key) {
   try { return JSON.parse(lsGet(key, "{}") || "{}"); } catch (e) { return {}; }
 }
 let ORDER = loadTally(ORDER_KEY);   // 形が同じ（名前→数字）なので同じ読み方で足りる
+let MORNING_ORDER = loadTally(MORNING_ORDER_KEY);   // 朝刊の行の並び（書庫の ORDER とは別）
 let GOOD = loadTally(GOOD_KEY);
 let GOODED = loadTally(GOODED_KEY);
 let BORING = loadTally(BORING_KEY);
@@ -825,10 +830,11 @@ function sortByOrder(list) {
     .map(function (r) { return r.x; });
 }
 
-// 並べ替えの操作盤。カテゴリの中だけで上下に動かす
+// 書庫の並べ替えの操作盤。カテゴリの中だけで上下に動かす
 // （カテゴリをまたぐと「地元」の中に仕事の記事が現れて分かりにくくなるため）。
+// 朝刊の行の並びは、朝刊の見出しの［↕ 並べ替え］で別に決める（v1.37.0）。
 function orderRow() {
-  let h = '<div class="srow"><span>テーマの並べ替え</span>'
+  let h = '<div class="srow"><span>書庫のテーマの並べ替え</span>'
     + '<button class="tool-btn' + (ORDER_OPEN ? " on" : "") + '" type="button" id="toggle-order">'
     + (ORDER_OPEN ? "とじる" : "並べ替え") + "</button></div>";
   if (!ORDER_OPEN) return h;
@@ -847,7 +853,8 @@ function orderRow() {
         + "</div>";
     });
   });
-  h += '<p>よく読むテーマを上へ。順番はこの端末に覚えます。</p>'
+  h += '<p>書庫で、よく読むテーマを上へ。順番はこの端末に覚えます。'
+    + "朝刊の行の順番は、朝刊の見出しの［↕ 並べ替え］で変えます。</p>"
     + '<button class="tool-btn" type="button" id="order-reset">元の順番に戻す</button></div>';
   return h;
 }
@@ -1211,11 +1218,12 @@ function toolbar(sources) {
       + '<details class="howto"><summary>使い方</summary><ul>'
       + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
       + "<li><b>朝刊と書庫</b>：一番上の<b>「きょうの新着」</b>が朝刊です。見出しを見て、読むものは開き、"
-      + "読まないものは<b>✓ 片づけ</b>（押したあと5秒は戻せます）。ゼロになれば今日の分はおしまい</li>"
+      + "読まないものは<b>✓ 片づけ</b>（押したあと5秒は戻せます）。ゼロになれば今日の分はおしまい。"
+      + "行の順番は、朝刊の見出しの<b>↕ 並べ替え</b>で変えられます</li>"
       + "<li>テーマの一覧は<b>書庫</b>です。読んだ記事も薄くして残すので、あとから読み返せます</li>"
       + "<li>テーマの<b>🔒</b>は、そのテーマの読めない記事をまとめて既読にします</li>"
       + "<li>記事右上の<b>☆</b>は、一覧から消えても残る保存です</li>"
-      + "<li>テーマ名を押すと<b>畳めます</b>（並び順は設定の「並べ替え」で変えられます）</li>"
+      + "<li>書庫のテーマ名を押すと<b>畳めます</b>（書庫の並び順は設定の「書庫のテーマの並べ替え」で変えられます）</li>"
       + "<li><b>📖読んだ記事</b>は、読んだ順にさかのぼって見直せます</li>"
       + "<li>記事の<b>👍</b>は「この発信元をもっと」の印です（既読にしません）。"
       + "<b>👎</b>は「読まずに片づける」印です（発信元の評価には数えません）</li>"
@@ -1330,7 +1338,7 @@ const BACKUP_FILE_MAX = 20 * 1024 * 1024;      // これより大きいファイ
 let IMPORT_PREVIEW = null;   // 読み込もうとしているファイルの中身（確定前）
 
 // 中身が「名前→値」の形でないといけない記録。形が違えば読み込まない。
-const BACKUP_OBJECT_KEYS = [READ_KEY, FAV_KEY, UI_KEY, ORDER_KEY, GOOD_KEY, GOODED_KEY,
+const BACKUP_OBJECT_KEYS = [READ_KEY, FAV_KEY, UI_KEY, ORDER_KEY, MORNING_ORDER_KEY, GOOD_KEY, GOODED_KEY,
   BORING_KEY, OPENED_KEY, SESSION_KEY, "mynews_holdings", "mynews_roles"];
 const BACKUP_ARRAY_KEYS = [READLOG_KEY];
 
@@ -1925,26 +1933,38 @@ function mergeCats() {
 // （件数の多い茨城のニュース・海外ニュースと一緒にすると、大洗・アーミル・カーンが
 //  「残り◯件」の奥に沈むため。CODE_TASK_05 ①②）。のぞき見も開いたカードも、この順に並ぶ。
 function freshBlocks() {
+  return freshRows().filter(function (b) { return b.items.length; });
+}
+
+// 新着の無い行も含めた、朝刊の全部の行（並べ替えの画面はこれを全部出す。v1.37.0）。
+// 並びは、利用者が［↕ 並べ替え］で決めた順（arrangeRows）。決めていなければ元の並び：
+// 設定の並び順（書庫と同じ）で、動画は後ろ、「top」の印のテーマ（ウォッチ銘柄のニュース）を一番上。
+// top は v1.36.0 まで「並べ替えより前に固定」だったが、利用者の意図ではなかったので（10/13）、
+// 今は最初の並びを決めるだけ（並べ替えで下へも動かせる）。
+function freshRows() {
   const sorted = sortByOrder(ALL_GROUPS.filter(function (x) { return !isVideoGroup(x.group); }))
     .concat(sortByOrder(ALL_GROUPS.filter(function (x) { return isVideoGroup(x.group); })));
-  // 「朝刊で一番上」の印があるテーマ（ウォッチ銘柄のニュース）は、並べ替えの設定より前に置く。
-  // 持っている会社のニュースは、他より先に目に入ってほしいというご要望のため（CODE_TASK_02 ③）。
   const ordered = sorted.filter(function (x) { return x.group.top; })
     .concat(sorted.filter(function (x) { return !x.group.top; }));
   const merge = mergeCats();
   const out = [];
   const byCat = {};
-  ordered.forEach(function (x) {
+  ordered.forEach(function (x, i) {
     const items = (x.group.items || []).filter(isFresh);
-    if (!items.length) return;
-    const one = { key: x.group.name, name: x.group.name, cat: x.cat, items: items, first: !!x.group.merge_top };
+    const one = { key: x.group.name, name: x.group.name, cat: x.cat, items: items,
+      first: !!x.group.merge_top, pos: i };
     if (!merge[x.cat]) { out.push(one); return; }
     let b = byCat[x.cat];
     if (!b) {
-      b = byCat[x.cat] = { key: "cat:" + x.cat, name: x.cat, cat: x.cat, items: [], members: [] };
+      b = byCat[x.cat] = { key: "cat:" + x.cat, name: x.cat, cat: x.cat, items: [], members: [], pos: i };
       out.push(b);
     }
-    b.members.push(one);
+    // まとめた行の元の位置は、中の新着のあるテーマのうち一番前のもの（新着が無ければ一番前のテーマ）。
+    // v1.36.0 までと同じ置き方（新着のある行どうしの順番が変わらないように）
+    if (items.length) {
+      if (!b.members.length) b.pos = i;
+      b.members.push(one);
+    }
   });
   // まとめた行の中を「先頭に出す」テーマ → ほかのテーマ の順にし、記事もその順で持たせる
   Object.keys(byCat).forEach(function (c) {
@@ -1953,7 +1973,39 @@ function freshBlocks() {
       .concat(b.members.filter(function (m) { return !m.first; }));
     b.items = b.members.reduce(function (all, m) { return all.concat(m.items); }, []);
   });
+  out.sort(function (a, b) { return a.pos - b.pos; });
+  return arrangeRows(out);
+}
+
+// 利用者が決めた朝刊の並び（MORNING_ORDER）を当てる。決めていなければ元の並びのまま。
+// 覚えた順に無い行（あとで増えたテーマ）は、元の並びで1つ前にある行のすぐ後ろに入れる。
+function arrangeRows(rows) {
+  const has = function (r) { return typeof MORNING_ORDER[r.key] === "number"; };
+  if (!rows.some(has)) return rows;
+  const out = rows.filter(has).sort(function (a, b) { return MORNING_ORDER[a.key] - MORNING_ORDER[b.key]; });
+  rows.forEach(function (r, i) {
+    if (has(r)) return;
+    let at = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      const k = out.indexOf(rows[j]);
+      if (k >= 0) { at = k + 1; break; }
+    }
+    out.splice(at, 0, r);
+  });
   return out;
+}
+
+// 並べ替えの ▲▼。今の並び（新着の無い行も含む）で1つ入れ替え、全部の行の順番を覚える
+function moveMorningRow(key, dir) {
+  const rows = freshRows();
+  const at = rows.map(function (r) { return r.key; }).indexOf(key);
+  const to = dir === "up" ? at - 1 : at + 1;
+  if (at < 0 || to < 0 || to >= rows.length) return;
+  const moved = rows.splice(at, 1)[0];
+  rows.splice(to, 0, moved);
+  MORNING_ORDER = {};
+  rows.forEach(function (r, i) { MORNING_ORDER[r.key] = i; });
+  lsSet(MORNING_ORDER_KEY, JSON.stringify(MORNING_ORDER));
 }
 
 function freshBlockByKey(key) {
@@ -2264,11 +2316,17 @@ function morningEdition() {
     });
   });
 
-  let h = '<section class="morning" id="morning"><div class="mhead">'
+  // 見出しの右端に［↕ 並べ替え］。押すと「並べ替え中」になり、［✓ おわる］で戻る（v1.37.0）
+  let h = '<section class="morning' + (MORNING_ARRANGE ? " arranging" : "") + '" id="morning"><div class="mhead">'
     + "<h2>⚡ きょうの新着</h2>"
-    + '<span class="mcount">' + total + "件</span>"
-    + (since && since < total ? '<span class="since">●前回から ' + since + "</span>" : "")
+    + (MORNING_ARRANGE ? '<span class="marr-note">並べ替え中</span>'
+      : '<span class="mcount">' + total + "件</span>"
+        + (since && since < total ? '<span class="since">●前回から ' + since + "</span>" : ""))
+    + '<button class="tool-btn marr-btn' + (MORNING_ARRANGE ? " on" : "") + '" type="button" id="morning-arrange">'
+    + (MORNING_ARRANGE ? "✓ おわる" : "↕ 並べ替え") + "</button>"
     + "</div>";
+
+  if (MORNING_ARRANGE) return h + morningArrangeList() + "</section>" + shelfHead();
 
   if (!total) {
     h += '<div class="mdone">✓ きょうの分はおしまいです。新しい記事は次の更新で届きます。</div>';
@@ -2298,9 +2356,34 @@ function morningEdition() {
     h += '<button class="mtidyall" type="button" id="tidy-all-fresh">✓ 見終わったので全部片づけ（'
       + total + "件）</button>";
   }
-  h += "</section>"
-    + '<div class="shelf-head"><h2>📚 書庫</h2>'
+  return h + "</section>" + shelfHead();
+}
+
+function shelfHead() {
+  return '<div class="shelf-head"><h2>📚 書庫</h2>'
     + "<p>テーマごとに貯めた記事です。読んだ記事も薄くして残します。</p></div>";
+}
+
+// 並べ替え中の朝刊。新着の無い行も含めて全部の行を ▲▼ 付きで並べる
+// （出ていない行は置き場所を決められないため）。のぞき見・片づけ・発掘は隠す。
+function morningArrangeList() {
+  const rows = freshRows();
+  let h = '<p class="marr-help">上から順に朝刊に並びます。▲▼で1つずつ動かせます。順番はこの端末に覚えます。'
+    + "新着の無い日は、その行は朝刊に出ません。</p>";
+  rows.forEach(function (r, i) {
+    h += '<div class="mtheme marr-row"><div class="mrow">'
+      + '<span class="mname">' + esc(r.name) + "</span>"
+      + '<span class="mnum' + (r.items.length ? "" : " zero") + '" title="きょうの新着">' + r.items.length + "</span>"
+      + '<button class="tool-btn" type="button" data-mmove="up" data-mkey="' + esc(r.key) + '"'
+      + (i === 0 ? " disabled" : "") + ' aria-label="' + esc(r.name) + 'を上へ">▲</button>'
+      + '<button class="tool-btn" type="button" data-mmove="down" data-mkey="' + esc(r.key) + '"'
+      + (i === rows.length - 1 ? " disabled" : "") + ' aria-label="' + esc(r.name) + 'を下へ">▼</button>'
+      + "</div></div>";
+  });
+  const custom = rows.some(function (r) { return typeof MORNING_ORDER[r.key] === "number"; });
+  if (custom) {
+    h += '<button class="tool-btn marr-reset" type="button" id="morning-order-reset">元の順番に戻す</button>';
+  }
   return h;
 }
 
@@ -2989,6 +3072,33 @@ APP.addEventListener("click", function (ev) {
     return;
   }
   // テーマの並べ替え
+  // 朝刊の行の並べ替え（見出しの［↕ 並べ替え］／［✓ おわる］、行の ▲▼、元の順番に戻す）
+  if (ev.target.closest("#morning-arrange")) {
+    MORNING_ARRANGE = !MORNING_ARRANGE;
+    const y = window.scrollY;   // ボタンは朝刊の見出しにあるので、画面は動かさない
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  const mmove = ev.target.closest("[data-mmove]");
+  if (mmove) {
+    moveMorningRow(mmove.dataset.mkey, mmove.dataset.mmove);
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  if (ev.target.closest("#morning-order-reset")) {
+    const before = MORNING_ORDER;
+    MORNING_ORDER = {};
+    lsSet(MORNING_ORDER_KEY, "{}");
+    rerender();
+    pushUndo("朝刊を元の順番に戻しました", function () {
+      MORNING_ORDER = before;
+      lsSet(MORNING_ORDER_KEY, JSON.stringify(before));
+    });
+    return;
+  }
   if (ev.target.closest("#toggle-order")) {
     ORDER_OPEN = !ORDER_OPEN;
     rerender();

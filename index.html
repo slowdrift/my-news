@@ -545,6 +545,15 @@
   .morning .mhead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
   .morning h2 { margin: 0; font-size: calc(17px * var(--fs)); }
   .morning .mcount { font-size: calc(20px * var(--fs)); font-weight: 800; color: var(--accent); }
+  /* 朝刊の行の並べ替え（v1.37.0）。見出しの右端のボタンから入る */
+  .morning .mhead .marr-btn { margin-left: auto; align-self: center; padding: 3px 12px; min-height: 34px; white-space: nowrap; }
+  .morning .marr-note { font-size: calc(12.5px * var(--fs)); font-weight: 700; color: var(--accent); }
+  .marr-help { margin: 2px 0 6px; font-size: calc(11.5px * var(--fs)); color: var(--sub); }
+  .marr-row .mname { cursor: default; }
+  .marr-row .tool-btn { min-width: 44px; min-height: 40px; padding: 0 10px; font-size: calc(13px * var(--fs)); }
+  .marr-row .tool-btn[disabled] { opacity: .3; }
+  .mnum.zero { color: var(--sub); font-weight: 400; }
+  .marr-reset { display: block; margin: 10px 0 4px; }
   .mtheme { border-top: 1px solid var(--line); }
   .mtheme.open { padding-bottom: 6px; }
   .mrow { display: flex; align-items: center; gap: 8px; min-height: 46px; }
