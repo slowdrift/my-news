@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.38.0";
+const APP_VERSION = "v1.39.0";
 const CHANGELOG = [
+  ["v1.39.0", "2026-10-13", "ウォッチ銘柄の見出しの［ⓘ 見方］で、表の数字・棒・印・札の意味を開けるように（ふだんは畳んだまま）"],
   ["v1.38.0", "2026-10-13", "ウォッチ銘柄を押すと詳しい数字が開くように（1・3・5・10年の高値・安値と付けた年月、過去1年の配当の内訳と利回りの計算、Yahoo!ファイナンス・IR BANK への入口）。役割の札は、開いた中で替える"],
   ["v1.37.0", "2026-10-13", "朝刊の見出しの［↕ 並べ替え］で、行の順番を自由に入れ替えられるように（この端末だけ）。ウォッチ銘柄のニュースの一番上の固定をやめた（最初の位置は一番上のまま）"],
   ["v1.36.0", "2026-10-13", "ウォッチ銘柄の高値・安値の期間を、表の上で1年・3年・5年・10年に切り替えられるように（全銘柄いっしょ。開いたときは1年）"],
@@ -117,6 +118,8 @@ let FOUND_TODAY = true;   // その画面で「きょう」に絞るか
 let STOCK_SPAN = "1";
 // 詳細を開いているウォッチ銘柄（銘柄コード。CODE_TASK_05 ④）。期間と同じく端末には覚えさせない
 let STOCK_OPEN = new Set();
+// ウォッチ銘柄の「見方」（凡例）を開いているか（CODE_TASK_05 ⑤）。毎朝じゃまにならないよう、端末には覚えさせない
+let STOCK_LEGEND = false;
 // 蓄積が1900件を超え、「あの記事どこだっけ」を探せなくなった。
 // 既読も含めて見出しから絞り込む（探すのは読んだ記事のことが多いため）。
 let SEARCH = "";
@@ -1174,6 +1177,34 @@ function stockItem(s, r) {
     + (open ? stockDetail(s, r, code) : "") + "</div>";
 }
 
+// 表の見方（凡例。CODE_TASK_05 ⑤）。左に実物と同じ見た目の見本、右に意味。
+// 持っている銘柄に関わる行は、保有株を読み込んだ端末だけに出す（held）
+function stockLegend(held) {
+  const row = function (sample, text, cls) {
+    return '<div class="slg-row"><div class="slg-s' + (cls ? " " + cls : "") + '">' + sample + "</div>"
+      + '<div class="slg-t">' + text + "</div></div>";
+  };
+  return '<div class="slegend">'
+    + row('<span class="sname"><i class="scaret">▸</i>名前</span>',
+      "押すと下に詳細が開く（1〜10年の安値・高値と付けた年月、過去1年の配当の内訳、外部の銘柄ページ、役割の切り替え）。もう一度押すと閉じる")
+    + row(roleTag("div") + roleTag("long") + roleTag("perk"),
+      "役割の札（この端末だけ）。行では見せるだけで、替えるのは詳細の中。長期保有・優待は利回りを控えめな色にし、合計の取得利回りの「高配当だけ」から外す")
+    + row('<span class="up">▲</span><span class="down">▼</span>',
+      "前の取引日の終値からの上げ・下げ（日本の慣習で上げが赤、下げが青）。（ ）は率")
+    + row("配当 ○円", "過去1年に実際に支払われた1株配当の合計。「記録なし」は、無配か取れなかったかを見分けられない")
+    + row("いま <b>○%</b>", "いまの利回り＝配当÷いまの株価")
+    + (held ? row("取得 <b>○%</b>", "取得利回り＝配当÷取得単価（持っている銘柄だけ）") : "")
+    + row('<small>安</small><span class="srange"><i style="left:30%"></i></span><small>高</small>',
+      "選んだ期間の安値〜高値の中で、いまの株価がどこにあるか（左端が安値、右端が高値）。棒は全銘柄で同じ位置なので、点だけで見比べられる。「期間内（○年分）」は、上場して間もないなどで期間に足りない銘柄",
+      "bar")
+    + row("［1〜10年］",
+      "期間の切り替え。全銘柄いっしょに替わり、開くたびに1年から。"
+      + "10年の安値は 2020年3〜4月（コロナの暴落）の銘柄が多く、値上がりしてきた銘柄は点が右に寄りやすい")
+    + (held ? row("○株・取得○円", "3行目：株数・取得単価・含み損益（率）（持っている銘柄だけ）")
+      + row("💼 保有", "表の上の合計：取得額→評価額、含み損益、取得利回り。株数と取得単価はこの端末だけで、公開されない") : "")
+    + "</div>";
+}
+
 // 最下部のブロック。上に保有株の合計（この端末だけ）、その下に「持っている」「気になる」に分けて並べる
 // （以前は feeds.json の順に混ざっていて、持っている銘柄を探すのにスクロールが要った。CODE_TASK_04 ③）。
 // 分け方は端末の保有株で決め、公開側の順番や構成は変えない。それぞれの中は feeds.json の順。
@@ -1183,7 +1214,11 @@ function stockBlock(list) {
   const held = {};
   rows.forEach(function (r) { held[r.code] = r; });
   const codeOf = function (s) { return String(s.code || "").replace(/\.T$/, ""); };
-  let h = '<section class="stocks" id="stocks"><h2>📈 ウォッチ銘柄</h2>' + spanSwitch(list);
+  // 見出しの右に「見方」の入口（期間の行の横だとスマホの幅で折り返すので、見出しの行に置く）
+  let h = '<section class="stocks" id="stocks"><div class="shtop"><h2>📈 ウォッチ銘柄</h2>'
+    + '<button class="tool-btn slg-btn' + (STOCK_LEGEND ? " on" : "") + '" type="button" data-stock-legend'
+    + ' aria-expanded="' + STOCK_LEGEND + '">ⓘ 見方</button></div>'
+    + spanSwitch(list) + (STOCK_LEGEND ? stockLegend(rows.length > 0) : "");
   if (rows.length) {
     const t = holdingTotals(rows);
     h += '<div class="stotal"><div><b>💼 保有 ' + t.n + "銘柄</b>（この端末だけ）</div>"
@@ -3094,6 +3129,14 @@ APP.addEventListener("click", function (ev) {
   const spanBtn = ev.target.closest("[data-stock-span]");
   if (spanBtn) {
     STOCK_SPAN = spanBtn.dataset.stockSpan;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // ウォッチ銘柄の「見方」（凡例）を開く・閉じる（CODE_TASK_05 ⑤）。端末に覚えない
+  if (ev.target.closest("[data-stock-legend]")) {
+    STOCK_LEGEND = !STOCK_LEGEND;
     const y = window.scrollY;
     rerender();
     window.scrollTo(0, y);
