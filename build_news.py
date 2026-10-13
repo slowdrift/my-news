@@ -1489,13 +1489,18 @@ def span_range(result, since):
             "days": len(closes), "first": days[keep[0]]}
 
 
-def span_dividend(result, since):
-    """since の日付以降に支払われた1株配当の合計。記録が無ければ None（無配か、取れなかったか区別できないため）。"""
+def span_dividend_list(result, since):
+    """since の日付以降の1株配当を1回ずつ (日付, 額) で古い順に返す。日付は Yahoo の記録の日＝権利落ち日。"""
     off = int(result["meta"].get("gmtoffset") or 0)
     divs = ((result.get("events") or {}).get("dividends") or {}).items()
-    amounts = [d.get("amount") for key, d in divs
-               if isinstance(d.get("amount"), (int, float))
-               and (since is None or local_day(d.get("date") or key, off) >= since)]
+    out = [(local_day(d.get("date") or key, off), d.get("amount")) for key, d in divs
+           if isinstance(d.get("amount"), (int, float))]
+    return sorted((day, amt) for day, amt in out if since is None or day >= since)
+
+
+def span_dividend(result, since):
+    """since の日付以降に支払われた1株配当の合計。記録が無ければ None（無配か、取れなかったか区別できないため）。"""
+    amounts = [amt for _, amt in span_dividend_list(result, since)]
     return round(sum(amounts), 2) if amounts else None
 
 
@@ -1544,6 +1549,12 @@ def fetch_stocks(items):
             div = span_dividend(result, since1)
             if div is not None:
                 row["div"] = div
+                # 合計の内訳（1回ずつの権利落ち日と額）。銘柄を押して開く詳細に出す（CODE_TASK_05 ④）。
+                # 特別配当や、分割の直後の額のずれ（三井住友FG の 9/29）を自分で見分けられるように
+                row["divs"] = [[day.isoformat(), round(amt, 2)]
+                               for day, amt in span_dividend_list(result, since1)]
+            stamps = result.get("timestamp") or []
+            last = local_day(stamps[-1], int(m.get("gmtoffset") or 0)) if stamps else None
             # 1年の高値・安値（買い増しの目安に、いまがその間のどのあたりかを画面で示す。CODE_TASK_04 ②）。
             # 今の値が日足の範囲の外にあれば（取引中の値など）、範囲を広げて合わせる
             r1 = span_range(result, since1)
@@ -1551,11 +1562,13 @@ def fetch_stocks(items):
                 row["hi"] = round(max(r1["hi"], price), 2)
                 row["lo"] = round(min(r1["lo"], price), 2)
                 row["days"] = r1["days"]
+                # 付けた年月（詳細に出す。CODE_TASK_05 ④。3・5・10年と同じ決め方）
+                if last:
+                    row["hi_at"] = (r1["hi_day"] if price <= r1["hi"] else last).strftime("%Y-%m")
+                    row["lo_at"] = (r1["lo_day"] if price >= r1["lo"] else last).strftime("%Y-%m")
             # 3・5・10年の高値・安値（CODE_TASK_05 ③。1年は短すぎて買い時の目安にならないため）。
             # 画面の期間の切り替えで使う。10年分の値動きそのものは出さない（判断に要る数字だけ）
             if long:
-                stamps = result.get("timestamp") or []
-                last = local_day(stamps[-1], int(m.get("gmtoffset") or 0)) if stamps else None
                 span = {}
                 for y in STOCK_SPANS:
                     r = span_range(result, span_since(result, y))

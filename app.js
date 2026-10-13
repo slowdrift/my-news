@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.37.0";
+const APP_VERSION = "v1.38.0";
 const CHANGELOG = [
+  ["v1.38.0", "2026-10-13", "ウォッチ銘柄を押すと詳しい数字が開くように（1・3・5・10年の高値・安値と付けた年月、過去1年の配当の内訳と利回りの計算、Yahoo!ファイナンス・IR BANK への入口）。役割の札は、開いた中で替える"],
   ["v1.37.0", "2026-10-13", "朝刊の見出しの［↕ 並べ替え］で、行の順番を自由に入れ替えられるように（この端末だけ）。ウォッチ銘柄のニュースの一番上の固定をやめた（最初の位置は一番上のまま）"],
   ["v1.36.0", "2026-10-13", "ウォッチ銘柄の高値・安値の期間を、表の上で1年・3年・5年・10年に切り替えられるように（全銘柄いっしょ。開いたときは1年）"],
   ["v1.35.0", "2026-10-12", "同じ出来事の記事を、言い回しが違っても1枚にまとめやすく（大きな出来事・同じ会社の決算）。ウォッチ銘柄のニュースは買い物情報・レビュー・掲示板などを朝刊に出さない（書庫には残る）。生成AIの使いこなしの古い記事を発掘に出さない"],
@@ -114,6 +115,8 @@ let FOUND_TODAY = true;   // その画面で「きょう」に絞るか
 // ウォッチ銘柄の高値・安値の期間（"1"・"3"・"5"・"10" 年。全銘柄いっしょに替わる。CODE_TASK_05 ③）。
 // 端末には覚えさせない＝開くたびに1年から（利用者の決定 2026-10-13）
 let STOCK_SPAN = "1";
+// 詳細を開いているウォッチ銘柄（銘柄コード。CODE_TASK_05 ④）。期間と同じく端末には覚えさせない
+let STOCK_OPEN = new Set();
 // 蓄積が1900件を超え、「あの記事どこだっけ」を探せなくなった。
 // 既読も含めて見出しから絞り込む（探すのは読んだ記事のことが多いため）。
 let SEARCH = "";
@@ -1004,28 +1007,35 @@ function holdLine(r) {
 // 選んだ期間の分の値動きがそろわない銘柄（上場して間もない等）は「○か月分」「○年分」と添える。
 const RANGE_FULL_DAYS = 230;   // これより日足が少なければ「1年分そろっていない」とみなす（1年は約245営業日）
 const SPAN_LIST = ["1", "3", "5", "10"];
-// 選んだ期間の高値・安値。1年は data.js の hi・lo・days、3・5・10年は span（build_news.py が10年分の日足から出す）
-function spanOf(s) {
-  if (STOCK_SPAN === "1") {
+// 期間の高値・安値（y を省くと、表の上で選んでいる期間）。
+// 1年は data.js の hi・lo・days・hi_at・lo_at、3・5・10年は span（build_news.py が10年分の日足から出す）
+function spanOf(s, y) {
+  y = y || STOCK_SPAN;
+  if (y === "1") {
     if (typeof s.hi !== "number" || typeof s.lo !== "number") return null;
     const short = s.days && s.days < RANGE_FULL_DAYS;
-    return { hi: s.hi, lo: s.lo, short: short ? Math.max(1, Math.round(s.days / 20.5)) + "か月分" : "" };
+    return { hi: s.hi, lo: s.lo, hiAt: s.hi_at, loAt: s.lo_at,
+      short: short ? Math.max(1, Math.round(s.days / 20.5)) + "か月分" : "" };
   }
-  const v = s.span && s.span[STOCK_SPAN];
+  const v = s.span && s.span[y];
   if (!v || typeof v.hi !== "number" || typeof v.lo !== "number") return null;
   // 期間より半年以上短ければ「○年分」（1年に満たなければ「○か月分」）
-  const short = v.yrs < Number(STOCK_SPAN) - 0.5;
+  const short = v.yrs < Number(y) - 0.5;
   return { hi: v.hi, lo: v.lo, hiAt: v.hi_at, loAt: v.lo_at,
     short: !short ? "" : v.yrs >= 1 ? v.yrs.toFixed(1) + "年分" : Math.max(1, Math.round(v.yrs * 12)) + "か月分" };
+}
+// 安値〜高値の中のいまの位置（0〜100%）
+function spanPos(s, r) {
+  return Math.max(0, Math.min(100, (Number(s.price) - r.lo) / (r.hi - r.lo) * 100));
 }
 function fmtYm(ym) { return ym ? ym.replace(/^(\d{4})-0?(\d+)$/, "$1年$2月") : ""; }
 function rangeCell(s) {
   const r = spanOf(s);
   if (!r || !(r.hi > r.lo)) return "";
-  const pos = Math.max(0, Math.min(100, (Number(s.price) - r.lo) / (r.hi - r.lo) * 100));
+  const pos = spanPos(s, r);
   const label = STOCK_SPAN + "年";
-  // マウスを乗せると出る説明（スマホでは出ない見込み）。3年以上は安値・高値を付けた年月も添える
-  // （④の詳細ができるまでの仮の置き場所）
+  // マウスを乗せると出る説明（スマホでは出ない見込み）。安値・高値を付けた年月も添える
+  // （スマホでは、銘柄を押して開く詳細で同じ数字を見る）
   const tip = label + "の安値 " + fmtNum(r.lo) + (r.loAt ? "（" + fmtYm(r.loAt) + "）" : "")
     + "から高値 " + fmtNum(r.hi) + (r.hiAt ? "（" + fmtYm(r.hiAt) + "）" : "")
     + "までの、いまの位置（" + Math.round(pos) + "%）";
@@ -1065,17 +1075,85 @@ function infoLine(s, r, role) {
   return '<div class="sinfo' + (role !== "div" ? " muted" : "") + '">' + y + (s ? rangeCell(s) : "") + "</div>";
 }
 
-// 役割の札。押すたびに 高配当→長期保有→優待→高配当 と替わる（この端末だけに覚える）
+// 役割の札。行には見せるだけ（押しても替わらない）。
+// 替えるのは詳細の中の札で、押すたびに 高配当→長期保有→優待→高配当 と替わる（この端末だけに覚える）。
+// 以前は行の札を押して替えていたが、行を押すと詳細が開くようにしたので、押し間違えないよう詳細の中へ移した
+// （CODE_TASK_05 ④、利用者の決定 2026-10-13）
+function roleTag(role) {
+  return '<span class="srole r-' + role + '">' + ROLE_LABEL[role] + "</span>";
+}
 function roleChip(code) {
   const role = roleOf(code);
   return '<button class="srole r-' + role + '" type="button" data-role="' + esc(code) + '"'
     + ' title="押すと役割が替わります（高配当→長期保有→優待）">' + ROLE_LABEL[role] + "</button>";
 }
 
-// 1銘柄ぶん。1行目＝名前・役割・株価・前日比、2行目＝配当と利回り・選んだ期間の位置、3行目＝保有（あれば）
+// 外部の銘柄ページ（CODE_TASK_05 ④）。どちらも 2026-10-13 にウォッチ銘柄29社すべてで、その銘柄のページが開くことを確かめた。
+// IR BANK は「/コード/dividend」で開くと、会社ごとの住所（/E03614/dividend など）へ自動で移る
+const STOCK_LINKS = [
+  { name: "Yahoo!ファイナンス", what: "株価・チャート", url: function (c) { return "https://finance.yahoo.co.jp/quote/" + c + ".T"; } },
+  { name: "IR BANK", what: "配当の推移", url: function (c) { return "https://irbank.net/" + c + "/dividend"; } },
+];
+
+// 1・3・5・10年の高値・安値と付けた年月、いまの位置の表。表の上で選んでいる期間の行を目立たせる。
+// 10年分が取れなかった銘柄（span が無い）は1年だけ
+function spanTable(s) {
+  const rows = SPAN_LIST.map(function (y) {
+    const r = spanOf(s, y);
+    if (!r || !(r.hi > r.lo)) return "";
+    const cell = function (v, at) { return fmtNum(v) + (at ? "<small>" + fmtYm(at) + "</small>" : ""); };
+    return "<tr" + (y === STOCK_SPAN ? ' class="on"' : "") + "><td>" + y + "年"
+      + (r.short ? "<small>" + r.short + "</small>" : "") + "</td>"
+      + "<td>" + cell(r.lo, r.loAt) + "</td><td>" + cell(r.hi, r.hiAt) + "</td>"
+      + "<td>" + Math.round(spanPos(s, r)) + "%</td></tr>";
+  }).join("");
+  if (!rows) return "";
+  return '<table class="sdtab"><thead><tr><th>期間</th><th>安値</th><th>高値</th><th>いまの位置</th></tr></thead>'
+    + "<tbody>" + rows + "</tbody></table>";
+}
+
+// 配当の元の数字：過去1年の1回ずつの額（権利落ち日）と、利回りの計算そのもの
+function divDetail(s, r) {
+  if (!s) return '<div class="sddiv">ウォッチ銘柄に無いので、株価の推移と配当は取っていません（CSV の現在値で計算）</div>';
+  if (typeof s.div !== "number") {
+    return '<div class="sddiv">過去1年の配当の記録はありません（無配か、取れなかったかは見分けられません）</div>';
+  }
+  const price = Number(s.price);
+  const list = s.divs && s.divs.length;
+  let h = '<div class="sddiv"><div class="sdh">過去1年の配当' + (list ? "<small>（日付は権利落ち日）</small>" : "") + "</div>";
+  if (list) {
+    h += '<div class="sdlist">' + s.divs.map(function (d) {
+      return "<span>" + esc(String(d[0]).replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, "$1/$2/$3")) + " "
+        + fmtNum(d[1]) + "円</span>";
+    }).join("") + "</div>";
+  }
+  h += "<div>合計 " + fmtNum(s.div) + "円 ÷ いまの株価 " + fmtNum(price) + "円 ＝ いまの利回り <b>"
+    + fmtPct(s.div / price * 100) + "</b></div>";
+  if (r && r.yieldPct != null) {
+    h += "<div>合計 " + fmtNum(s.div) + "円 ÷ 取得単価 " + fmtNum(r.cost) + "円 ＝ 取得利回り <b>"
+      + fmtPct(r.yieldPct) + "</b></div>";
+  }
+  return h + "</div>";
+}
+
+// 銘柄を押すと開く詳細（CODE_TASK_05 ④）。行に収まらない、判断の裏付けになる数字と、外部の銘柄ページへの入口
+function stockDetail(s, r, code) {
+  return '<div class="sdetail">'
+    + (s ? spanTable(s) : "")
+    + divDetail(s, r)
+    + '<div class="sdrole">役割 ' + roleChip(code) + "<small>押すと 高配当→長期保有→優待 の順に替わります</small></div>"
+    + '<div class="slinks">' + STOCK_LINKS.map(function (l) {
+      return '<a href="' + esc(l.url(encodeURIComponent(code))) + '" target="_blank" rel="noopener">'
+        + esc(l.name) + "<small>" + esc(l.what) + "</small></a>";
+    }).join("") + "</div></div>";
+}
+
+// 1銘柄ぶん。1行目＝名前・役割・株価・前日比、2行目＝配当と利回り・選んだ期間の位置、3行目＝保有（あれば）。
+// 1〜3行目のどこを押しても、その下に詳細が開く（もう一度押すと閉じる）
 function stockItem(s, r) {
   const code = s ? String(s.code || "").replace(/\.T$/, "") : r.code;
   const role = roleOf(code);
+  const open = STOCK_OPEN.has(code);
   let line1;
   if (s) {
     const up = s.diff > 0, down = s.diff < 0;
@@ -1087,10 +1165,13 @@ function stockItem(s, r) {
     line1 = '<span class="sprice">' + (r.price != null ? fmtNum(r.price) : "—") + "</span>"
       + '<span class="sdiff">CSV ' + esc(shortDay(HOLD.asof)) + " 時点</span>";
   }
-  return '<div class="sitem' + (r ? " held" : "") + '"><div class="srow"><span class="sname">'
-    + esc(s ? s.name : r.name) + "</span>" + roleChip(code) + line1 + "</div>"
+  return '<div class="sitem' + (r ? " held" : "") + (open ? " open" : "") + '">'
+    + '<div class="shead" role="button" tabindex="0" aria-expanded="' + open + '" data-stock-open="' + esc(code) + '">'
+    + '<div class="srow"><span class="sname"><i class="scaret">' + (open ? "▾" : "▸") + "</i>"
+    + esc(s ? s.name : r.name) + "</span>" + roleTag(role) + line1 + "</div>"
     + infoLine(s, r, role)
-    + (r ? holdLine(r) : "") + "</div>";
+    + (r ? holdLine(r) : "") + "</div>"
+    + (open ? stockDetail(s, r, code) : "") + "</div>";
 }
 
 // 最下部のブロック。上に保有株の合計（この端末だけ）、その下に「持っている」「気になる」に分けて並べる
@@ -1118,7 +1199,7 @@ function stockBlock(list) {
       + esc(((window.NEWS_DATA || {}).generated_at || "").slice(5, 16).replace("-", "/"))
       + " の更新。配当は過去1年の実績。"
       + (t.nCsv ? "ウォッチ銘柄に無い " + t.nCsv + "銘柄は CSV の現在値で計算。" : "")
-      + "役割の札（高配当・長期保有・優待）は押すと替わります。</small></div>";
+      + "銘柄を押すと詳しい数字が開き、その中で役割の札（高配当・長期保有・優待）を替えられます。</small></div>";
   }
   const mine = (list || []).filter(function (s) { return held[codeOf(s)]; });
   const others = (list || []).filter(function (s) { return !held[codeOf(s)]; });
@@ -3018,7 +3099,17 @@ APP.addEventListener("click", function (ev) {
     window.scrollTo(0, y);
     return;
   }
-  // ウォッチ銘柄の役割の札（高配当→長期保有→優待→高配当）。この端末だけに覚える
+  // ウォッチ銘柄の行を押すと、詳細を開く・閉じる（CODE_TASK_05 ④）。開いた状態は端末に覚えない
+  const stockHead = ev.target.closest("[data-stock-open]");
+  if (stockHead) {
+    const code = stockHead.dataset.stockOpen;
+    if (STOCK_OPEN.has(code)) STOCK_OPEN.delete(code); else STOCK_OPEN.add(code);
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // ウォッチ銘柄の役割の札（高配当→長期保有→優待→高配当）。詳細の中の札で替える。この端末だけに覚える
   const roleBtn = ev.target.closest("[data-role]");
   if (roleBtn) {
     const code = roleBtn.dataset.role;

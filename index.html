@@ -421,16 +421,57 @@
     position: absolute; top: -3px; width: 10px; height: 10px; margin-left: -5px;
     border-radius: 50%; background: var(--accent);
   }
-  /* 役割の札（押すと替わる） */
+  /* 役割の札（行では見せるだけ。替えるのは詳細の中の札） */
   .stocks .srole {
-    margin-left: 6px; padding: 1px 7px; min-height: 24px; border-radius: 999px; cursor: pointer;
+    margin-left: 6px; padding: 1px 7px; border-radius: 999px;
     border: 1px solid var(--line); background: transparent; color: var(--sub);
     font-size: calc(10px * var(--fs)); font-weight: 600; white-space: nowrap;
   }
-  /* 既定の「高配当」は全行に出るので、枠を消して控えめにする（押せることは変わらない） */
+  /* 既定の「高配当」は全行に出るので、行では枠を消して控えめにする */
   .stocks .srole.r-div { border-color: transparent; opacity: .75; }
   .stocks .srole.r-long { color: var(--role-long); border-color: var(--role-long); }
   .stocks .srole.r-perk { color: var(--role-perk); border-color: var(--role-perk); }
+  /* 銘柄の行（押すと詳細が開く）。▸ は開ける印、開いているときは ▾ */
+  .stocks .shead { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .stocks .scaret {
+    display: inline-block; width: 1em; font-style: normal; font-weight: 400;
+    color: var(--sub); font-size: calc(10px * var(--fs));
+  }
+  .stocks .sitem.open .sname { color: var(--accent); }
+  /* 詳細（行の下に開く）。下地は白のまま枠と左の線で区切る
+     （灰色の下地に灰色の小さな文字＝年月は、明るい配色で 4.23:1 と読みにくい。白なら 4.83:1） */
+  .stocks .sdetail {
+    margin: 4px 0 4px 1em; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    font-size: calc(11.5px * var(--fs)); font-variant-numeric: tabular-nums;
+  }
+  .stocks .sdtab { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  .stocks .sdtab th {
+    text-align: right; font-weight: 600; color: var(--sub); font-size: calc(10.5px * var(--fs));
+    padding: 0 4px 2px; border-bottom: 1px solid var(--line);
+  }
+  .stocks .sdtab td { text-align: right; padding: 3px 4px; vertical-align: top; }
+  .stocks .sdtab th:first-child, .stocks .sdtab td:first-child { text-align: left; white-space: nowrap; }
+  .stocks .sdtab td small { display: block; color: var(--sub); font-size: calc(10px * var(--fs)); }
+  /* 表の上で選んでいる期間の行（太字と、期間の左の印） */
+  .stocks .sdtab tr.on td { font-weight: 700; }
+  .stocks .sdtab tr.on td:first-child { box-shadow: inset 3px 0 var(--accent); padding-left: 7px; }
+  .stocks .sddiv { display: grid; gap: 2px; margin-bottom: 8px; }
+  .stocks .sddiv b { color: var(--ink); }
+  .stocks .sdh { font-weight: 600; }
+  .stocks .sdh small, .stocks .sdrole small { color: var(--sub); font-size: calc(10px * var(--fs)); font-weight: 400; }
+  .stocks .sdlist { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+  .stocks .sdrole { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-bottom: 8px; }
+  /* 詳細の中の札は押して替えるので、押しやすい大きさにし、高配当にも枠を付ける */
+  .stocks .sdrole .srole { margin-left: 0; min-height: 32px; padding: 2px 12px; cursor: pointer; font-size: calc(11.5px * var(--fs)); }
+  .stocks .sdrole .srole.r-div { border-color: var(--sub); opacity: 1; color: var(--ink); }
+  .stocks .slinks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .stocks .slinks a {
+    display: inline-flex; flex-direction: column; justify-content: center; min-height: 40px;
+    padding: 4px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--card);
+    color: var(--accent); font-weight: 600; text-decoration: none;
+  }
+  .stocks .slinks a small { color: var(--sub); font-weight: 400; font-size: calc(10px * var(--fs)); }
   /* 書き出しの「保有株も入れる」 */
   .hold-opt { display: inline-flex; align-items: center; gap: 4px; font-size: calc(11.5px * var(--fs)); white-space: nowrap; }
 
