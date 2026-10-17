@@ -589,6 +589,29 @@ def classify_paywall(via: str, link: str, via_host: str = "") -> str:
     return ""
 
 
+# YouTube 以外の動画配信サイト（利用者の希望 2026-10-17：TVer などはスマホでは基本見ないので、順番を下げる）。
+# 消さずに、有料・会員限定の記事と同じ「いちばん後ろ」の組へ回す。サイトの住所（via_host・リンク）で見分ける。
+# 文字の記事のサイト（ABEMA TIMES＝times.abema.tv、ニコニコニュース＝news.nicovideo.jp）と、
+# 音声の radiko は対象外（動画サイトではないため）。YouTube（「動画」の行）は変えない。
+VIDEO_SITE_HOSTS = (
+    "tver.jp", "abema.tv", "plus.nhk.jp", "video.unext.jp", "unext.jp", "netflix.com", "hulu.jp",
+    "lemino.docomo.ne.jp", "fod.fujitv.co.jp", "telasa.jp", "primevideo.com", "dazn.com",
+    "www.nicovideo.jp", "sp.nicovideo.jp", "video.tv-tokyo.co.jp", "cu.tbs.co.jp", "gyao.yahoo.co.jp",
+)
+TEXT_SITE_HOSTS = ("times.abema.tv", "news.nicovideo.jp")   # 上の住所に似ているが文字の記事のサイト
+
+
+def is_video_site(a) -> bool:
+    """YouTube 以外の動画配信サイトの記事か（Googleニュース経由はリンクが中継URLなので via_host で見る）。"""
+    hosts = [(a.get("via_host") or "").lower(), urlparse(a.get("link") or "").netloc.lower()]
+    for h in hosts:
+        if not h or any(h == t or h.endswith("." + t) for t in TEXT_SITE_HOSTS):
+            continue
+        if any(h == v or h.endswith("." + v) for v in VIDEO_SITE_HOSTS):
+            return True
+    return False
+
+
 # ----------------------------------------------------------------------------
 # テーマ・エンジン
 #   feeds.json に「検索語(topic)」を書くだけで、複数の検索型ソースへ自動展開する。
@@ -2500,7 +2523,14 @@ def main():
             # 「関連」はブログかどうかより強く後ろへ回す。
             # 本人について書かれた個人ブログのほうが、名前に触れただけの報道より読みたいため。
             items.sort(key=lambda a: bool(a.get("related")))
-            items.sort(key=lambda a: a.get("paywall") in ("paid", "member", "partial"))
+            # YouTube 以外の動画サイト（TVer など）は、スマホでは見ないので読めない記事と同じ組へ（利用者の希望 2026-10-17）。
+            # 印 vsite は画面の「同じ話題の代表」選びでも使う（app.js の topicRank）
+            for a in items:
+                if is_video_site(a):
+                    a["vsite"] = True
+                else:
+                    a.pop("vsite", None)
+            items.sort(key=lambda a: a.get("paywall") in ("paid", "member", "partial") or bool(a.get("vsite")))
             if curate_rules.get(g):
                 before_n = len(items)
                 items = curate(items, curate_rules[g])
