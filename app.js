@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.39.0";
+const APP_VERSION = "v1.40.0";
 const CHANGELOG = [
+  ["v1.40.0", "2026-10-14", "ウォッチ銘柄の詳細に、いまの利回りが10年の中でどのあたりかと、1年ごとの配当（減った年・特別配当らしい年）を表示。三井住友FG の分割の日の配当のずれと、Yahoo の過去の配当の誤り（10件）を直した"],
   ["v1.39.0", "2026-10-13", "ウォッチ銘柄の見出しの［ⓘ 見方］で、表の数字・棒・印・札の意味を開けるように（ふだんは畳んだまま）"],
   ["v1.38.0", "2026-10-13", "ウォッチ銘柄を押すと詳しい数字が開くように（1・3・5・10年の高値・安値と付けた年月、過去1年の配当の内訳と利回りの計算、Yahoo!ファイナンス・IR BANK への入口）。役割の札は、開いた中で替える"],
   ["v1.37.0", "2026-10-13", "朝刊の見出しの［↕ 並べ替え］で、行の順番を自由に入れ替えられるように（この端末だけ）。ウォッチ銘柄のニュースの一番上の固定をやめた（最初の位置は一番上のまま）"],
@@ -1125,9 +1126,11 @@ function divDetail(s, r) {
   const list = s.divs && s.divs.length;
   let h = '<div class="sddiv"><div class="sdh">過去1年の配当' + (list ? "<small>（日付は権利落ち日）</small>" : "") + "</div>";
   if (list) {
+    // 3つ目は、Yahoo の記録を直した回の元の額（分割の日の額のずれ・会社の発表との食い違い。build_news.py の dividend_events）
     h += '<div class="sdlist">' + s.divs.map(function (d) {
       return "<span>" + esc(String(d[0]).replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, "$1/$2/$3")) + " "
-        + fmtNum(d[1]) + "円</span>";
+        + fmtNum(d[1]) + "円" + (d[2] != null ? "<small>（Yahoo の記録は " + fmtNum(d[2]) + "円。直した）</small>" : "")
+        + "</span>";
     }).join("") + "</div>";
   }
   h += "<div>合計 " + fmtNum(s.div) + "円 ÷ いまの株価 " + fmtNum(price) + "円 ＝ いまの利回り <b>"
@@ -1139,11 +1142,69 @@ function divDetail(s, r) {
   return h + "</div>";
 }
 
+// 10年の中の、いまの利回りの水準と、1年ごとの配当（CODE_TASK_05 ⑥）。
+// 高配当株の買い時は、株価そのものより「いまの利回りが過去と比べて高いか」で見るほうが目的に合う
+// （配当を増やしてきた銘柄は、株価が10年の高値でも配当に比べて割安なことがある。逆に減配していれば、安いのには理由がある）。
+// 利回りは棒にせず言葉で示す（株価の棒は右ほど割高、利回りは右ほど割安で、並べると向きを取り違えやすいため）
+const DIV_DOWN = 0.98;   // 前の年の98%未満を「減った」とする（分割で割り戻した額の端数で減って見えないように）
+const DIV_BUMP = 1.3;    // 前後の年より3割以上多い年を「特別配当・記念配当かもしれない」とする（推測）
+function yieldHistory(s) {
+  const dy = s.dy, ys = s.dyears || [];
+  if (!dy && ys.length < 2) return "";
+  let h = '<div class="sdyld">';
+  if (dy) {
+    const now = typeof s.div === "number" && s.price ? s.div / Number(s.price) * 100 : null;
+    h += '<div class="sdh">利回りの10年<small>（毎月末の株価と、その月までの1年の配当から'
+      + (dy.yrs < 9.5 ? "。" + dy.yrs.toFixed(1) + "年分" : "") + "）</small></div>"
+      + "<div>最低 " + fmtPct(dy.lo) + "（" + fmtYm(dy.lo_at) + "）／最高 " + fmtPct(dy.hi) + "（" + fmtYm(dy.hi_at) + "）</div>";
+    if (now == null) {
+      h += "<div>いまは過去1年の配当の記録がありません</div>";
+    } else if (dy.hi > dy.lo) {
+      const pos = Math.max(0, Math.min(100, (now - dy.lo) / (dy.hi - dy.lo) * 100));
+      const where = pos < 100 / 3 ? ["低いほう", "＝配当に比べて株価が高め"]
+        : pos > 200 / 3 ? ["高いほう", "＝配当に比べて株価が安め"] : ["なかほど", ""];
+      h += "<div>いま <b>" + fmtPct(now) + "</b>：10年の中で" + where[0] + "（下から" + Math.round(pos) + "%）" + where[1] + "</div>";
+    }
+    if (dy.hi_bump) h += '<div class="sdnote">最高のときは、1年の配当がその前後の年より3割以上多い（特別配当・記念配当かもしれない）</div>';
+    if (dy.zero) h += '<div class="sdnote">配当の記録が無い月（' + dy.zero + "か月）は除いた</div>";
+  }
+  if (ys.length >= 2) {
+    const m = Number(String(ys[ys.length - 1][0]).slice(5, 7));
+    const span = m === 12 ? "その年の1月〜12月" : "前の年の" + (m + 1) + "月〜その年の" + m + "月";
+    const downs = [], bumps = [];
+    const items = ys.map(function (y, i) {
+      const v = y[1], prev = i > 0 ? ys[i - 1][1] : null, next = i < ys.length - 1 ? ys[i + 1][1] : null;
+      const down = prev != null && v < prev * DIV_DOWN;
+      // 前後の年のどちらかが0（無配・記録なし）のときは「再開」や「無配の前」なので、特別配当らしいとは言わない
+      const bump = prev > 0 && next > 0 && v > DIV_BUMP * Math.max(prev, next);
+      const year = String(y[0]).slice(0, 4);
+      if (down) downs.push(year + "（" + fmtNum(prev) + "→" + fmtNum(v) + "円）");
+      if (bump) bumps.push(year + "（" + fmtNum(v) + "円）");
+      return '<span class="' + (down ? "dn" : bump ? "bp" : "") + '">' + year + " <b>" + fmtNum(v) + "</b>"
+        + (down ? "↓" : bump ? "＊" : "") + "</span>";
+    });
+    h += '<div class="sdh">1年ごとの配当（円）<small>（' + span + "。最後が過去1年）</small></div>"
+      + '<div class="sdyears">' + items.join("") + "</div>"
+      + "<div>前の年より減った年：" + (downs.length ? '<span class="dn">' + downs.join("、") + "</span>" : "なし") + "</div>";
+    if (bumps.length) h += "<div>前後の年より3割以上多い年：" + bumps.join("、") + "（＊。特別配当・記念配当かもしれない）</div>";
+    const last = ys[ys.length - 1][1], before = ys[ys.length - 2][1];
+    if (before > 0 && last > DIV_BUMP * before) {
+      h += '<div class="sdnote">過去1年は前の年より' + Math.round((last / before - 1) * 100)
+        + "%多い。特別配当・記念配当なら、いまの利回りは高めに出ている</div>";
+    }
+    if (ys.some(function (y) { return !y[1]; })) h += '<div class="sdnote">0 は配当の記録なし（無配か、取れなかったかは見分けられない）</div>';
+    h += '<div class="sdnote">年の区切りは今の月なので、会社の決算の年とはずれる。中間と期末の配分が変わっただけでも増減して見えることがある（決算の年ごとの配当は IR BANK で）'
+      + (s.dfix ? "。Yahoo の配当の記録のうち " + s.dfix + "回分は直した（会社の発表と食い違う額、分割の日の額のずれ）" : "") + "</div>";
+  }
+  return h + "</div>";
+}
+
 // 銘柄を押すと開く詳細（CODE_TASK_05 ④）。行に収まらない、判断の裏付けになる数字と、外部の銘柄ページへの入口
 function stockDetail(s, r, code) {
   return '<div class="sdetail">'
     + (s ? spanTable(s) : "")
     + divDetail(s, r)
+    + (s ? yieldHistory(s) : "")
     + '<div class="sdrole">役割 ' + roleChip(code) + "<small>押すと 高配当→長期保有→優待 の順に替わります</small></div>"
     + '<div class="slinks">' + STOCK_LINKS.map(function (l) {
       return '<a href="' + esc(l.url(encodeURIComponent(code))) + '" target="_blank" rel="noopener">'
@@ -1186,7 +1247,7 @@ function stockLegend(held) {
   };
   return '<div class="slegend">'
     + row('<span class="sname"><i class="scaret">▸</i>名前</span>',
-      "押すと下に詳細が開く（1〜10年の安値・高値と付けた年月、過去1年の配当の内訳、外部の銘柄ページ、役割の切り替え）。もう一度押すと閉じる")
+      "押すと下に詳細が開く（1〜10年の安値・高値と付けた年月、過去1年の配当の内訳、利回りの10年の幅、1年ごとの配当と減った年、外部の銘柄ページ、役割の切り替え）。もう一度押すと閉じる")
     + row(roleTag("div") + roleTag("long") + roleTag("perk"),
       "役割の札（この端末だけ）。行では見せるだけで、替えるのは詳細の中。長期保有・優待は利回りを控えめな色にし、合計の取得利回りの「高配当だけ」から外す")
     + row('<span class="up">▲</span><span class="down">▼</span>',

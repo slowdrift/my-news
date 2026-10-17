@@ -20,6 +20,7 @@ import collections
 import datetime
 import html
 import json
+import math
 import os
 import re
 import socket
@@ -1295,13 +1296,20 @@ def is_duplicate_title(norm: str, seen_titles) -> bool:
 # ----------------------------------------------------------------------------
 
 JMA_URL = "https://www.jma.go.jp/bosai/forecast/data/forecast/{area}.json"
-# 10年分の日足と配当を1回で取る。前日比・1年の高値と安値・過去1年の配当も、この中から切り出す
+# 11年分の日足と配当・分割を1回で取る。前日比・1年の高値と安値・過去1年の配当も、この中から切り出す
 # （3年・5年・10年の位置を画面で切り替えて見るため。CODE_TASK_05 ③。問い合わせは1銘柄1回のまま。
-#   1銘柄 約150〜210KB・0.3秒ほど＝10/13 実測。月足でも高値・安値は同じだったが、前日比に日足が要る）
-STOCK_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{code}?range=10y&interval=1d&events=div"
-# 10年分が取れなかったときの取り直し（v1.35.0 までの1年分の取り方。株価ごと消えないように）
-STOCK_URL_1Y = "https://query1.finance.yahoo.com/v8/finance/chart/{code}?range=1y&interval=1d&events=div"
+#   月足でも高値・安値は同じだったが、前日比に日足が要る）。
+# 10年ではなく11年なのは、10年分の配当利回り（CODE_TASK_05 ⑥）の最初の月にも、その前の1年の配当が要るため
+# （1銘柄 0.5秒ほど＝10/14 実測。10年のときより量が1割ほど増える）。
+# 分割（splits）は、分割の日の配当が分割前の額のまま記録されたときに直すのに使う（dividend_events）
+STOCK_URL = ("https://query1.finance.yahoo.com/v8/finance/chart/{code}"
+             "?period1={p1}&period2={p2}&interval=1d&events=div,splits")
+STOCK_FETCH_DAYS = int(11 * 365.25) + 20   # 11年と少し（11年前の同じ月の配当まで入るように）
+# 11年分が取れなかったときの取り直し（v1.35.0 までの1年分の取り方。株価ごと消えないように）
+STOCK_URL_1Y = "https://query1.finance.yahoo.com/v8/finance/chart/{code}?range=1y&interval=1d&events=div,splits"
 STOCK_SPANS = (3, 5, 10)   # 1年のほかに、画面で切り替えて見られる期間（年）
+YIELD_YEARS = 10           # 配当利回りの幅と1年ごとの配当を見る期間（年。CODE_TASK_05 ⑥）
+SPLIT_DIV_DAYS = 7         # 分割の日と、その前の何日までの配当を「分割前の額のまま」か点検するか
 
 
 def get_json(url: str, timeout: int = 12):
@@ -1489,28 +1497,140 @@ def span_range(result, since):
             "days": len(closes), "first": days[keep[0]]}
 
 
-def span_dividend_list(result, since):
-    """since の日付以降の1株配当を1回ずつ (日付, 額) で古い順に返す。日付は Yahoo の記録の日＝権利落ち日。"""
+def dividend_events(result, fixes=None):
+    """1株配当を1回ずつ [日付, 額, 記録の額] で古い順に返す。日付は Yahoo の記録の日＝権利落ち日。
+    記録の額は、直したときだけ入る（直していなければ None）。
+
+    fixes は feeds.json の銘柄の行の div_fix＝{"権利落ち日": [Yahoo の額, 正しい額]}。
+    Yahoo の過去の配当には、権利落ち日の時点の「予想の額」のまま、会社があとで額を変えても直っていないものがある
+    （10/14 に IR BANK と突き合わせ：2020〜2021年を中心に約10件。タマホーム 2021年5月期 60円→実際は100円など）。
+    Yahoo の額が今も表と同じときだけ直す（Yahoo が自分で直したときや、あとの分割で額が変わったときに、
+    古い表のまま誤った数字を出さないため。合わなければ直さずに知らせる）。点検の道具は tools/check_dividends.py。
+
+    Yahoo は昔の配当を株式分割のぶん今の物差しに割り戻して返すが、分割の日（権利落ち日が同じ日）の配当だけ
+    分割前の額のまま残ることがある（2026-09-29 の三井住友FG：1→2分割と同じ日の中間配当が 90円。
+    IR BANK の予想は「中間 90円」で分割前の株数の額＝分割後の物差しでは45円）。
+    そこで分割の日とその前1週間の配当を、分割の比で割ったほうが前の回の配当に近ければ直す。
+    （10/14 の試算：29銘柄・分割13回のうち、直ったのは三井住友FG の1件だけ。同じ日に配当がある
+      富士フイルム・住友林業・花王などは、割ると前の回から遠くなるので直さない）
+    """
     off = int(result["meta"].get("gmtoffset") or 0)
-    divs = ((result.get("events") or {}).get("dividends") or {}).items()
-    out = [(local_day(d.get("date") or key, off), d.get("amount")) for key, d in divs
-           if isinstance(d.get("amount"), (int, float))]
-    return sorted((day, amt) for day, amt in out if since is None or day >= since)
+    ev = result.get("events") or {}
+    divs = sorted([local_day(d.get("date") or key, off), d.get("amount"), None]
+                  for key, d in (ev.get("dividends") or {}).items()
+                  if isinstance(d.get("amount"), (int, float)))
+    symbol = result["meta"].get("symbol")
+    for day_s, pair in (fixes or {}).items():
+        hit = [d for d in divs if d[0].isoformat() == day_s]
+        if hit and len(pair) == 2 and abs(hit[0][1] - pair[0]) < 0.01:
+            hit[0][1], hit[0][2] = pair[1], hit[0][1]
+        else:
+            print(f"配当 {symbol}: 直す表の {day_s}（{pair}）が Yahoo の記録と合わない"
+                  f"（Yahoo は {hit[0][1] if hit else 'その日の記録なし'}）。直さずに使う")
+    for key, sp in (ev.get("splits") or {}).items():
+        num, den = sp.get("numerator"), sp.get("denominator")
+        if not num or not den or num <= den:     # 併合（株が減る）は見ない
+            continue
+        ratio = num / den
+        split_day = local_day(sp.get("date") or key, off)
+        for i, (day, amt, orig) in enumerate(divs):
+            if i == 0 or orig is not None or not 0 <= (split_day - day).days <= SPLIT_DIV_DAYS:
+                continue
+            prev = divs[i - 1][1]
+            if amt > 0 and prev > 0 and abs(math.log(amt / ratio / prev)) < abs(math.log(amt / prev)):
+                print(f"配当 {result['meta'].get('symbol')}: {day} の {amt} を分割（{num}:{den}）のぶん直して {amt / ratio:g}")
+                divs[i] = [day, amt / ratio, amt]
+    return divs
 
 
-def span_dividend(result, since):
+def span_dividend_list(events, since):
+    """since の日付以降の1株配当を1回ずつ [日付, 額, 記録の額] で古い順に返す（dividend_events の結果を絞る）。"""
+    return [d for d in events if since is None or d[0] >= since]
+
+
+def span_dividend(events, since):
     """since の日付以降に支払われた1株配当の合計。記録が無ければ None（無配か、取れなかったか区別できないため）。"""
-    amounts = [amt for _, amt in span_dividend_list(result, since)]
+    amounts = [d[1] for d in span_dividend_list(events, since)]
     return round(sum(amounts), 2) if amounts else None
 
 
+def month_no(day):
+    """月の通し番号（年×12＋月）。12か月さかのぼる計算を引き算でするため。"""
+    return day.year * 12 + day.month - 1
+
+
+def month_label(no):
+    return f"{no // 12}-{no % 12 + 1:02d}"
+
+
+def yield_history(result, events, years=YIELD_YEARS):
+    """過去 years 年の配当利回りの幅と、1年ごとの配当の合計を返す（CODE_TASK_05 ⑥）。
+
+    高配当株の買い時は、株価そのものより「いまの利回りが過去と比べて高いか」で見るほうが目的に合う
+    （配当を増やしてきた銘柄は、株価が10年の高値でも配当に比べて割安なことがある）。
+    ・利回り＝毎月の最後の終値と、その月までの12か月（配当の権利落ちの月で数える）の1株配当の合計。
+      日付で365日を数えると、権利落ち日が年で数日ずれたときに1回分多く・少なく数えて跳ねるので、月で数える。
+      配当の記録が無い月（無配か取れなかったか）は除き、その月数を zero に入れる。
+    ・1年ごとの配当＝今の月で区切った12か月ずつの合計を years+1 個（いちばん新しいのが過去1年。
+      前の年と比べて years 回）。会社の決算の年とはずれる（画面で断る）。
+    ・最高の利回りの月の1年の配当が、その前後の1年（どちらも配当あり）より3割以上多ければ hi_bump（特別配当・記念配当かもしれない）。
+    """
+    off = int(result["meta"].get("gmtoffset") or 0)
+    stamps = result.get("timestamp") or []
+    closes = ((result.get("indicators") or {}).get("quote") or [{}])[0].get("close") or []
+    if not stamps:
+        return {}
+    last = local_day(stamps[-1], off)
+    since = span_since(result, years)
+    paid = collections.Counter()
+    for day, amt, _ in events:
+        paid[month_no(day)] += amt
+
+    def year_sum(no):   # その月までの12か月の配当
+        return sum(paid.get(no - j, 0) for j in range(12))
+
+    month_close = {}    # 月ごとの最後の終値（日足は古い順なので、上書きすれば最後の日が残る）
+    first = None
+    for t, c in zip(stamps, closes):
+        day = local_day(t, off)
+        if c is not None and c > 0 and day >= since:
+            month_close[month_no(day)] = c
+            first = first or day
+    out = {}
+    yields = [(no, year_sum(no) / c * 100) for no, c in sorted(month_close.items()) if year_sum(no) > 0]
+    if yields:
+        lo = min(yields, key=lambda x: x[1])
+        hi = max(yields, key=lambda x: x[1])
+        dy = {"lo": round(lo[1], 2), "lo_at": month_label(lo[0]),
+              "hi": round(hi[1], 2), "hi_at": month_label(hi[0]),
+              "yrs": round((last - first).days / 365.25, 1)}
+        if len(yields) < len(month_close):
+            dy["zero"] = len(month_close) - len(yields)
+        # 前後の1年がそろっていて、どちらも配当があるときだけ見る（0 からの再開や無配の前を、特別配当らしいとは言わない）
+        if hi[0] + 12 <= month_no(last):
+            around = [year_sum(hi[0] - 12), year_sum(hi[0] + 12)]
+            if min(around) > 0 and year_sum(hi[0]) > 1.3 * max(around):
+                dy["hi_bump"] = True
+        out["dy"] = dy
+    end = month_no(last)
+    if paid:
+        out["dyears"] = [[month_label(end - 12 * y), round(year_sum(end - 12 * y), 2)]
+                         for y in range(years, -1, -1)]
+    # この期間の計算に使った配当のうち、Yahoo の記録を直した回の数（画面で「○回分を直した」と断るため）
+    fixed = [d for d in events if d[2] is not None and month_no(d[0]) > end - 12 * (years + 1)]
+    if fixed:
+        out["dfix"] = len(fixed)
+    return out
+
+
 def get_chart(code):
-    """10年分の日足を取る。取れなければ1年分で取り直す。(result, 10年分か) を返す。"""
+    """11年分の日足を取る。取れなければ1年分で取り直す。(result, 長い期間が取れたか) を返す。"""
     try:
-        data = get_json(STOCK_URL.format(code=quote(code)), timeout=20)
+        p2 = int(time.time())
+        data = get_json(STOCK_URL.format(code=quote(code), p1=p2 - STOCK_FETCH_DAYS * 86400, p2=p2), timeout=20)
         return data["chart"]["result"][0], True
     except Exception as e:
-        print(f"株価 {code}: 10年分が取れず（{type(e).__name__}）、1年分で取り直し")
+        print(f"株価 {code}: 11年分が取れず（{type(e).__name__}）、1年分で取り直し")
         data = get_json(STOCK_URL_1Y.format(code=quote(code)))
         return data["chart"]["result"][0], False
 
@@ -1546,13 +1666,15 @@ def fetch_stocks(items):
                 "currency": m.get("currency", ""),
             }
             since1 = span_since(result, 1)
-            div = span_dividend(result, since1)
+            # 誤りを直したあとの配当（直す表 div_fix と分割の日の直し。1銘柄につき1回だけ作る）
+            events = dividend_events(result, it.get("div_fix"))
+            div = span_dividend(events, since1)
             if div is not None:
                 row["div"] = div
                 # 合計の内訳（1回ずつの権利落ち日と額）。銘柄を押して開く詳細に出す（CODE_TASK_05 ④）。
-                # 特別配当や、分割の直後の額のずれ（三井住友FG の 9/29）を自分で見分けられるように
-                row["divs"] = [[day.isoformat(), round(amt, 2)]
-                               for day, amt in span_dividend_list(result, since1)]
+                # 特別配当などを自分で見分けられるように。分割の日の額を直した回は、3つ目に記録の額を入れる
+                row["divs"] = [[day.isoformat(), round(amt, 2)] + ([round(orig, 2)] if orig is not None else [])
+                               for day, amt, orig in span_dividend_list(events, since1)]
             stamps = result.get("timestamp") or []
             last = local_day(stamps[-1], int(m.get("gmtoffset") or 0)) if stamps else None
             # 1年の高値・安値（買い増しの目安に、いまがその間のどのあたりかを画面で示す。CODE_TASK_04 ②）。
@@ -1586,13 +1708,16 @@ def fetch_stocks(items):
                     }
                 if span:
                     row["span"] = span
+                # 10年の配当利回りの幅と、1年ごとの配当（CODE_TASK_05 ⑥。銘柄を押して開く詳細に出す）
+                row.update(yield_history(result, events))
             out.append(row)
         except Exception as e:
             print(f"株価 {code}: 取得できず（{type(e).__name__}）")
         time.sleep(0.2)   # 銘柄が増えたので、続けざまに聞かない（止められないための間）
     if out:
         print(f"株価: {len(out)}/{len(items)}銘柄を取得（配当あり {sum(1 for r in out if 'div' in r)}銘柄・"
-              f"10年分まで {sum(1 for r in out if 'span' in r)}銘柄）")
+              f"10年分まで {sum(1 for r in out if 'span' in r)}銘柄・"
+              f"10年の利回りあり {sum(1 for r in out if 'dy' in r)}銘柄）")
     return out
 
 

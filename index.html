@@ -480,6 +480,14 @@
   .stocks .sdh { font-weight: 600; }
   .stocks .sdh small, .stocks .sdrole small { color: var(--sub); font-size: calc(10px * var(--fs)); font-weight: 400; }
   .stocks .sdlist { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+  /* 利回りの10年と1年ごとの配当（CODE_TASK_05 ⑥）。減った年は青（株価の下げと同じ色）、多い年は＊ */
+  .stocks .sdyld { display: grid; gap: 2px; margin-bottom: 8px; }
+  .stocks .sdyld b { color: var(--ink); }
+  .stocks .sdyld .sdh { margin-top: 4px; }
+  .stocks .sdyears { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+  .stocks .sdyears span { white-space: nowrap; }
+  .stocks .sdyld .dn, .stocks .sdyld .dn b { color: var(--down); }
+  .stocks .sdnote { color: var(--sub); font-size: calc(10.5px * var(--fs)); }
   .stocks .sdrole { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-bottom: 8px; }
   /* 詳細の中の札は押して替えるので、押しやすい大きさにし、高配当にも枠を付ける */
   .stocks .sdrole .srole { margin-left: 0; min-height: 32px; padding: 2px 12px; cursor: pointer; font-size: calc(11.5px * var(--fs)); }
