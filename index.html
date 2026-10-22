@@ -17,6 +17,7 @@
     --pick-bg:#eff6ff;     /* 選択中のカード */
     --up:#b91c1c; --down:#1d4ed8;   /* 株価の上げ・下げ（日本の慣習で上げは赤） */
     --role-long:#0f766e; --role-perk:#b45309;   /* ウォッチ銘柄の役割の札（長期保有・優待） */
+    --field-bg:#dcfce7; --field-ink:#166534;    /* ほかの分野からの分野の札（コントラスト比 6.49） */
     --fs:1;           /* 文字サイズの倍率 */
   }
   /* 端末が暗い設定のとき（手動指定が無い＝自動のとき）だけ暗くする */
@@ -31,6 +32,7 @@
       --pick-bg:#16233a;
       --up:#f87171; --down:#93c5fd;
       --role-long:#5eead4; --role-perk:#fbbf24;
+      --field-bg:#14301f; --field-ink:#86efac;   /* コントラスト比 10.16 */
     }
   }
   /* 手動で「暗い」を選んだとき */
@@ -44,6 +46,7 @@
     --pick-bg:#16233a;
     --up:#f87171; --down:#93c5fd;
     --role-long:#5eead4; --role-perk:#fbbf24;
+    --field-bg:#14301f; --field-ink:#86efac;
   }
   /* 文字サイズ */
   :root[data-font="s"] { --fs:.92; }
@@ -722,6 +725,12 @@
     font-size: calc(11px * var(--fs)); letter-spacing: .02em;
   }
   .found-btn { border-color: var(--found-ink); color: var(--found-ink); }
+  /* ほかの分野から：どの分野の人気記事か（v1.42.0）。色は変数で決める（「自動」でも明るい画面は明るい色に） */
+  .field {
+    background: var(--field-bg); color: var(--field-ink);
+    border-radius: 4px; padding: 1px 5px; font-weight: 700;
+    font-size: calc(11px * var(--fs)); white-space: nowrap;
+  }
   .note {
     margin: 8px 12px 0; padding: 8px 10px; border-radius: 8px;
     background: var(--card); border: 1px solid var(--line);

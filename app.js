@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.41.0";
+const APP_VERSION = "v1.42.0";
 const CHANGELOG = [
+  ["v1.42.0", "2026-10-22", "朝刊に「ほかの分野から」を足した。自分のテーマの外から、はてなブックマークの分野別の人気記事を1日3本（分野は日替わり・各分野の1位）。有料・会員限定の判定が、メニューや隠れた文字に反応して無料の記事（はてなブログなど）に札を付けていたのを直した"],
   ["v1.41.0", "2026-10-17", "アクアワールド大洗から遠足の記事を外した。YouTube 以外の動画サイト（TVer など）の記事は、各テーマの後ろへ回す（消さない）"],
   ["v1.40.0", "2026-10-14", "ウォッチ銘柄の詳細に、いまの利回りが10年の中でどのあたりかと、1年ごとの配当（減った年・特別配当らしい年）を表示。三井住友FG の分割の日の配当のずれと、Yahoo の過去の配当の誤り（10件）を直した"],
   ["v1.39.0", "2026-10-13", "ウォッチ銘柄の見出しの［ⓘ 見方］で、表の数字・棒・印・札の意味を開けるように（ふだんは畳んだまま）"],
@@ -448,6 +449,9 @@ function arrivedWithin(a, ms) {
 
 // 記事そのものが古いか（配信から NEW_MAX_AGE_DAYS 日以上たっているか）
 function isOldArticle(a) {
+  // ほかの分野から（pick_day の印）は、配信が古くても「その日に選んだ記事」なので朝刊に出す（v1.42.0）。
+  // 古いページがいま多くの人に読まれている、ということがあるため
+  if (a.pick_day) return false;
   if (!a.dt) return false;
   const t = new Date(a.dt).getTime();
   if (isNaN(t)) return false;
@@ -567,6 +571,8 @@ function metaRow(a) {
   const inner = (isSinceLast(a) ? '<span class="since dot" title="前回見てから届いた記事">●</span>'
       : isNew(a) ? '<span class="new">NEW</span>' : "")
     + (isFound(a) ? '<span class="found" title="初めて見つけた、少し前の記事">発掘</span>' : "")
+    // ほかの分野から：どの分野の人気記事から選んだか（世の中・学び など。v1.42.0）
+    + (a.field ? '<span class="field" title="はてなブックマークの分野">' + esc(a.field) + "</span>" : "")
     + payBadge(a)
     // 発信元が note・Zenn などなら「個人ブログ」は言わずもがななので省く
     + (a.blog && (a.corp || !BLOG_VIA_RE.test(src)) ? '<span class="blog' + (a.corp ? " corp" : "") + '">'

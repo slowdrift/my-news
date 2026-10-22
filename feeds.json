@@ -3143,6 +3143,57 @@
           "url": "http://feeds.cnn.co.jp/rss/cnn/cnn.rdf"
         }
       ]
+    },
+    {
+      "name": "ほかの分野から",
+      "_説明": [
+        "自分のテーマの外から、1日3本だけ「多くの人が保存した記事」を出す（v1.42.0）。",
+        "はてなブックマークの分野別の人気記事から、rounds の組を1日ごとに入れ替え、各分野の1位を1本ずつ選ぶ。",
+        "分野の名前：social＝世の中、economics＝政治と経済、knowledge＝学び、life＝暮らし、entertainment＝エンタメ、fun＝おもしろ。",
+        "it（テクノロジー）と game（アニメとゲーム）は、自分のテーマと重なるので使っていない。",
+        "skip_hosts のサイトは選ばない（まとめページ・匿名の日記・動画）。",
+        "やめるときはこのカテゴリを消す（設定から外したテーマとして、書庫の分も消える）。"
+      ],
+      "feeds": [
+        {
+          "name": "ほかの分野から",
+          "pick": {
+            "rounds": [
+              [
+                "social",
+                "knowledge",
+                "entertainment"
+              ],
+              [
+                "economics",
+                "life",
+                "fun"
+              ]
+            ],
+            "labels": {
+              "social": "世の中",
+              "economics": "政治と経済",
+              "knowledge": "学び",
+              "life": "暮らし",
+              "entertainment": "エンタメ",
+              "fun": "おもしろ"
+            },
+            "skip_hosts": [
+              "togetter.com",
+              "posfie.com",
+              "anond.hatelabo.jp",
+              "www.youtube.com",
+              "m.youtube.com",
+              "youtube.com",
+              "youtu.be",
+              "www.nicovideo.jp",
+              "nico.ms"
+            ]
+          },
+          "keep": 180,
+          "daily_max": 3
+        }
+      ]
     }
   ]
 }

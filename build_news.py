@@ -2028,11 +2028,179 @@ def to_json_item(a):
         "dt": a["dt"].isoformat() if a["dt"] else None,  # 例: 2026-06-04T10:12:35+00:00（UTC）
     }
     # 一部の記事にだけ付く項目は、あるときだけ書く（全記事に空の項目を並べると data.js が膨らむ）
-    #   pwr … 有料判定の決まりの版（PAYWALL_RULE）
-    for k in ("pwr",):
+    #   pwr … 有料判定の決まりの版（PAYWALL_RULE）。field・pick_day … ほかの分野から（pick_outside）
+    for k in ("pwr", "field", "pick_day"):
         if a.get(k):
             out[k] = a[k]
     return out
+
+
+# ----------------------------------------------------------------------------
+# ほかの分野から（v1.42.0）
+# ----------------------------------------------------------------------------
+# 自分で選んだテーマの記事ばかり読んでいると、ほかの分野の出来事に触れなくなる。
+# そこで1日3本だけ、テーマの外から「多くの人が保存した記事」を出す（利用者の決定 2026-10-22）。
+#   情報源 … はてなブックマークの分野別の人気記事（無料・登録不要）
+#   分野   … feeds.json の rounds に書いた組を1日ごとに入れ替え、各分野の1位を1本ずつ選ぶ
+#            （1分野から3本取ると、2本目・3本目に短い速報が混ざった。1位どうしなら質がそろう）
+#   順位   … はてブ数。文字量・小見出し・出典の数はサイトの作り（ページの組み方・有料で途中まで
+#            しか見えないか）で決まり、サイトをまたいだ質の比べ方には使えなかった（10/22 に150ページで確かめた）
+#   外す   … 記事の形でないページ・まとめページなど（skip_hosts）・有料と会員限定・
+#            もうアプリに入っている記事・外国語の記事・プレスリリース・同じサイトの2本目
+# 1日の中では選び直さない。選んだ記事に pick_day（日本時間の日付）を付けて書庫に残し、
+# その日の分があれば、2回目以降の更新では何もしない（人気記事は1日の中でも入れ替わるため）。
+HATENA_HOT_URL = "https://b.hatena.ne.jp/hotentry/{field}.rss"
+PICK_LOOK_MAX = 10   # 1分野で、ページを開いて確かめる候補の数（はてブ数の多い順に）
+OG_ARTICLE_RE = re.compile(
+    r'<meta[^>]+(?:property=["\']og:type["\'][^>]*content=["\']article["\']'
+    r'|content=["\']article["\'][^>]*property=["\']og:type["\'])', re.I)
+PUBLISHED_RE = re.compile(
+    r'article:published_time["\'][^>]*content=["\']([^"\']+)'
+    r'|"datePublished"\s*:\s*"([^"]+)"'
+    r'|itemprop=["\']datePublished["\'][^>]*(?:content|datetime)=["\']([^"\']+)', re.I)
+SITE_NAME_RE = re.compile(
+    r'property=["\']og:site_name["\'][^>]*content=["\']([^"\']{1,40})["\']'
+    r'|content=["\']([^"\']{1,40})["\'][^>]*property=["\']og:site_name["\']', re.I)
+NOT_UTF8_RE = re.compile(r'charset=["\']?(shift_jis|sjis|x-sjis|windows-31j|euc-jp)', re.I)
+
+
+def page_published(html_text: str):
+    """ページに書かれた公開日時（UTC の datetime）。無ければ None。"""
+    m = PUBLISHED_RE.search(html_text)
+    if not m:
+        return None
+    s = next(x for x in m.groups() if x)
+    try:
+        d = datetime.datetime.fromisoformat(s.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=JST)   # 時差の書いていない日時は、日本のサイトなので日本時間とみなす
+    return d.astimezone(datetime.timezone.utc)
+
+
+def looks_like_article(html_text: str) -> bool:
+    """ページに「記事」の印（og:type=article）か公開日があるか。
+
+    道具のページ・個人のホームページ・パロディのサイト・壊れたリンク先の案内などを外すため。
+    10/22 の候補180本では、英単語のゲーム・阿部寛さんのホームページ・アンサイクロペディア・
+    研究室のグルメ一覧・メンテナンスの案内などが外れた。読み物でも外れたのは、
+    オモコロの2本と会社のサイトの読み物2本（どちらも記事の印も公開日も書いていない）。
+    """
+    return bool(OG_ARTICLE_RE.search(html_text) or PUBLISHED_RE.search(html_text))
+
+
+def page_site_name(html_text: str) -> str:
+    """ページの og:site_name（発信元の名前）。UTF-8 でないページは文字化けするので使わない。"""
+    if NOT_UTF8_RE.search(html_text[:3000]):
+        return ""
+    m = SITE_NAME_RE.search(html_text)
+    return html.unescape(next(x for x in m.groups() if x)).strip() if m else ""
+
+
+def pick_outside(feed, archive, now, seen_links, seen_titles):
+    """ほかの分野から、きょうの分を選ぶ。返り値は fetch_feed と同じ（記事のリスト, 状況の文字）。"""
+    cfg = feed.get("pick") or {}
+    g = feed.get("group") or feed["name"]
+    # 試し運転で日付を変えられるように、環境変数 PICK_TODAY（例 2026-10-23）があればそれを使う
+    today = os.environ.get("PICK_TODAY") or now.strftime("%Y-%m-%d")
+    if any(a.get("pick_day") == today for a in archive.get(g, [])):
+        return [], "きょうの分は選び済み"
+    rounds = cfg.get("rounds") or []
+    if not rounds:
+        return [], "設定に分野の組（rounds）がありません"
+    fields = rounds[datetime.date.fromisoformat(today).toordinal() % len(rounds)]
+    labels = cfg.get("labels") or {}
+    skip_hosts = set(cfg.get("skip_hosts") or [])
+    have_links = {a.get("link") for v in archive.values() for a in v}
+    used_hosts = set()
+    picks, notes = [], []
+    for field in fields:
+        label = labels.get(field, field)
+        try:
+            req = urllib.request.Request(HATENA_HOT_URL.format(field=field), headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(req, timeout=TIMEOUT_SEC) as r:
+                entries = feedparser.parse(r.read()).entries
+        except Exception as e:
+            notes.append(f"{label}は取得できず（{type(e).__name__}）")
+            continue
+        cands = []
+        for e in entries:
+            title = strip_html(e.get("title") or "").strip()
+            link = clean_link(e.get("link") or "")
+            host = urlparse(link).netloc.lower()
+            if not title or not link or host in skip_hosts or is_blocked_domain(link):
+                continue
+            if link in have_links or link in seen_links or SEEN.get(seen_key(title)) \
+                    or is_duplicate_title(normalize_title(title), seen_titles):
+                continue   # もうアプリに入っている記事（自分のテーマの記事・前に選んだ記事）
+            if is_foreign_title(title) or FOREIGN_SCRIPT_RE.search(title):
+                continue
+            if is_pr_source("", host, None, link):
+                continue
+            try:
+                n = int(e.get("hatena_bookmarkcount") or 0)
+            except ValueError:
+                n = 0
+            cands.append((n, title, link, host, e))
+        cands.sort(key=lambda x: -x[0])
+        looked, why = 0, collections.Counter()
+        for n, title, link, host, e in cands:
+            if host in used_hosts:
+                continue
+            if looked >= PICK_LOOK_MAX:
+                break
+            looked += 1
+            page = fetch_page(link)
+            if page is None:
+                # 取れないページ（機械からの取得を断るサイトなど）は中身を確かめられない。
+                # 媒体リストで有料と分かるものだけ外し、ほかは出す（利用者の決定 2026-10-22）
+                pw = classify_paywall("", link)
+                if pw in ("paid", "member"):
+                    why["有料（媒体リスト）"] += 1
+                    continue
+                site, published = "", None
+            else:
+                pw = judge_paywall(page) or ""
+                if pw in ("paid", "member"):
+                    why["有料・会員限定"] += 1
+                    continue
+                if not looks_like_article(page):
+                    why["記事の形でない"] += 1
+                    continue
+                site, published = page_site_name(page), page_published(page)
+            a = {
+                "title": title,
+                "link": link,
+                "summary": truncate(strip_html(e.get("summary") or ""), SUMMARY_MAX_LEN),  # サイト自身の説明文
+                "thumb": "",
+                "views": None,
+                "blog": looks_like_blog(link, "", site),
+                "rank": 0,
+                "kind": "article",
+                "via": site,
+                "via_host": "",
+                "paywall": pw,
+                "dt": published or entry_datetime(e),
+                "group": g,
+                "hb": n,
+                "field": label,
+                "pick_day": today,
+            }
+            if page is not None:
+                a["pwv"] = True   # 実ページで確かめた（有料判定の上書きをしない）
+                a["pwr"] = PAYWALL_RULE
+            picks.append(a)
+            used_hosts.add(host)
+            print(f"ほかの分野から: {label} はてブ{n} {title[:40]}（{host}）"
+                  + (f" ※外した候補: {dict(why)}" if why else ""))
+            break
+        else:
+            notes.append(f"{label}は候補なし（{dict(why) or '外す条件で全部落ちた'}）")
+    status = f"OK {len(picks)}件（{today}・{'・'.join(labels.get(f, f) for f in fields)}）"
+    if notes:
+        status += " " + " / ".join(notes)
+    return picks, status
 
 
 # ----------------------------------------------------------------------------
@@ -2097,11 +2265,14 @@ def main():
     aside_rules = {}      # 朝刊（新着）に出さない記事の決まり（書庫には残す）
     company_groups = set()   # フィード1本＝会社1社のテーマ（記事に会社名を付ける）
     no_found_groups = set()  # 古い記事を「発掘」に出さないテーマ
+    pick_groups = set()   # ほかの分野から（検索ではなく、人気記事から1日3本を選ぶテーマ）
     for feeds in feeds_by_cat.values():
         for f in feeds:
             g = f.get("group") or f.get("name")
             if not g:
                 continue
+            if f.get("pick"):
+                pick_groups.add(g)
             pr, dm = rank_rules.get(g, ([], []))
             rank_rules[g] = (pr + (f.get("prefer") or []), dm + (f.get("demote") or []))
             # 個人ブログを末尾に回すか。既定は回す（報道と素人記事を区別するため）。
@@ -2421,6 +2592,16 @@ def main():
     for cat, feeds in feeds_by_cat.items():
         collected = []
         for feed in feeds:
+            if feed.get("pick"):
+                # ほかの分野から：検索ではなく、人気記事から1日3本を選ぶ（pick_outside）。
+                # 期間を広げた取り直しや過去への補充はしない
+                articles, status = pick_outside(feed, archive, now, seen_links, seen_titles)
+                take(articles, collected)
+                summary_rows.append({"name": feed["name"], "status": status})
+                line = f"[{cat}] {feed['name']}: {status}"
+                log_lines.append(line)
+                print(line)
+                continue
             articles, status = fetch_feed(feed)
             if feed.get("via"):
                 # 公式配信の記事が載っているサイト（BBC なら www.bbc.com）を覚え、
@@ -2512,8 +2693,9 @@ def main():
     # --- 有料かどうかを実際に確かめる（直リンクの記事だけ・並行処理） ---
     # 媒体リストは「推測」なので、実ページで分かった事実があればそれで上書きする。
     if VERIFY_PAYWALL:
+        # ほかの分野からの記事は、選ぶときにページを確かめ済み（pwr あり）なので、もう一度は取らない
         targets = [a for _, items in cat_items for a in items
-                   if a["kind"] != "video" and a["link"]]
+                   if a["kind"] != "video" and a["link"] and not (a.get("pick_day") and a.get("pwr"))]
         if targets:
             with ThreadPoolExecutor(max_workers=VERIFY_WORKERS) as ex:
                 results = list(ex.map(lambda a: verify_paywall(a["link"]), targets))
@@ -2589,7 +2771,9 @@ def main():
             fresh = [to_json_item(a) for a in buckets.get(g, [])]
             if not fresh and not archive.get(g):
                 continue   # 取れず、蓄積も無いテーマは出さない
-            first_time = not archive.get(g)
+            # テーマを足した日の分は「過去の分」として新着に数えない（seed）。
+            # ほかの分野からは、最初の日の3本もその日に選んだ新着なので数える
+            first_time = not archive.get(g) and g not in pick_groups
             merged = merge_into_archive(archive, g, fresh, now_iso, keep_rules.get(g), seed=first_time)
             # 媒体名の無い蓄積済み記事に、公式配信の名前を付け直す（feeds.json の via）
             for a in merged:
