@@ -28,6 +28,7 @@ import time
 import unicodedata
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote
 
@@ -534,6 +535,110 @@ MEMBER_TEXT_MARKERS = [
 ]
 
 
+# 有料判定の決まりの版。数え方を変えたら上げる。上げると、書庫で有料・会員としてある
+# 直リンクの記事を1回だけ確かめ直す（記事の pwr にこの版を書く）。
+# 2 … 画面に見える本文の文字だけで文言を探すようにした（v1.42.0）
+PAYWALL_RULE = 2
+
+# 文言を探さない部分。メニュー・リンク・ボタン・隠れた部分・プログラムの中の文字は、
+# その記事が有料かどうかとは関係がない。以前はページ全体から探していたので、
+#   はてなブログ … ふだん隠れている「引用するにはまずログインしてください」→ 会員限定
+#   産経 … メニューのリンク「会員限定記事」→ 会員限定
+#   ナショジオ・日刊SPA! … メニューやボタンの「（雑誌）定期購読」→ 有料
+# と、無料の記事に札を付けていた（2026-10-22 に226ページで確かめ、24ページの誤りが直った。
+# 日経・朝日・ナショジオの本当に有料の記事は、本文の中の案内で有料のまま判定される）。
+NOT_TEXT_TAGS = {"script", "style", "noscript", "template", "svg", "nav", "button",
+                 "select", "textarea", "iframe", "a"}
+VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+             "meta", "param", "source", "track", "wbr"}   # 閉じタグの無い要素
+HIDDEN_STYLE_RE = re.compile(r"display\s*:\s*none|visibility\s*:\s*hidden", re.I)
+
+
+class VisibleText(HTMLParser):
+    """画面に見える本文の文字だけを集める。
+
+    数えない部分に入ったら、同じタグが閉じるまで読み飛ばす（入れ子は深さで数える）。
+    ページの上下の帯（header・footer）は、記事（article・main）の外にあるときだけ飛ばす。
+    記事の中の header には見出しや「有料会員限定」の札が入ることがあるため。
+    """
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.skip = []      # 読み飛ばし中の [タグ名, 入れ子の深さ]
+        self.content = 0    # article・main の中にいる深さ
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in VOID_TAGS:
+            return
+        if self.skip:
+            if tag == self.skip[-1][0]:
+                self.skip[-1][1] += 1
+            return
+        if tag in ("article", "main"):
+            self.content += 1
+        d = dict(attrs)
+        hidden = ("hidden" in d or (d.get("aria-hidden") or "").lower() == "true"
+                  or HIDDEN_STYLE_RE.search(d.get("style") or ""))
+        page_band = tag in ("header", "footer") and not self.content
+        if tag in NOT_TEXT_TAGS or hidden or page_band:
+            self.skip.append([tag, 1])
+
+    def handle_endtag(self, tag):
+        if self.skip:
+            if tag == self.skip[-1][0]:
+                self.skip[-1][1] -= 1
+                if self.skip[-1][1] == 0:
+                    self.skip.pop()
+            return
+        if tag in ("article", "main") and self.content:
+            self.content -= 1
+
+    def handle_data(self, data):
+        if not self.skip:
+            self.parts.append(data)
+
+
+def visible_text(html_text: str) -> str:
+    p = VisibleText()
+    try:
+        p.feed(html_text)
+        p.close()
+    except Exception:
+        pass   # 壊れたHTMLでも、そこまでに読めた分で判定する
+    return "".join(p.parts)
+
+
+def fetch_page(link: str):
+    """記事のページを取る（先頭 VERIFY_MAX_BYTES まで）。取れなければ None。"""
+    try:
+        req = urllib.request.Request(link, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=VERIFY_TIMEOUT) as r:
+            return r.read(VERIFY_MAX_BYTES).decode("utf-8", "ignore")
+    except Exception:
+        return None
+
+
+def judge_paywall(html_text: str):
+    """取ってきたページから、本文が読めるかを判定する（返り値は verify_paywall と同じ）。
+
+    ※以前は isAccessibleForFree が true なら即「無料」と決めていたが、
+      申告は true のまま本文を隠す媒体があり、会員限定の取りこぼしが出ていた。
+      そこで文言の検査を先に行い、そちらを優先する。
+    """
+    text = visible_text(html_text)
+    # 1) 断定できる文言を最優先（サイトの申告より、実際に出ている表示を信じる）
+    if any(k in text for k in PAID_TEXT_MARKERS):
+        return "paid"
+    if any(k in text for k in MEMBER_TEXT_MARKERS):
+        return "member"
+    # 2) 文言が無ければ schema.org の申告を使う（これはページの作りの情報なので、ページ全体から探す）
+    m = re.search(r'isAccessibleForFree"?\s*:\s*"?(\w+)', html_text)
+    if m:
+        return "" if m.group(1).lower() == "true" else "paid"
+    return None
+
+
 def verify_paywall(link: str):
     """記事ページを実際に取得して、本文が読めるかを判定する。
 
@@ -541,10 +646,6 @@ def verify_paywall(link: str):
             / None（判定できず＝媒体リストに任せる）
 
     Googleニュースの中継URLは実記事に解決できないので対象外。
-
-    ※以前は isAccessibleForFree が true なら即「無料」と決めていたが、
-      申告は true のまま本文を隠す媒体があり、会員限定の取りこぼしが出ていた。
-      そこで文言の検査を先に行い、そちらを優先する。
     """
     if not link:
         return None
@@ -552,23 +653,10 @@ def verify_paywall(link: str):
     # 中継URL・動画は確かめても意味がないので飛ばす
     if "news.google.com" in host or "youtube.com" in host or "youtu.be" in host:
         return None
-    try:
-        req = urllib.request.Request(link, headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=VERIFY_TIMEOUT) as r:
-            html_text = r.read(VERIFY_MAX_BYTES).decode("utf-8", "ignore")
-    except Exception:
+    html_text = fetch_page(link)
+    if html_text is None:
         return None  # 取れなければ判定せず、媒体リストの推測に任せる
-
-    # 1) 断定できる文言を最優先（サイトの申告より、実際に出ている表示を信じる）
-    if any(k in html_text for k in PAID_TEXT_MARKERS):
-        return "paid"
-    if any(k in html_text for k in MEMBER_TEXT_MARKERS):
-        return "member"
-    # 2) 文言が無ければ schema.org の申告を使う
-    m = re.search(r'isAccessibleForFree"?\s*:\s*"?(\w+)', html_text)
-    if m:
-        return "" if m.group(1).lower() == "true" else "paid"
-    return None
+    return judge_paywall(html_text)
 
 
 def classify_paywall(via: str, link: str, via_host: str = "") -> str:
@@ -1918,7 +2006,7 @@ def fetch_feed(feed):
 
 def to_json_item(a):
     """内部の記事dictを data.json 用に整える（datetime→ISO文字列）。"""
-    return {
+    out = {
         "title": a["title"],
         "link": a["link"],
         "summary": a["summary"],
@@ -1939,6 +2027,12 @@ def to_json_item(a):
         "paywall": a.get("paywall", ""),  # paid / member（登録で読める）/ partial / ""
         "dt": a["dt"].isoformat() if a["dt"] else None,  # 例: 2026-06-04T10:12:35+00:00（UTC）
     }
+    # 一部の記事にだけ付く項目は、あるときだけ書く（全記事に空の項目を並べると data.js が膨らむ）
+    #   pwr … 有料判定の決まりの版（PAYWALL_RULE）
+    for k in ("pwr",):
+        if a.get(k):
+            out[k] = a[k]
+    return out
 
 
 # ----------------------------------------------------------------------------
@@ -2428,7 +2522,43 @@ def main():
                 if r is not None:
                     a["paywall"] = r   # paid / member / ""（無料と確認できた）
                     a["pwv"] = True    # 実ページで確かめた事実。以後、推測で上書きしない
+                    a["pwr"] = PAYWALL_RULE
             line = f"有料判定: {checked}/{len(targets)}件を実ページで確認"
+            log_lines.append(line)
+            print(line)
+
+        # 有料判定の決まりを直したとき（PAYWALL_RULE を上げたとき）は、書庫で有料・会員としてある
+        # 直リンクの記事を1回だけ確かめ直す。「実ページで確かめた結果は動かさない」（pwv）の例外は、この1回だけ。
+        # 確かめ直した記事には、取れなくても pwr を書く（取れないページを毎回取りに行かないように）
+        recheck = [a for items in archive.values() for a in items
+                   if a.get("paywall") in ("paid", "member") and a.get("pwr") != PAYWALL_RULE
+                   and a.get("kind") != "video" and a.get("link")
+                   and "news.google.com" not in a["link"] and "youtube.com" not in a["link"]]
+        if recheck:
+            def recheck_one(a):
+                page = fetch_page(a["link"])
+                return False if page is None else judge_paywall(page)   # False＝ページが取れなかった
+            with ThreadPoolExecutor(max_workers=VERIFY_WORKERS) as ex:
+                results = list(ex.map(recheck_one, recheck))
+            flipped = 0
+            for a, r in zip(recheck, results):
+                a["pwr"] = PAYWALL_RULE
+                if r is False:
+                    continue   # 取れなかったので、今の札のまま
+                if r is None:
+                    # ページは取れたが、有料の案内も申告も無い。前の札はメニューなどの文字によるものだったので、
+                    # 媒体リストの推測に戻す（ほとんどは無料。推測なので pwv は外す）
+                    r = classify_paywall(a.get("via", ""), a["link"], a.get("via_host", ""))
+                    a.pop("pwv", None)
+                else:
+                    a["pwv"] = True
+                if r != a.get("paywall"):
+                    flipped += 1
+                    print(f"有料判定の見直し: {a.get('paywall')} → {r or '無料'}  {(a.get('title') or '')[:40]}"
+                          f"（{urlparse(a['link']).netloc}）")
+                a["paywall"] = r
+            line = (f"有料判定の見直し（決まり{PAYWALL_RULE}）: 書庫の{len(recheck)}件を確かめ直し、"
+                    f"{flipped}件の札が変わった")
             log_lines.append(line)
             print(line)
 
