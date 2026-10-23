@@ -2969,6 +2969,8 @@ def main():
         "weather": weather,
         "stocks": stocks,
         "categories": categories_out,
+        # 朝刊でカテゴリをまたいで1行にまとめるテーマ（feeds.json の fresh_rows。CODE_TASK_08 ③）
+        "fresh_rows": conf.get("fresh_rows") or [],
         "sources": summary_rows,
     }
     payload = "window.NEWS_DATA = " + json.dumps(data, ensure_ascii=False, indent=2) + ";\n"

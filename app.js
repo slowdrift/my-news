@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.42.0";
+const APP_VERSION = "v1.43.0";
 const CHANGELOG = [
+  ["v1.43.0", "2026-10-24", "書庫はいつも1行に畳んだ状態で始まるようにした（新着のあるテーマを添える。開いても、1時間以上あけて開き直すとまた畳んだ状態に）。発掘は1週間分で開き、表示中の分を「全部片づけ」でまとめて片づけられる（戻せる）。件数の少ない5テーマ（自治体の生成AI活用・実教出版・グロービス・テレビ情報・Amazonのセール）は、朝刊で「そのほか」の1行にまとめた。グロービスに混ざっていた別の会社（現代グロービス）とホールの記事を外した"],
   ["v1.42.0", "2026-10-22", "朝刊に「ほかの分野から」を足した。自分のテーマの外から、はてなブックマークの分野別の人気記事を1日3本（分野は日替わり・各分野の1位）。有料・会員限定の判定が、メニューや隠れた文字に反応して無料の記事（はてなブログなど）に札を付けていたのを直した"],
   ["v1.41.0", "2026-10-17", "アクアワールド大洗から遠足の記事を外した。YouTube 以外の動画サイト（TVer など）の記事は、各テーマの後ろへ回す（消さない）"],
   ["v1.40.0", "2026-10-14", "ウォッチ銘柄の詳細に、いまの利回りが10年の中でどのあたりかと、1年ごとの配当（減った年・特別配当らしい年）を表示。三井住友FG の分割の日の配当のずれと、Yahoo の過去の配当の誤り（10件）を直した"],
@@ -115,7 +116,7 @@ let SHOW_READ = false;     // 読んだ記事の一覧を見ているか
 // 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
 let SHOW_FRESH = false;
 let SHOW_FOUND = false;   // 掘り出した古い記事だけの画面
-let FOUND_TODAY = true;   // その画面で「きょう」に絞るか
+let FOUND_TODAY = false;  // その画面で「きょう」に絞るか（開いたときは1週間分。CODE_TASK_08 ②）
 // ウォッチ銘柄の高値・安値の期間（"1"・"3"・"5"・"10" 年。全銘柄いっしょに替わる。CODE_TASK_05 ③）。
 // 端末には覚えさせない＝開くたびに1年から（利用者の決定 2026-10-13）
 let STOCK_SPAN = "1";
@@ -143,7 +144,8 @@ const SHOWALL_KEY = "mynews_showall";  // "1" なら既読も表示
 const SHOWFAV_KEY = "mynews_showfav";  // "1" ならお気に入りだけ表示
 const HIDELOCK_KEY = "mynews_hidelocked";  // "1" なら読めない記事を出さない
 const ORDER_KEY = "mynews_order";      // { テーマ名: 並び順の数字 }（書庫の並び。カテゴリの中だけ）
-// { 朝刊の行の目印: 並び順の数字 }。目印はテーマ名、まとめた行は "cat:カテゴリ名"（v1.37.0）
+// { 朝刊の行の目印: 並び順の数字 }。目印はテーマ名、まとめた行は "cat:カテゴリ名"（v1.37.0）、
+// カテゴリをまたいでまとめた行は "row:行の名前"（そのほか。v1.43.0）
 const MORNING_ORDER_KEY = "mynews_morning_order";
 const GOOD_KEY = "mynews_good";        // { 発信元: 良かったと押した回数 }
 const GOODED_KEY = "mynews_gooded";    // { 記事の鍵: 1 }（二度押しを避ける印）
@@ -1404,7 +1406,9 @@ function toolbar(sources) {
       + "<li><b>朝刊と書庫</b>：一番上の<b>「きょうの新着」</b>が朝刊です。見出しを見て、読むものは開き、"
       + "読まないものは<b>✓ 片づけ</b>（押したあと5秒は戻せます）。ゼロになれば今日の分はおしまい。"
       + "行の順番は、朝刊の見出しの<b>↕ 並べ替え</b>で変えられます</li>"
-      + "<li>テーマの一覧は<b>書庫</b>です。読んだ記事も薄くして残すので、あとから読み返せます</li>"
+      + "<li>テーマの一覧は<b>書庫</b>です。読んだ記事も薄くして残すので、あとから読み返せます。"
+      + "書庫はいつも1行に畳んだ状態で始まります（押すと開きます）。件数の少ないテーマは、朝刊では<b>「そのほか」</b>の1行にまとめています</li>"
+      + "<li><b>⛏ 発掘</b>は、初めて見つけた少し前の記事です。開くと1週間分が出ます。上の<b>✓ 全部片づけ</b>で、表示中の分をまとめて片づけられます（5秒は戻せます）</li>"
       + "<li>テーマの<b>🔒</b>は、そのテーマの読めない記事をまとめて既読にします</li>"
       + "<li>記事右上の<b>☆</b>は、一覧から消えても残る保存です</li>"
       + "<li>書庫のテーマ名を押すと<b>畳めます</b>（書庫の並び順は設定の「書庫のテーマの並べ替え」で変えられます）</li>"
@@ -1529,7 +1533,7 @@ const BACKUP_ARRAY_KEYS = [READLOG_KEY];
 const HOW_LABEL = {
   open: "開いた", swipe: "右へ払った", boring: "👎つまらない",
   tidy: "テーマの✓片づけ", seen: "ここまで見た", found: "発掘の片づけ",
-  tidyall: "全部片づけ", pick: "選んで既読", all: "すべて既読",
+  tidyall: "全部片づけ", foundall: "発掘の全部片づけ", pick: "選んで既読", all: "すべて既読",
 };
 const WHERE_LABEL = {
   morning: "朝刊", shelf: "書庫", video: "動画", fresh: "新着画面", found: "発掘画面",
@@ -2110,7 +2114,8 @@ function mergeCats() {
 // 新着の「行」を、設定の並び順で（動画は後ろ）。朝刊と新着画面はどちらもこれを使う。
 // 行はふつうテーマ1つ。まとめるカテゴリ（動画・人物・作品・地元・海外ニュース）は、カテゴリ1つで1行にし、
 // 中のテーマを members に持つ（1〜2件のテーマが1行ずつ並び、開く・片づけるが増えていたため。CODE_TASK_03）。
-// key は開閉・片づけの目印。まとめた行は "cat:" を付けてテーマ名と区別する
+// feeds.json の fresh_rows に書いたテーマは、カテゴリをまたいで1行（そのほか）にまとめる（CODE_TASK_08 ③）。
+// key は開閉・片づけの目印。まとめた行は "cat:"（そのほかは "row:"）を付けてテーマ名と区別する
 // （カテゴリ「テレビ情報」とテーマ「テレビ情報」のように、同じ名前があるため）。
 // まとめた行は、中のテーマのうち一番前のものの位置に置く。
 // 行の中では「先頭に出す」印（feeds.json の merge_top）のテーマを件数に関係なく前に置く
@@ -2131,12 +2136,30 @@ function freshRows() {
   const ordered = sorted.filter(function (x) { return x.group.top; })
     .concat(sorted.filter(function (x) { return !x.group.top; }));
   const merge = mergeCats();
+  const rowOf = mergeRowOf();
   const out = [];
   const byCat = {};
+  const byRow = {};
   ordered.forEach(function (x, i) {
     const items = (x.group.items || []).filter(isFresh);
     const one = { key: x.group.name, name: x.group.name, cat: x.cat, items: items,
       first: !!x.group.merge_top, pos: i };
+    // カテゴリをまたいでまとめる行（そのほか）。置き場所の決め方はカテゴリでまとめた行と同じ
+    const row = rowOf[x.group.name];
+    if (row) {
+      let r = byRow[row.name];
+      if (!r) {
+        r = byRow[row.name] = { key: "row:" + row.name, name: row.name, cat: x.cat, items: [], members: [],
+          pos: i, memberNames: row.themes };
+        out.push(r);
+      }
+      if (items.length) {
+        if (!r.members.length) r.pos = i;
+        one.idx = row.themes.indexOf(x.group.name);
+        r.members.push(one);
+      }
+      return;
+    }
     if (!merge[x.cat]) { out.push(one); return; }
     let b = byCat[x.cat];
     if (!b) {
@@ -2157,16 +2180,41 @@ function freshRows() {
       .concat(b.members.filter(function (m) { return !m.first; }));
     b.items = b.members.reduce(function (all, m) { return all.concat(m.items); }, []);
   });
+  // そのほかの行の中は、feeds.json に書いた順（件数が少なく見落としたくないものが前）
+  Object.keys(byRow).forEach(function (n) {
+    const r = byRow[n];
+    r.members.sort(function (a, b) { return a.idx - b.idx; });
+    r.items = r.members.reduce(function (all, m) { return all.concat(m.items); }, []);
+  });
   out.sort(function (a, b) { return a.pos - b.pos; });
   return arrangeRows(out);
+}
+
+// カテゴリをまたいで1行にまとめるテーマ（feeds.json の fresh_rows。CODE_TASK_08 ③）。{テーマ名: {name, themes}}。
+// 件数で自動に決めず固定にする（件数で決めると、日によって行の位置が変わるため。CODE_TASK_03 と同じ考え）
+function mergeRowOf() {
+  const out = {};
+  ((window.NEWS_DATA || {}).fresh_rows || []).forEach(function (r) {
+    (r.themes || []).forEach(function (t) { if (!out[t]) out[t] = { name: r.name, themes: r.themes }; });
+  });
+  return out;
+}
+
+// 行の並び順の数字。まとめた行（そのほか）にまだ数字が無ければ、中のテーマが［↕ 並べ替え］で
+// 置かれていた一番上の位置を使う（まとめる前の位置をできるだけ引き継ぐ。CODE_TASK_08 ③）
+function morningOrderOf(r) {
+  if (typeof MORNING_ORDER[r.key] === "number") return MORNING_ORDER[r.key];
+  const nums = (r.memberNames || []).map(function (n) { return MORNING_ORDER[n]; })
+    .filter(function (v) { return typeof v === "number"; });
+  return nums.length ? Math.min.apply(null, nums) : null;
 }
 
 // 利用者が決めた朝刊の並び（MORNING_ORDER）を当てる。決めていなければ元の並びのまま。
 // 覚えた順に無い行（あとで増えたテーマ）は、元の並びで1つ前にある行のすぐ後ろに入れる。
 function arrangeRows(rows) {
-  const has = function (r) { return typeof MORNING_ORDER[r.key] === "number"; };
+  const has = function (r) { return morningOrderOf(r) !== null; };
   if (!rows.some(has)) return rows;
-  const out = rows.filter(has).sort(function (a, b) { return MORNING_ORDER[a.key] - MORNING_ORDER[b.key]; });
+  const out = rows.filter(has).sort(function (a, b) { return morningOrderOf(a) - morningOrderOf(b); });
   rows.forEach(function (r, i) {
     if (has(r)) return;
     let at = 0;
@@ -2511,7 +2559,7 @@ function morningEdition() {
     + (MORNING_ARRANGE ? "✓ おわる" : "↕ 並べ替え") + "</button>"
     + "</div>";
 
-  if (MORNING_ARRANGE) return h + morningArrangeList() + "</section>" + shelfHead();
+  if (MORNING_ARRANGE) return h + morningArrangeList() + "</section>";
 
   if (!total) {
     h += '<div class="mdone">✓ きょうの分はおしまいです。新しい記事は次の更新で届きます。</div>';
@@ -2532,21 +2580,53 @@ function morningEdition() {
         + "</div>";
     });
   }
+  // 発掘の入口は1週間分の件数を基本に、きょうの分は「うちきょう」で添える（CODE_TASK_08 ②）
   if (foundWeek) {
-    h += '<button class="mfound" type="button" id="show-found">⛏ '
-      + (foundToday ? "きょうの発掘 " + foundToday : "発掘 " + foundWeek) + "件"
+    h += '<button class="mfound" type="button" id="show-found"><b>⛏ 発掘 ' + foundWeek + "件"
+      + (foundToday ? "（うちきょう" + foundToday + "）" : "") + "</b>"
       + "<small>初めて見つけた、少し前の記事</small><i>→</i></button>";
   }
   if (total) {
     h += '<button class="mtidyall" type="button" id="tidy-all-fresh">✓ 見終わったので全部片づけ（'
       + total + "件）</button>";
   }
-  return h + "</section>" + shelfHead();
+  return h + "</section>";
 }
 
+// 書庫の見出し。畳んでいるときは1行だけにして、新着のあるテーマを短く添える（CODE_TASK_08 ①）。
+// 新着のあるテーマを自動で開くことはしない（朝刊と同じ記事が2回出るため。利用者と合意済み）。
+const SHELF_PEEK = 3;   // 畳んだ行に名前を出すテーマの数。残りは「ほか○」
 function shelfHead() {
-  return '<div class="shelf-head"><h2>📚 書庫</h2>'
-    + "<p>テーマごとに貯めた記事です。読んだ記事も薄くして残します。</p></div>";
+  if (!SHELF_OPEN) {
+    const list = shelfFreshList();
+    const names = list.slice(0, SHELF_PEEK).map(function (x) { return esc(x.name) + " " + x.n; }).join("・");
+    const rest = list.length - SHELF_PEEK;
+    // 名前が長くて「…」で切れても「ほか○」は見えるように、別の札にして右端に置く
+    return '<button class="shelf-head shelf-fold" type="button" id="toggle-shelf">'
+      + '<h2>📚 書庫<span class="scaret">▸</span></h2>'
+      + '<span class="shelf-new">' + (list.length
+        ? '<span class="sn-names">新着あり：' + names + "</span>"
+          + (rest > 0 ? '<span class="sn-rest">ほか' + rest + "</span>" : "")
+        : '<span class="sn-names">テーマごとに貯めた記事（読んだ記事も残っています）</span>')
+      + "</span></button>";
+  }
+  return '<div class="shelf-head"><h2><button class="shelf-toggle" type="button" id="toggle-shelf">'
+    + '📚 書庫<span class="scaret">▾</span></button></h2>'
+    + "<p>テーマごとに貯めた記事です。読んだ記事も薄くして残します。次に開いたときは、また畳んだ状態から始まります。</p></div>";
+}
+
+// 書庫の並び（カテゴリの順・その中は書庫の並べ替えの順・動画は最後）で、新着のあるテーマと件数
+function shelfFreshList() {
+  const out = [];
+  const add = function (x) {
+    const n = (x.group.items || []).filter(isFresh).length;
+    if (n) out.push({ name: x.group.name, n: n });
+  };
+  ((window.NEWS_DATA || {}).categories || []).forEach(function (c) {
+    sortByOrder(ALL_GROUPS.filter(function (x) { return x.cat === c.name && !x.video; })).forEach(add);
+  });
+  ALL_GROUPS.filter(function (x) { return x.video; }).forEach(add);
+  return out;
 }
 
 // 並べ替え中の朝刊。新着の無い行も含めて全部の行を ▲▼ 付きで並べる
@@ -2590,6 +2670,20 @@ function ssSave(extra) {
   } catch (e) { /* 覚えられなくても動作は続ける */ }
 }
 let FRESH_OPEN = ssGet().open || {};
+
+// 書庫（朝刊の下のテーマ一覧と動画の枠）は、毎回1行に畳んだ状態で始める（CODE_TASK_08 ①）。
+// 新着は朝刊で読むので、書庫はふだん閉じていてよい。毎朝開け閉めする手間をなくすため、端末には覚えない。
+// ただし記事を読んでアプリに戻ったとき（読み込み直しを含む）に閉じると、読んでいた場所を見失うので、
+// 最後に画面を離れてから SESSION_GAP（1時間）以内なら開いたままにする（「●前回から」と同じ区切り）。
+let SHELF_OPEN = (function () {
+  const v = ssGet();
+  const last = Math.max(v.hid || 0, v.shelfAt || 0);
+  return !!v.shelf && Date.now() - last < SESSION_GAP;
+})();
+function setShelfOpen(open) {
+  SHELF_OPEN = !!open;
+  ssSave({ shelf: SHELF_OPEN, shelfAt: Date.now() });
+}
 
 function renderFreshView(data) {
   // 行の分け方・並びは朝刊と同じ（freshBlocks）。以前はここだけ別に作っていて、
@@ -2659,7 +2753,10 @@ function renderFoundView(data) {
     + '<button class="tool-btn' + (FOUND_TODAY ? " on" : "") + '" type="button" '
     + 'data-found-span="today">きょう ' + today + "件</button>"
     + '<button class="tool-btn' + (FOUND_TODAY ? "" : " on") + '" type="button" '
-    + 'data-found-span="week">この1週間 ' + week + "件</button></div>"
+    + 'data-found-span="week">この1週間 ' + week + "件</button>"
+    // いま表示している発掘を全部まとめて片づける（知らせから元に戻せる。CODE_TASK_08 ②）
+    + (total ? '<button class="tool-btn tidy-all" type="button" id="tidy-all-found">✓ 全部片づけ</button>' : "")
+    + "</div>"
     + toolbar(data.sources) + "</header>"
     + '<div class="note">新しく見つけた、少し前の記事です'
     + "（配信から" + NEW_MAX_AGE_DAYS + "日以上たっているもの）。</div>"];
@@ -2785,6 +2882,7 @@ function render(data) {
     + toolbar(data.sources) + "</header>");
   // 朝刊（きょうの新着）を一番上に。その下が書庫
   parts.push(morningEdition());
+  parts.push(shelfHead());
 
   const cats = (data.categories || []).map(function (c) { return c.name; });
   const navs = cats.map(function (name, i) {
@@ -2803,7 +2901,8 @@ function render(data) {
   }).join("");
   // （カテゴリへ飛ぶ札は外した。書庫が目次になり、すぐ下の見出しと役割が重なっていたため）
 
-  cats.forEach(function (name, ci) {
+  // 書庫を畳んでいるときは、テーマの一覧も動画の枠も出さない（CODE_TASK_08 ①）
+  if (SHELF_OPEN) cats.forEach(function (name, ci) {
     const mine = sortByOrder(articleGroups.filter(function (x) { return x.cat === name; }));
     if (!mine.length) return;   // 動画だけのカテゴリは下の動画ブロックへ
     const daily = mine;
@@ -2833,7 +2932,7 @@ function render(data) {
 
   // 動画は最下部の独立ブロックへ。記事とは読む時間帯が違うため枠で分ける
   // （閉じてはおかない。分かれてさえいれば、そのまま見られるほうが良い）。
-  if (videoGroups.length) {
+  if (SHELF_OPEN && videoGroups.length) {
     const body = videoGroups.map(function (x) {
       return renderGroup(x.group, ALL_GROUPS.indexOf(x));
     }).join("");
@@ -3024,8 +3123,23 @@ APP.addEventListener("click", function (ev) {
     return;
   }
   // 「もっと見る」：そのテーマだけ表示件数を増やす
+  // 書庫を開く・畳む（CODE_TASK_08 ①）。畳むときは書庫の見出しが画面の上に来るように戻す
+  if (ev.target.closest("#toggle-shelf")) {
+    const wasOpen = SHELF_OPEN;
+    setShelfOpen(!SHELF_OPEN);
+    const y = window.scrollY;
+    rerender();
+    const head = document.getElementById("toggle-shelf");
+    if (wasOpen && head && head.getBoundingClientRect) {
+      window.scrollTo(0, Math.max(0, head.getBoundingClientRect().top + (window.scrollY || 0) - 12));
+    } else {
+      window.scrollTo(0, y);
+    }
+    return;
+  }
   if (ev.target.closest("#toggle-toc")) {
     setAllFolded(!allFolded());
+    setShelfOpen(true);   // 書庫を畳んだまま押しても何も変わらないので、書庫も開く
     rerender();
     window.scrollTo(0, 0);
     return;
@@ -3152,6 +3266,16 @@ APP.addEventListener("click", function (ev) {
     window.scrollTo(0, y);
     return;
   }
+  // 発掘画面の「✓ 全部片づけ」。いま表示している分（きょう／この1週間）を全部（CODE_TASK_08 ②）
+  if (ev.target.closest("#tidy-all-found")) {
+    const pick = FOUND_TODAY ? isFoundToday : isFound;
+    const items = [];
+    ALL_GROUPS.forEach(function (x) { (x.group.items || []).filter(pick).forEach(function (a) { items.push(a); }); });
+    tidyUp(items, FOUND_TODAY ? "きょうの発掘" : "この1週間の発掘", "foundall", "found");
+    rerender();
+    window.scrollTo(0, 0);
+    return;
+  }
   if (ev.target.closest("#tidy-all-fresh")) {
     const items = [];
     ALL_GROUPS.forEach(function (x) { (x.group.items || []).filter(isFresh).forEach(function (a) { items.push(a); }); });
@@ -3185,10 +3309,8 @@ APP.addEventListener("click", function (ev) {
     SHOW_FOUND = !SHOW_FOUND;
     if (SHOW_FOUND) {
       SHOW_FRESH = false; SHOW_FAV = false;
-      const today = ALL_GROUPS.reduce(function (t, x) {
-        return t + (x.group.items || []).filter(isFoundToday).length;
-      }, 0);
-      FOUND_TODAY = today > 0;   // きょうの分が無ければ1週間分を見せる
+      // 開いたときはいつも1週間分（v1.42.0 までは、きょうの分があれば「きょう」。CODE_TASK_08 ②）
+      FOUND_TODAY = false;
     }
     rerender();
     window.scrollTo(0, 0);
@@ -3688,7 +3810,15 @@ try {
   const saved = ssGet();
   if (saved.y) window.scrollTo(0, saved.y);
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") ssSave({ y: window.scrollY || 0 });
+    if (document.visibilityState === "hidden") { ssSave({ y: window.scrollY || 0, hid: Date.now() }); return; }
+    // 開いたまま1時間以上離れていたら、次に開いたときと同じく書庫を畳んで一番上から（CODE_TASK_08 ①）。
+    // スマホがページを読み込み直さずに残していた場合のため
+    const hid = ssGet().hid || 0;
+    if (SHELF_OPEN && hid && Date.now() - hid >= SESSION_GAP) {
+      setShelfOpen(false);
+      rerender();
+      window.scrollTo(0, 0);
+    }
   });
   // ※「最後に開いた時刻」の記録は上（NEW_BASE の算出直後）で済ませている。
   //   ここで更新すると、再読み込みのたびに基準が動いて NEW が消えてしまう。
