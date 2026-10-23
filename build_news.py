@@ -2853,7 +2853,17 @@ def main():
             # 並べ替えた後なので、読みたい順に上から数える。
             cap = daily_rules.get(g, DAILY_LOUD_MAX)
             loud = 0
-            for a in items:
+            if g in pick_groups:
+                # ほかの分野からは、いちばん新しい日（pick_day）の分だけを新着にし、前の日の分は朝刊から外す（書庫には残る）。
+                # ほかのテーマと同じく「24時間以内に入った記事」を上限の3本で数えると、前の日の3本がまだ24時間以内のとき
+                # 6本から3本を選ぶことになり、その日の記事が隠れていた（10/23 の朝、世の中の1本が外れ、前の日の1本が出た）
+                latest = max((a.get("pick_day") or "" for a in items), default="")
+                for a in items:
+                    if latest and a.get("pick_day") == latest:
+                        a.pop("quiet", None)
+                    else:
+                        a["quiet"] = True
+            for a in (items if g not in pick_groups else []):   # ほかの分野からは上で決めた
                 fresh = False
                 try:
                     seen = datetime.datetime.fromisoformat(a.get("first_seen") or "")
