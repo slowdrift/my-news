@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.44.0";
+const APP_VERSION = "v1.44.1";
 const CHANGELOG = [
+  ["v1.44.1", "2026-10-24", "ウォッチ銘柄の詳細の表で、となりの期間と同じ安値・高値はマスをつなげて1回だけ書くようにした（10年の高値を最近1年で付けた銘柄では、1〜10年の高値に同じ数字が4回並んでいた）。右の縦線の長さが、同じ値の期間を示す"],
   ["v1.44.0", "2026-10-24", "ウォッチ銘柄を表にした（銘柄・株価・利回り・位置の4列）。見出しを押すと並べ替えられ、選んだ並びは覚えておく（元の順・前日比・いまの利回り・利回りが10年で高い順・期間内で安い順）。期間内の位置は「安値圏（緑）・なかほど・高値圏（橙）」の言葉と色、「高値から -○%」で示す。詳細の中の利回りの10年も同じ色の意味にそろえ、配当の内訳と1年ごとの配当を表にした。天気の下の株価は、先頭の3銘柄の代わりに「利回りが10年で高い」高配当の3銘柄を出す（配当が前の年より減った銘柄には「配当↓」、3割以上増えた銘柄には「＊」）"],
   ["v1.43.0", "2026-10-24", "書庫はいつも1行に畳んだ状態で始まるようにした（新着のあるテーマを添える。開いても、1時間以上あけて開き直すとまた畳んだ状態に）。発掘は1週間分で開き、表示中の分を「全部片づけ」でまとめて片づけられる（戻せる）。件数の少ない5テーマ（自治体の生成AI活用・実教出版・グロービス・テレビ情報・Amazonのセール）は、朝刊で「そのほか」の1行にまとめた。グロービスに混ざっていた別の会社（現代グロービス）とホールの記事を外した"],
   ["v1.42.0", "2026-10-22", "朝刊に「ほかの分野から」を足した。自分のテーマの外から、はてなブックマークの分野別の人気記事を1日3本（分野は日替わり・各分野の1位）。有料・会員限定の判定が、メニューや隠れた文字に反応して無料の記事（はてなブログなど）に札を付けていたのを直した"],
@@ -1176,17 +1177,36 @@ const STOCK_LINKS = [
 // 1・3・5・10年の高値・安値と付けた年月、いまの位置の表。表の上で選んでいる期間の行を目立たせる。
 // 10年分が取れなかった銘柄（span が無い）は1年だけ
 function spanTable(s) {
-  const rows = SPAN_LIST.map(function (y) {
-    const r = spanOf(s, y);
-    if (!r || !(r.hi > r.lo)) return "";
-    const cell = function (v, at) { return fmtNum(v) + (at ? "<small>" + fmtYm(at) + "</small>" : ""); };
-    const pos = spanPos(s, r), z = zoneOf(pos);
-    return "<tr" + (y === STOCK_SPAN ? ' class="on"' : "") + "><td>" + y + "年"
+  const list = SPAN_LIST.map(function (y) { return { y: y, r: spanOf(s, y) }; })
+    .filter(function (o) { return o.r && o.r.hi > o.r.lo; });
+  if (!list.length) return "";
+  // 隣り合う期間で値と年月が同じなら、マスを下へつなげて（rowspan）数字を1回だけ書く。
+  // 10年の高値を最近1年で付けた銘柄は、1〜10年の高値に同じ数字が4回並んでいた（利用者の指摘 2026-10-24。安値も同じ扱い）。
+  // 返すのは期間ごとのマスの HTML で、上のマスにつながれた期間は null
+  const joined = function (key, atKey) {
+    const out = [];
+    for (let i = 0; i < list.length; ) {
+      let n = 1;
+      while (i + n < list.length && list[i + n].r[key] === list[i].r[key]
+        && list[i + n].r[atKey] === list[i].r[atKey]) n++;
+      // つないだマスは最初の期間の行にあるので、選んでいる期間を含むなら印（on）を付けて太字にする
+      const on = list.slice(i, i + n).some(function (o) { return o.y === STOCK_SPAN; });
+      const at = list[i].r[atKey];
+      out.push("<td" + (n > 1 ? ' rowspan="' + n + '" class="join' + (on ? " on" : "") + '"' : "") + ">"
+        + fmtNum(list[i].r[key]) + (at ? "<small>" + fmtYm(at) + "</small>" : "") + "</td>");
+      for (let k = 1; k < n; k++) out.push(null);
+      i += n;
+    }
+    return out;
+  };
+  const lo = joined("lo", "loAt"), hi = joined("hi", "hiAt");
+  const rows = list.map(function (o, i) {
+    const r = o.r, pos = spanPos(s, r), z = zoneOf(pos);
+    return "<tr" + (o.y === STOCK_SPAN ? ' class="on"' : "") + "><td>" + o.y + "年"
       + (r.short ? "<small>" + r.short + "</small>" : "") + "</td>"
-      + "<td>" + cell(r.lo, r.loAt) + "</td><td>" + cell(r.hi, r.hiAt) + "</td>"
+      + (lo[i] || "") + (hi[i] || "")
       + '<td><span class="z-' + z + '">' + ZONE_LABEL[z] + "</span><small>下から" + Math.round(pos) + "%</small></td></tr>";
   }).join("");
-  if (!rows) return "";
   return '<table class="sdtab"><thead><tr><th>期間</th><th>安値</th><th>高値</th><th>いまの位置</th></tr></thead>'
     + "<tbody>" + rows + "</tbody></table>";
 }

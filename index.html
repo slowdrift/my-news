@@ -506,6 +506,9 @@
   /* 表の上で選んでいる期間の行（太字と、期間の左の印） */
   .stocks .sdtab tr.on td { font-weight: 700; }
   .stocks .sdtab tr.on td:first-child { box-shadow: inset 3px 0 var(--accent); padding-left: 7px; }
+  /* 隣り合う期間で同じ安値・高値をつないだマス。右の縦線で、どの期間までが同じ値かを示す */
+  .stocks .sdtab td.join { box-shadow: inset -2px 0 var(--sub); padding-right: 8px; }
+  .stocks .sdtab td.join.on { font-weight: 700; }
   .stocks .sddiv { display: grid; gap: 2px; margin-bottom: 8px; }
   .stocks .sddiv b { color: var(--ink); }
   .stocks .sdh { font-weight: 600; }
