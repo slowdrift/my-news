@@ -284,13 +284,20 @@
   }
   .weather .wpop.strong { color: #1d4ed8; font-weight: 700; }
   /* 天気の下に添える株価のひと目行（本体は最下部） */
+  /* 1段目＝保有の合計（保有株を読み込んだ端末だけ）、2段目＝利回りが10年で高い3銘柄（CODE_TASK_08 ⑦）。
+     名前が長い日は2段目が折り返す */
   .weather .wstocks {
-    display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; padding-top: 6px;
+    display: flex; flex-direction: column; gap: 3px; margin-top: 6px; padding-top: 6px;
     border-top: 1px dashed var(--line); text-decoration: none; color: var(--ink);
     font-size: calc(11.5px * var(--fs));
   }
+  .weather .wrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+  .weather .wlb { font-weight: 700; color: var(--sub); font-size: calc(10.5px * var(--fs)); }
+  .weather .wlb.z-lo { color: var(--zlo); }
   .weather .wst b { font-weight: 600; color: var(--sub); margin-right: 4px; }
   .weather .wst i { font-style: normal; font-weight: 700; margin-left: 5px; }
+  .weather .wst i.z-lo { color: var(--zlo); }
+  .weather .wst i.z-hi { color: var(--zhi); }
   /* 上げ・下げの色は変数で切り替える（以前は「自動」のとき明るい画面でも暗い画面用の淡い色になり、読みにくかった） */
   .weather .wst i.up { color: var(--up); }
   .weather .wst i.down { color: var(--down); }

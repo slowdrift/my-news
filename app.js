@@ -12,7 +12,7 @@ const APP = document.getElementById("app");
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
 const APP_VERSION = "v1.44.0";
 const CHANGELOG = [
-  ["v1.44.0", "2026-10-24", "ウォッチ銘柄を表にした（銘柄・株価・利回り・位置の4列）。見出しを押すと並べ替えられ、選んだ並びは覚えておく（元の順・前日比・いまの利回り・利回りが10年で高い順・期間内で安い順）。期間内の位置は「安値圏（緑）・なかほど・高値圏（橙）」の言葉と色、「高値から -○%」で示す。詳細の中の利回りの10年も同じ色の意味にそろえ、配当の内訳と1年ごとの配当を表にした"],
+  ["v1.44.0", "2026-10-24", "ウォッチ銘柄を表にした（銘柄・株価・利回り・位置の4列）。見出しを押すと並べ替えられ、選んだ並びは覚えておく（元の順・前日比・いまの利回り・利回りが10年で高い順・期間内で安い順）。期間内の位置は「安値圏（緑）・なかほど・高値圏（橙）」の言葉と色、「高値から -○%」で示す。詳細の中の利回りの10年も同じ色の意味にそろえ、配当の内訳と1年ごとの配当を表にした。天気の下の株価は、先頭の3銘柄の代わりに「利回りが10年で高い」高配当の3銘柄を出す（配当が前の年より減った銘柄には「配当↓」、3割以上増えた銘柄には「＊」）"],
   ["v1.43.0", "2026-10-24", "書庫はいつも1行に畳んだ状態で始まるようにした（新着のあるテーマを添える。開いても、1時間以上あけて開き直すとまた畳んだ状態に）。発掘は1週間分で開き、表示中の分を「全部片づけ」でまとめて片づけられる（戻せる）。件数の少ない5テーマ（自治体の生成AI活用・実教出版・グロービス・テレビ情報・Amazonのセール）は、朝刊で「そのほか」の1行にまとめた。グロービスに混ざっていた別の会社（現代グロービス）とホールの記事を外した"],
   ["v1.42.0", "2026-10-22", "朝刊に「ほかの分野から」を足した。自分のテーマの外から、はてなブックマークの分野別の人気記事を1日3本（分野は日替わり・各分野の1位）。有料・会員限定の判定が、メニューや隠れた文字に反応して無料の記事（はてなブログなど）に札を付けていたのを直した"],
   ["v1.41.0", "2026-10-17", "アクアワールド大洗から遠足の記事を外した。YouTube 以外の動画サイト（TVer など）の記事は、各テーマの後ろへ回す（消さない）"],
@@ -988,33 +988,67 @@ function weatherLineFull(w) {
 
 // 天気の下に添える一行。株価そのものは最下部に置いたまま
 // （記事を優先したいというご指示のため）、朝のひと目だけここで済ませる。
-// 押すと最下部のウォッチ銘柄ブロックへ飛ぶ。
-// 保有株を読み込んだ端末では、銘柄ごとの値段の代わりに「含み損益と取得利回りの合計」を出す
-// （ウォッチ銘柄が29あり、銘柄ごとに並べると何行にもなるため）。
-const STRIP_MAX = 3;   // 保有株が無い端末で、天気の下に並べる銘柄の数
+// 押すと最下部のウォッチ銘柄ブロックへ飛ぶ。自動で横に流れる表示はしない。
+// 保有株を読み込んだ端末では「含み損益と取得利回りの合計」の行を出し、その下に3銘柄を添える。
+// 3銘柄は「利回りが10年で高い順」（CODE_TASK_08 ⑦。以前は feeds.json の先頭3銘柄で、選んだ意味が無かった）
+const STRIP_MAX = 3;   // 天気の下に並べる銘柄の数
+// 3銘柄の選び方：役割が高配当（この端末の札）で配当の記録がある銘柄を、
+// いまの利回りが10年の中で高い順（＝配当に比べて株価が安い順）に並べる。
+// 利回りの10年が無い銘柄は、指示書どおり表の上で選んでいる期間の中の株価の位置（安い順）で比べるが、
+// 2つの物差しを1つの順位に混ぜないよう、利回りの10年がある銘柄の後ろに回す（2026-10-24 の公開版では該当なし）
+function stripPicks(list) {
+  const cand = (list || []).filter(function (s) {
+    return roleOf(String(s.code || "").replace(/\.T$/, "")) === "div" && nowYield(s) != null;
+  });
+  const byDy = cand.filter(function (s) { return dyPosRaw(s) != null; })
+    .sort(function (a, b) { return dyPosRaw(b) - dyPosRaw(a); });
+  const byPrice = cand.filter(function (s) { return dyPosRaw(s) == null && spanPosRaw(s) != null; })
+    .sort(function (a, b) { return spanPosRaw(a) - spanPosRaw(b); });
+  return byDy.concat(byPrice).slice(0, STRIP_MAX);
+}
+// 過去1年の配当の印（詳細の「1年ごとの配当」と同じ決め方）。
+// down＝前の年より減った（年の区切りが決算の年とずれるので、本当は減っていなくても出ることがある）、
+// bump＝前の年より3割以上多い（特別配当・記念配当なら、いまの利回りは高めに出ている）
+function divFlags(s) {
+  const ys = s.dyears || [];
+  if (ys.length < 2) return { down: false, bump: false };
+  const last = ys[ys.length - 1][1], before = ys[ys.length - 2][1];
+  return { down: before != null && last < before * DIV_DOWN, bump: before > 0 && last > DIV_BUMP * before };
+}
 function stockStrip(list) {
   const rows = holdingRows();
+  let h = "";
   if (rows.length) {
     const t = holdingTotals(rows);
     // 長期保有・優待の札を付けた銘柄があれば、高配当だけの取得利回りを出す（札が無ければ全体と同じ）
     const y = t.nOther ? t.yieldPctH : t.yieldPct;
-    return '<a class="wstocks" href="#stocks"><span class="wst"><b>💼 含み損益</b>'
+    h += '<span class="wrow"><span class="wst"><b>💼 含み損益</b>'
       + fmtYen(t.pl, true) + '<i class="' + signCls(t.pl) + '">' + fmtPct(t.plPct, true) + "</i></span>"
       + (y != null ? '<span class="wst"><b>取得利回り' + (t.nOther ? "（高配当）" : "") + "</b>" + fmtPct(y) + "</span>" : "")
-      + "</a>";
+      + "</span>";
   }
-  if (!list || !list.length) return "";
-  const cells = list.slice(0, STRIP_MAX).map(function (s) {
-    const up = s.diff > 0, down = s.diff < 0;
-    return '<span class="wst"><b>' + esc(s.name) + "</b> "
-      + Number(s.price).toLocaleString("ja-JP")
-      + '<i class="' + (up ? "up" : down ? "down" : "") + '">'
-      + (up ? "▲" : down ? "▼" : "―") + Math.abs(s.diff).toLocaleString("ja-JP")
-      + "</i></span>";
-  }).join("");
-  const rest = list.length - STRIP_MAX;
-  return '<a class="wstocks" href="#stocks">' + cells
-    + (rest > 0 ? '<span class="wst"><b>ほか' + rest + "銘柄</b></span>" : "") + "</a>";
+  const picks = stripPicks(list);
+  if (picks.length) {
+    // 選んだ理由は前に1つだけ書く。全部が10年の中で上3分の1なら「高め」、そうでなければ並べた順だけを言う。
+    // 利回りの10年が無く株価の位置で選んだ銘柄には、その銘柄に理由（「1年の安値圏」など）を添える
+    const nDy = picks.filter(function (s) { return dyPosRaw(s) != null; }).length;
+    const high = nDy === picks.length && picks.every(function (s) { return dyPosRaw(s) > 200 / 3; });
+    const label = high ? "利回りが10年で高め" : nDy ? "利回りが10年で高い順" : "株価が期間内で安い順";
+    h += '<span class="wrow"><span class="wlb' + (high ? " z-lo" : "") + '">' + label + "</span>"
+      + picks.map(function (s) {
+        const f = divFlags(s);
+        let why = "";
+        if (dyPosRaw(s) == null) {
+          const z = zoneOf(Math.max(0, Math.min(100, spanPosRaw(s) * 100)));
+          why = '<i class="z-' + z + '">' + STOCK_SPAN + "年の" + ZONE_LABEL[z] + "</i>";
+        }
+        return '<span class="wst"><b>' + esc(s.name) + "</b>" + Number(s.price).toLocaleString("ja-JP") + why
+          + (f.down ? '<i class="down" title="過去1年の配当が前の年より減った">配当↓</i>' : "")
+          + (f.bump ? '<i title="過去1年の配当が前の年より3割以上多い（特別配当なら、利回りは高めに出ている）">＊</i>' : "")
+          + "</span>";
+      }).join("") + "</span>";
+  }
+  return h ? '<a class="wstocks" href="#stocks">' + h + "</a>" : "";
 }
 
 // 保有している銘柄の行の下に添える1行（株数・取得単価・取得利回り・含み損益。この端末だけ）。
@@ -1052,6 +1086,12 @@ function spanOf(s, y) {
 // 安値〜高値の中のいまの位置（0〜100%）
 function spanPos(s, r) {
   return Math.max(0, Math.min(100, (Number(s.price) - r.lo) / (r.hi - r.lo) * 100));
+}
+// 表の上で選んでいる期間の中の位置（0〜1）。並べ替え・天気の下の3銘柄で使うので、
+// 安値を割った・高値を超えた分も比べられるよう、端で切らない。数字が無ければ null
+function spanPosRaw(s) {
+  const r = spanOf(s);
+  return r && r.hi > r.lo ? (Number(s.price) - r.lo) / (r.hi - r.lo) : null;
 }
 function fmtYm(ym) { return ym ? ym.replace(/^(\d{4})-0?(\d+)$/, "$1年$2月") : ""; }
 
@@ -1294,9 +1334,7 @@ function sortStocks(list) {
     if (STOCK_SORT === "up" || STOCK_SORT === "down") return typeof s.pct === "number" ? (s.diff < 0 ? -1 : 1) * Math.abs(s.pct) : null;
     if (STOCK_SORT === "yield") return nowYield(s);
     if (STOCK_SORT === "dy") return dyPosRaw(s);
-    // 期間内で安い順は、端で切らない位置で比べる（安値を割った・高値を超えた分も順に出る）
-    const r = spanOf(s);
-    return r && r.hi > r.lo ? (Number(s.price) - r.lo) / (r.hi - r.lo) : null;
+    return spanPosRaw(s);   // 期間内で安い順
   };
   const asc = STOCK_SORT === "down" || STOCK_SORT === "low";   // 下げの大きい順・安い順は小さい値から
   return list.map(function (s, i) { return { s: s, i: i, v: val(s) }; }).sort(function (a, b) {
