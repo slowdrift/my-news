@@ -18,6 +18,9 @@
     --up:#b91c1c; --down:#1d4ed8;   /* 株価の上げ・下げ（日本の慣習で上げは赤） */
     --role-long:#0f766e; --role-perk:#b45309;   /* ウォッチ銘柄の役割の札（長期保有・優待） */
     --field-bg:#dcfce7; --field-ink:#166534;    /* ほかの分野からの分野の札（コントラスト比 6.49） */
+    /* ウォッチ銘柄の位置の色（安い側＝緑・高い側＝橙。株価の位置と利回りの位置で同じ意味）。
+       文字は白地で 5.02・5.18。帯は棒の3つの区間の薄い色 */
+    --zlo:#15803d; --zhi:#c2410c; --zlo-bg:#bbf7d0; --zhi-bg:#fed7aa;
     --fs:1;           /* 文字サイズの倍率 */
   }
   /* 端末が暗い設定のとき（手動指定が無い＝自動のとき）だけ暗くする */
@@ -33,6 +36,7 @@
       --up:#f87171; --down:#93c5fd;
       --role-long:#5eead4; --role-perk:#fbbf24;
       --field-bg:#14301f; --field-ink:#86efac;   /* コントラスト比 10.16 */
+      --zlo:#4ade80; --zhi:#fb923c; --zlo-bg:#14532d; --zhi-bg:#7c2d12;   /* 文字は 9.48・7.30 */
     }
   }
   /* 手動で「暗い」を選んだとき */
@@ -47,6 +51,7 @@
     --up:#f87171; --down:#93c5fd;
     --role-long:#5eead4; --role-perk:#fbbf24;
     --field-bg:#14301f; --field-ink:#86efac;
+    --zlo:#4ade80; --zhi:#fb923c; --zlo-bg:#14532d; --zhi-bg:#7c2d12;
   }
   /* 文字サイズ */
   :root[data-font="s"] { --fs:.92; }
@@ -359,10 +364,6 @@
     margin: 0 0 4px; font-size: calc(11px * var(--fs)); font-weight: 800;
     letter-spacing: .08em; color: var(--sub);
   }
-  .stocks .srow {
-    display: flex; align-items: baseline; gap: 8px;
-    font-size: calc(13px * var(--fs)); padding: 2px 0;
-  }
   /* 見出しの行（右に「ⓘ 見方」の入口） */
   .stocks .shtop { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 2px; }
   .stocks .shtop h2 { margin: 0; }
@@ -389,21 +390,53 @@
   }
   .stocks .sspan .tool-btn { padding: 3px 10px; min-height: 32px; }
   .stocks .sname { font-weight: 600; }
-  .stocks .sprice { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .stocks .sdiff {
-    font-size: calc(11.5px * var(--fs)); font-weight: 700; color: var(--sub);
-    min-width: 8.5em; text-align: right; font-variant-numeric: tabular-nums;
+  /* ウォッチ銘柄の表（CODE_TASK_08 ⑤）。4列とも2段：上に主な数字、下に小さく補足。
+     列の幅を決めて固定し（table-layout: fixed）、29銘柄で数字の位置をそろえる。名前が長ければ折り返す */
+  .stocks .ssort { margin: 2px 0 2px; font-size: calc(11px * var(--fs)); color: var(--sub); }
+  .stocks .ssort b { color: var(--ink); }
+  .stocks .ssort small { margin-left: 4px; }
+  .stocks .stab {
+    width: 100%; border-collapse: collapse; table-layout: fixed;
+    font-size: calc(13px * var(--fs)); font-variant-numeric: tabular-nums;
   }
-  .stocks .sdiff.up { color: var(--up); }     /* 日本の慣習に合わせ、上げは赤 */
-  .stocks .sdiff.down { color: var(--down); }
-  .stocks .sitem { padding: 3px 0; border-bottom: 1px dashed var(--line); }
-  .stocks .sitem:last-child { border-bottom: 0; }
-  /* 保有している銘柄の2行目（株数・取得単価・損益・取得利回り） */
-  .stocks .shold {
-    display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 1px 0 2px;
-    font-size: calc(11px * var(--fs)); color: var(--sub); font-variant-numeric: tabular-nums;
+  /* 名前の列を広めに（9文字ほどの名前を折り返さないように）。位置の列は棒と3文字の言葉が入る幅 */
+  .stocks .stab col.c-n { width: 36%; }
+  .stocks .stab col.c-p { width: 21%; }
+  .stocks .stab col.c-y { width: 16%; }
+  .stocks .stab col.c-z { width: 27%; }
+  /* 表の書式は、この表の行だけにかける（「>」で区切る。詳細の中の小さな表に乗らないように） */
+  .stocks .stab > thead > tr > th { padding: 0; border-bottom: 1px solid var(--line); }
+  /* 見出しは押して並べ替えるボタン（押しやすい高さ 36px）。いまの並びの列は色と下線 */
+  .stocks .ssort-btn {
+    display: block; width: 100%; min-height: 36px; padding: 2px 3px; border: 0; background: none; cursor: pointer;
+    font: inherit; font-size: calc(11px * var(--fs)); font-weight: 600; color: var(--sub); text-align: right;
   }
-  .stocks .shold b { color: var(--ink); }
+  .stocks .stab th:first-child .ssort-btn { text-align: left; }
+  .stocks .ssort-btn.on { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  .stocks .stab > tbody > tr > td { padding: 5px 3px; vertical-align: top; text-align: right; overflow-wrap: anywhere; }
+  .stocks .stab > tbody > tr > td.sn { text-align: left; }
+  .stocks .stab > tbody > tr > td > b { font-weight: 700; }
+  .stocks .stab > tbody > tr > td > small { display: block; font-size: calc(10.5px * var(--fs)); color: var(--sub); font-weight: 600; }
+  .stocks .stab > tbody > tr > td > small.up { color: var(--up); }     /* 日本の慣習に合わせ、上げは赤 */
+  .stocks .stab > tbody > tr > td > small.down { color: var(--down); }
+  .stocks .stab td.sn .srole { display: table; margin: 2px 0 0 1.2em; }
+  .stocks .stab tbody.sitem > tr.shead > td { border-top: 1px dashed var(--line); }
+  .stocks .stab tbody.sitem:first-of-type > tr.shead > td,
+  .stocks .stab tbody.ssec + tbody.sitem > tr.shead > td { border-top: 0; }
+  .stocks .sitem.muted .sy b { color: var(--sub); font-weight: 400; }   /* 長期保有・優待は高配当の物差しで見ない */
+  /* 位置の列：棒と区分の言葉を1行に、下に高値からの下がり幅 */
+  .stocks .spos { display: flex; align-items: center; justify-content: flex-end; gap: 4px; white-space: nowrap; }
+  .stocks .spos b { font-size: calc(11.5px * var(--fs)); }
+  .z-lo { color: var(--zlo); }
+  .z-hi { color: var(--zhi); }
+  /* 保有している銘柄の下の行（株数・取得単価・取得利回り・損益） */
+  .stocks .stab > tbody > tr.shold > td {
+    padding: 0 3px 5px 1.2em; text-align: left;
+    font-size: calc(11px * var(--fs)); color: var(--sub);
+  }
+  .stocks .stab tr.shold span { display: inline-block; margin-right: 10px; }
+  .stocks .stab tr.shold b { color: var(--ink); }
+  .stocks .stab > tbody > tr.sdrow > td { padding: 0 0 6px; text-align: left; }
   .stocks .up { color: var(--up); font-weight: 700; }
   .stocks .down { color: var(--down); font-weight: 700; }
   /* 保有株の合計（この端末だけ） */
@@ -412,37 +445,25 @@
     font-size: calc(12px * var(--fs)); font-variant-numeric: tabular-nums;
   }
   .stocks .stotal small { display: block; margin-top: 3px; color: var(--sub); font-size: calc(10.5px * var(--fs)); }
-  /* 「持っている」「気になる」の区切り */
-  .stocks .ssec {
-    display: flex; align-items: center; gap: 6px; margin: 8px 0 2px;
+  /* 「持っている」「気になる」の区切り（表の中の1行） */
+  .stocks .stab tbody.ssec td {
+    padding: 10px 3px 2px; text-align: left; border-bottom: 1px solid var(--line);
     font-size: calc(11.5px * var(--fs)); font-weight: 800; color: var(--sub);
   }
-  .stocks .ssec i { font-style: normal; font-weight: 400; }
-  /* 2行目：配当と利回り・選んだ期間の位置 */
-  .stocks .sinfo {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; padding: 1px 0;
-    font-size: calc(11px * var(--fs)); color: var(--sub); font-variant-numeric: tabular-nums;
-  }
-  .stocks .sinfo b { color: var(--ink); }
-  .stocks .sinfo.muted b { color: var(--sub); font-weight: 400; }   /* 長期保有・優待は高配当の物差しで見ない */
-  /* 選んだ期間（1・3・5・10年）の位置：安値・棒・高値を決まった幅の枠に入れて右へ寄せる（29銘柄で棒の位置をそろえ、点だけで見比べられるように） */
-  .stocks .sr {
-    margin-left: auto; display: inline-grid; grid-template-columns: 7.2em 64px 5.2em; align-items: center;
-    white-space: nowrap;
-  }
-  .stocks .sr .slo { text-align: right; }
-  .stocks .sr .shi { text-align: left; }
-  .stocks .sr small { font-size: calc(10px * var(--fs)); }
-  .stocks .sr .sshort { grid-column: 1 / -1; text-align: right; }
-  /* 選んだ期間の安値〜高値の棒と、いまの位置の点 */
+  .stocks .stab tbody.ssec i { font-style: normal; font-weight: 400; margin-left: 6px; }
+  /* 選んだ期間の安値〜高値の棒と、いまの位置の点。棒は3つの区間に薄く色を分け（左＝安値圏の緑、右＝高値圏の橙。CODE_TASK_08 ⑥）、
+     点も区間の色にする。棒の幅は全行で同じ（点の位置だけで見比べられるように） */
   .stocks .srange {
-    position: relative; display: inline-block; width: 56px; height: 4px; margin: 0 4px;
-    border-radius: 2px; background: var(--line);
+    position: relative; display: inline-block; flex: none; width: 44px; height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--zlo-bg) 0 33.3%, var(--line) 33.3% 66.7%, var(--zhi-bg) 66.7% 100%);
   }
   .stocks .srange i {
-    position: absolute; top: -3px; width: 10px; height: 10px; margin-left: -5px;
-    border-radius: 50%; background: var(--accent);
+    position: absolute; top: -3px; width: 12px; height: 12px; margin-left: -6px;
+    border-radius: 50%; background: var(--sub); border: 2px solid var(--card);
   }
+  .stocks .srange i.z-lo { background: var(--zlo); }
+  .stocks .srange i.z-hi { background: var(--zhi); }
   /* 役割の札（行では見せるだけ。替えるのは詳細の中の札） */
   .stocks .srole {
     margin-left: 6px; padding: 1px 7px; border-radius: 999px;
@@ -482,13 +503,14 @@
   .stocks .sddiv b { color: var(--ink); }
   .stocks .sdh { font-weight: 600; }
   .stocks .sdh small, .stocks .sdrole small { color: var(--sub); font-size: calc(10px * var(--fs)); font-weight: 400; }
-  .stocks .sdlist { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+  /* 詳細の中の小さな表（過去1年の配当の内訳・1年ごとの配当。CODE_TASK_08 ⑤）。幅は中身に合わせる */
+  .stocks .sdtab.sdmini { width: auto; min-width: 70%; margin: 2px 0 4px; }
   /* 利回りの10年と1年ごとの配当（CODE_TASK_05 ⑥）。減った年は青（株価の下げと同じ色）、多い年は＊ */
   .stocks .sdyld { display: grid; gap: 2px; margin-bottom: 8px; }
   .stocks .sdyld b { color: var(--ink); }
+  .stocks .sdyld b.z-lo { color: var(--zlo); }   /* 利回りの水準の言葉は位置の色（CODE_TASK_08 ⑥） */
+  .stocks .sdyld b.z-hi { color: var(--zhi); }
   .stocks .sdyld .sdh { margin-top: 4px; }
-  .stocks .sdyears { display: flex; flex-wrap: wrap; gap: 2px 10px; }
-  .stocks .sdyears span { white-space: nowrap; }
   .stocks .sdyld .dn, .stocks .sdyld .dn b { color: var(--down); }
   .stocks .sdnote { color: var(--sub); font-size: calc(10.5px * var(--fs)); }
   .stocks .sdrole { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-bottom: 8px; }

@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.43.0";
+const APP_VERSION = "v1.44.0";
 const CHANGELOG = [
+  ["v1.44.0", "2026-10-24", "ウォッチ銘柄を表にした（銘柄・株価・利回り・位置の4列）。見出しを押すと並べ替えられ、選んだ並びは覚えておく（元の順・前日比・いまの利回り・利回りが10年で高い順・期間内で安い順）。期間内の位置は「安値圏（緑）・なかほど・高値圏（橙）」の言葉と色、「高値から -○%」で示す。詳細の中の利回りの10年も同じ色の意味にそろえ、配当の内訳と1年ごとの配当を表にした"],
   ["v1.43.0", "2026-10-24", "書庫はいつも1行に畳んだ状態で始まるようにした（新着のあるテーマを添える。開いても、1時間以上あけて開き直すとまた畳んだ状態に）。発掘は1週間分で開き、表示中の分を「全部片づけ」でまとめて片づけられる（戻せる）。件数の少ない5テーマ（自治体の生成AI活用・実教出版・グロービス・テレビ情報・Amazonのセール）は、朝刊で「そのほか」の1行にまとめた。グロービスに混ざっていた別の会社（現代グロービス）とホールの記事を外した"],
   ["v1.42.0", "2026-10-22", "朝刊に「ほかの分野から」を足した。自分のテーマの外から、はてなブックマークの分野別の人気記事を1日3本（分野は日替わり・各分野の1位）。有料・会員限定の判定が、メニューや隠れた文字に反応して無料の記事（はてなブログなど）に札を付けていたのを直した"],
   ["v1.41.0", "2026-10-17", "アクアワールド大洗から遠足の記事を外した。YouTube 以外の動画サイト（TVer など）の記事は、各テーマの後ろへ回す（消さない）"],
@@ -124,6 +125,17 @@ let STOCK_SPAN = "1";
 let STOCK_OPEN = new Set();
 // ウォッチ銘柄の「見方」（凡例）を開いているか（CODE_TASK_05 ⑤）。毎朝じゃまにならないよう、端末には覚えさせない
 let STOCK_LEGEND = false;
+// ウォッチ銘柄の表の並び（CODE_TASK_08 ⑤）。表の見出しを押して替え、指示書どおり端末に覚える
+// （期間と違い、毎回同じ並びで見たいもののため）。"" は元の順（feeds.json の順）
+const STOCK_SORT_KEY = "mynews_stock_sort";
+const STOCK_SORT_LABEL = {
+  "": "元の順", up: "前日比の上げ順", down: "前日比の下げ順",
+  yield: "いまの利回りの高い順", dy: "利回りが10年で高い順", low: "期間内で安い順",
+};
+let STOCK_SORT = (function () {
+  const v = lsGet(STOCK_SORT_KEY, "");
+  return Object.prototype.hasOwnProperty.call(STOCK_SORT_LABEL, v) ? v : "";
+})();
 // 蓄積が1900件を超え、「あの記事どこだっけ」を探せなくなった。
 // 既読も含めて見出しから絞り込む（探すのは読んだ記事のことが多いため）。
 let SEARCH = "";
@@ -1005,13 +1017,13 @@ function stockStrip(list) {
     + (rest > 0 ? '<span class="wst"><b>ほか' + rest + "銘柄</b></span>" : "") + "</a>";
 }
 
-// 保有している銘柄の3行目（株数・取得単価・損益）。利回りは2行目で「取得／いま」を並べる
+// 保有している銘柄の行の下に添える1行（株数・取得単価・取得利回り・含み損益。この端末だけ）。
+// 表の列は全銘柄で同じ4つにそろえ、保有の数字はここにまとめる（CODE_TASK_08 ⑤）
 function holdLine(r) {
-  return '<div class="shold">'
-    + "<span>" + fmtNum(r.qty) + "株・取得 " + fmtNum(r.cost) + "円</span>"
+  return "<span>" + fmtNum(r.qty) + "株・取得 " + fmtNum(r.cost) + "円</span>"
+    + (r.yieldPct != null ? "<span>取得利回り <b>" + fmtPct(r.yieldPct) + "</b></span>" : "")
     + (r.pl != null ? '<span class="' + signCls(r.pl) + '">' + fmtYen(r.pl, true)
-      + "（" + fmtPct(r.plPct, true) + "）</span>" : "")
-    + "</div>";
+      + "（" + fmtPct(r.plPct, true) + "）</span>" : "");
 }
 
 // 選んだ期間（1・3・5・10年）の値動きの中で、いまどのあたりか（CODE_TASK_04 ②、期間は CODE_TASK_05 ③）。
@@ -1042,22 +1054,32 @@ function spanPos(s, r) {
   return Math.max(0, Math.min(100, (Number(s.price) - r.lo) / (r.hi - r.lo) * 100));
 }
 function fmtYm(ym) { return ym ? ym.replace(/^(\d{4})-0?(\d+)$/, "$1年$2月") : ""; }
-function rangeCell(s) {
+
+// 期間の中のいまの位置を3つに分けた区分（CODE_TASK_08 ⑥）。下3分の1が安値圏、上3分の1が高値圏。
+// 色は「安い側＝緑」「高い側＝橙」の2つだけで、株価の位置と利回りの位置の両方に同じ意味で使う
+// （株価は低いほど安い側、利回りは高いほど株価が安い側で、向きが逆。取り違えないよう色でそろえる）。
+// 前日比の赤・青（上げ・下げ）と混ざらないよう、緑と橙にした（利用者の決定 2026-10-24）
+const ZONE_LABEL = { lo: "安値圏", mid: "なかほど", hi: "高値圏" };
+function zoneOf(pos) { return pos < 100 / 3 ? "lo" : pos > 200 / 3 ? "hi" : "mid"; }
+// 高値からの下がり幅。安値圏でも同じ書き方にそろえ、列を縦に見比べられるようにする（利用者の決定 2026-10-24）
+function fromHigh(price, hi) {
+  const d = Math.round((price / hi - 1) * 100);
+  return d < 0 ? "高値から -" + Math.abs(d) + "%" : "高値と同じ水準";
+}
+// 表の4列目：選んだ期間（1・3・5・10年）の中のいまの位置。棒と区分の言葉、下に高値からの下がり幅。
+// 棒の幅は全行でそろえる（点の位置だけを目で比べられるように）。安値・高値の数字と年月は詳細の表で見る
+function posCell(s) {
   const r = spanOf(s);
-  if (!r || !(r.hi > r.lo)) return "";
-  const pos = spanPos(s, r);
-  const label = STOCK_SPAN + "年";
-  // マウスを乗せると出る説明（スマホでは出ない見込み）。安値・高値を付けた年月も添える
-  // （スマホでは、銘柄を押して開く詳細で同じ数字を見る）
-  const tip = label + "の安値 " + fmtNum(r.lo) + (r.loAt ? "（" + fmtYm(r.loAt) + "）" : "")
+  if (!r || !(r.hi > r.lo)) return "<small>—</small>";
+  const pos = spanPos(s, r), z = zoneOf(pos);
+  // マウスを乗せると出る説明（スマホでは出ない見込み）
+  const tip = STOCK_SPAN + "年の安値 " + fmtNum(r.lo) + (r.loAt ? "（" + fmtYm(r.loAt) + "）" : "")
     + "から高値 " + fmtNum(r.hi) + (r.hiAt ? "（" + fmtYm(r.hiAt) + "）" : "")
-    + "までの、いまの位置（" + Math.round(pos) + "%）";
-  // 安値・棒・高値を決まった幅の3つの枠に入れて右へ寄せ、どの行でも棒が同じ位置に来るようにする
-  return '<span class="sr" title="' + esc(tip) + '">'
-    + '<span class="slo">' + (r.short ? "期間内" : label) + " <small>安</small>" + fmtNum(r.lo) + "</span>"
-    + '<span class="srange"><i style="left:' + pos.toFixed(1) + '%"></i></span>'
-    + '<span class="shi"><small>高</small>' + fmtNum(r.hi) + "</span>"
-    + (r.short ? '<small class="sshort">（' + r.short + "）</small>" : "") + "</span>";
+    + "までの、いまの位置（下から" + Math.round(pos) + "%）";
+  return '<span class="spos" title="' + esc(tip) + '">'
+    + '<span class="srange"><i class="z-' + z + '" style="left:' + pos.toFixed(1) + '%"></i></span>'
+    + '<b class="z-' + z + '">' + ZONE_LABEL[z] + "</b></span>"
+    + "<small>" + fromHigh(Number(s.price), r.hi) + (r.short ? "（" + r.short + "）" : "") + "</small>";
 }
 
 // 表の上の期間の切り替え（全銘柄いっしょに替わる。利用者の決定 2026-10-13）。
@@ -1071,21 +1093,24 @@ function spanSwitch(list) {
   }).join("") + "</div>";
 }
 
-// 2行目：配当と利回り（元の数字と並べる）、選んだ期間（1・3・5・10年）の位置。
-// いまの利回り＝過去1年の1株配当÷いまの株価。保有していれば取得利回りと並べる（取得 ○% ／ いま ○%）。
-// 配当の記録が無い銘柄は「配当 記録なし」（無配か取れなかったか見分けられないため、0% とは書かない）。
-// 長期保有・優待の札の銘柄は、高配当の物差しではないので利回りを控えめな色にする。
-function infoLine(s, r, role) {
-  const div = s && typeof s.div === "number" ? s.div : null;
-  const nowPct = div != null && s.price ? div / Number(s.price) * 100 : null;
-  let y;
-  if (div == null) y = "<span>配当 記録なし</span>";
-  else {
-    y = "<span>配当 " + fmtNum(div) + "円・"
-      + (r && r.yieldPct != null ? "取得 <b>" + fmtPct(r.yieldPct) + "</b> ／ " : "")
-      + "いま <b>" + fmtPct(nowPct) + "</b></span>";
-  }
-  return '<div class="sinfo' + (role !== "div" ? " muted" : "") + '">' + y + (s ? rangeCell(s) : "") + "</div>";
+// いまの利回り＝過去1年の1株配当÷いまの株価（配当の記録が無ければ null）
+function nowYield(s) {
+  return s && typeof s.div === "number" && s.price ? s.div / Number(s.price) * 100 : null;
+}
+// いまの利回りが「利回りの10年」の幅のどこか（0〜100%）。並べ替え・天気の下の3銘柄で使うので、
+// 10年の最高を超えた分も比べられるよう、端で切らない
+function dyPosRaw(s) {
+  const now = nowYield(s), dy = s && s.dy;
+  if (now == null || !dy || !(dy.hi > dy.lo)) return null;
+  return (now - dy.lo) / (dy.hi - dy.lo) * 100;
+}
+// 表の3列目：いまの利回りと、下に配当の額（割合は必ず額と並べる＝利用者の指示）。
+// 配当の記録が無い銘柄は「記録なし」（無配か取れなかったか見分けられないため、0% とは書かない）。
+// 長期保有・優待の札の銘柄は、高配当の物差しではないので控えめな色にする（CSS の .muted）
+function yieldCell(s) {
+  const y = nowYield(s);
+  if (y == null) return "<b>—</b><small>記録なし</small>";
+  return "<b>" + fmtPct(y) + "</b><small>" + fmtNum(s.div) + "円</small>";
 }
 
 // 役割の札。行には見せるだけ（押しても替わらない）。
@@ -1115,10 +1140,11 @@ function spanTable(s) {
     const r = spanOf(s, y);
     if (!r || !(r.hi > r.lo)) return "";
     const cell = function (v, at) { return fmtNum(v) + (at ? "<small>" + fmtYm(at) + "</small>" : ""); };
+    const pos = spanPos(s, r), z = zoneOf(pos);
     return "<tr" + (y === STOCK_SPAN ? ' class="on"' : "") + "><td>" + y + "年"
       + (r.short ? "<small>" + r.short + "</small>" : "") + "</td>"
       + "<td>" + cell(r.lo, r.loAt) + "</td><td>" + cell(r.hi, r.hiAt) + "</td>"
-      + "<td>" + Math.round(spanPos(s, r)) + "%</td></tr>";
+      + '<td><span class="z-' + z + '">' + ZONE_LABEL[z] + "</span><small>下から" + Math.round(pos) + "%</small></td></tr>";
   }).join("");
   if (!rows) return "";
   return '<table class="sdtab"><thead><tr><th>期間</th><th>安値</th><th>高値</th><th>いまの位置</th></tr></thead>'
@@ -1133,14 +1159,16 @@ function divDetail(s, r) {
   }
   const price = Number(s.price);
   const list = s.divs && s.divs.length;
-  let h = '<div class="sddiv"><div class="sdh">過去1年の配当' + (list ? "<small>（日付は権利落ち日）</small>" : "") + "</div>";
+  let h = '<div class="sddiv"><div class="sdh">過去1年の配当</div>';
   if (list) {
+    // 1回ずつの額を小さな表に（CODE_TASK_08 ⑤：数字が並ぶところは表の形にそろえる）。
     // 3つ目は、Yahoo の記録を直した回の元の額（分割の日の額のずれ・会社の発表との食い違い。build_news.py の dividend_events）
-    h += '<div class="sdlist">' + s.divs.map(function (d) {
-      return "<span>" + esc(String(d[0]).replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, "$1/$2/$3")) + " "
-        + fmtNum(d[1]) + "円" + (d[2] != null ? "<small>（Yahoo の記録は " + fmtNum(d[2]) + "円。直した）</small>" : "")
-        + "</span>";
-    }).join("") + "</div>";
+    h += '<table class="sdtab sdmini"><thead><tr><th>権利落ち日</th><th>1株配当</th></tr></thead><tbody>'
+      + s.divs.map(function (d) {
+        return "<tr><td>" + esc(String(d[0]).replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, "$1/$2/$3")) + "</td><td>"
+          + fmtNum(d[1]) + "円" + (d[2] != null ? "<small>Yahoo の記録は " + fmtNum(d[2]) + "円。直した</small>" : "")
+          + "</td></tr>";
+      }).join("") + "</tbody></table>";
   }
   h += "<div>合計 " + fmtNum(s.div) + "円 ÷ いまの株価 " + fmtNum(price) + "円 ＝ いまの利回り <b>"
     + fmtPct(s.div / price * 100) + "</b></div>";
@@ -1162,7 +1190,7 @@ function yieldHistory(s) {
   if (!dy && ys.length < 2) return "";
   let h = '<div class="sdyld">';
   if (dy) {
-    const now = typeof s.div === "number" && s.price ? s.div / Number(s.price) * 100 : null;
+    const now = nowYield(s);
     h += '<div class="sdh">利回りの10年<small>（毎月末の株価と、その月までの1年の配当から'
       + (dy.yrs < 9.5 ? "。" + dy.yrs.toFixed(1) + "年分" : "") + "）</small></div>"
       + "<div>最低 " + fmtPct(dy.lo) + "（" + fmtYm(dy.lo_at) + "）／最高 " + fmtPct(dy.hi) + "（" + fmtYm(dy.hi_at) + "）</div>";
@@ -1170,9 +1198,11 @@ function yieldHistory(s) {
       h += "<div>いまは過去1年の配当の記録がありません</div>";
     } else if (dy.hi > dy.lo) {
       const pos = Math.max(0, Math.min(100, (now - dy.lo) / (dy.hi - dy.lo) * 100));
-      const where = pos < 100 / 3 ? ["低いほう", "＝配当に比べて株価が高め"]
-        : pos > 200 / 3 ? ["高いほう", "＝配当に比べて株価が安め"] : ["なかほど", ""];
-      h += "<div>いま <b>" + fmtPct(now) + "</b>：10年の中で" + where[0] + "（下から" + Math.round(pos) + "%）" + where[1] + "</div>";
+      // 色は株価の位置と同じ意味にそろえる（利回りが高いほう＝株価が安い側＝緑。CODE_TASK_08 ⑥）
+      const where = pos < 100 / 3 ? ["低いほう", "＝配当に比べて株価が高め", "hi"]
+        : pos > 200 / 3 ? ["高いほう", "＝配当に比べて株価が安め", "lo"] : ["なかほど", "", "mid"];
+      h += "<div>いま <b>" + fmtPct(now) + "</b>：10年の中で" + '<b class="z-' + where[2] + '">' + where[0] + "</b>"
+        + "（下から" + Math.round(pos) + "%）" + where[1] + "</div>";
     }
     if (dy.hi_bump) h += '<div class="sdnote">最高のときは、1年の配当がその前後の年より3割以上多い（特別配当・記念配当かもしれない）</div>';
     if (dy.zero) h += '<div class="sdnote">配当の記録が無い月（' + dy.zero + "か月）は除いた</div>";
@@ -1181,6 +1211,7 @@ function yieldHistory(s) {
     const m = Number(String(ys[ys.length - 1][0]).slice(5, 7));
     const span = m === 12 ? "その年の1月〜12月" : "前の年の" + (m + 1) + "月〜その年の" + m + "月";
     const downs = [], bumps = [];
+    // 1年1行の表（年・配当・前の年との差）。以前は横に並べていたが、数字を縦にそろえて見比べられるようにした（CODE_TASK_08 ⑤）
     const items = ys.map(function (y, i) {
       const v = y[1], prev = i > 0 ? ys[i - 1][1] : null, next = i < ys.length - 1 ? ys[i + 1][1] : null;
       const down = prev != null && v < prev * DIV_DOWN;
@@ -1189,11 +1220,13 @@ function yieldHistory(s) {
       const year = String(y[0]).slice(0, 4);
       if (down) downs.push(year + "（" + fmtNum(prev) + "→" + fmtNum(v) + "円）");
       if (bump) bumps.push(year + "（" + fmtNum(v) + "円）");
-      return '<span class="' + (down ? "dn" : bump ? "bp" : "") + '">' + year + " <b>" + fmtNum(v) + "</b>"
-        + (down ? "↓" : bump ? "＊" : "") + "</span>";
+      const diff = prev == null ? "" : v === prev ? "±0" : (v > prev ? "+" : "-") + fmtNum(Math.abs(v - prev));
+      return '<tr class="' + (down ? "dn" : bump ? "bp" : "") + '"><td>' + year + (i === ys.length - 1 ? "<small>過去1年</small>" : "")
+        + "</td><td><b>" + fmtNum(v) + "</b>" + (down ? "↓" : bump ? "＊" : "") + "</td><td>" + diff + "</td></tr>";
     });
-    h += '<div class="sdh">1年ごとの配当（円）<small>（' + span + "。最後が過去1年）</small></div>"
-      + '<div class="sdyears">' + items.join("") + "</div>"
+    h += '<div class="sdh">1年ごとの配当<small>（' + span + "）</small></div>"
+      + '<table class="sdtab sdmini"><thead><tr><th>年</th><th>1株配当（円）</th><th>前の年との差</th></tr></thead><tbody>'
+      + items.join("") + "</tbody></table>"
       + "<div>前の年より減った年：" + (downs.length ? '<span class="dn">' + downs.join("、") + "</span>" : "なし") + "</div>";
     if (bumps.length) h += "<div>前後の年より3割以上多い年：" + bumps.join("、") + "（＊。特別配当・記念配当かもしれない）</div>";
     const last = ys[ys.length - 1][1], before = ys[ys.length - 2][1];
@@ -1221,30 +1254,66 @@ function stockDetail(s, r, code) {
     }).join("") + "</div></div>";
 }
 
-// 1銘柄ぶん。1行目＝名前・役割・株価・前日比、2行目＝配当と利回り・選んだ期間の位置、3行目＝保有（あれば）。
-// 1〜3行目のどこを押しても、その下に詳細が開く（もう一度押すと閉じる）
+// 表の1銘柄ぶん（CODE_TASK_08 ⑤）。1銘柄を1つの tbody にまとめ、
+// 1行目＝銘柄（下に役割）・株価（下に前日比）・利回り（下に配当の額）・位置（下に高値からの下がり幅）、
+// 保有していればその下に保有の1行、開いていればさらに下に詳細。
+// 1行目・保有の行のどこを押しても詳細が開く（もう一度押すと閉じる）
 function stockItem(s, r) {
   const code = s ? String(s.code || "").replace(/\.T$/, "") : r.code;
   const role = roleOf(code);
   const open = STOCK_OPEN.has(code);
-  let line1;
+  let price;
   if (s) {
     const up = s.diff > 0, down = s.diff < 0;
-    line1 = '<span class="sprice">' + Number(s.price).toLocaleString("ja-JP") + "</span>"
-      + '<span class="sdiff' + (up ? " up" : down ? " down" : "") + '">' + (up ? "▲" : down ? "▼" : "―") + " "
-      + Math.abs(s.diff).toLocaleString("ja-JP") + "（" + (up ? "+" : down ? "-" : "")
-      + Math.abs(s.pct).toFixed(2) + "%）</span>";
+    price = "<b>" + Number(s.price).toLocaleString("ja-JP") + "</b>"
+      + '<small class="' + (up ? "up" : down ? "down" : "") + '">' + (up ? "▲" : down ? "▼" : "―")
+      + Math.abs(s.diff).toLocaleString("ja-JP") + " " + (up ? "+" : down ? "-" : "")
+      + Math.abs(s.pct).toFixed(2) + "%</small>";
   } else {   // ウォッチ銘柄に無い保有株（CSV の現在値で計算）
-    line1 = '<span class="sprice">' + (r.price != null ? fmtNum(r.price) : "—") + "</span>"
-      + '<span class="sdiff">CSV ' + esc(shortDay(HOLD.asof)) + " 時点</span>";
+    price = "<b>" + (r.price != null ? fmtNum(r.price) : "—") + "</b>"
+      + "<small>CSV " + esc(shortDay(HOLD.asof)) + " 時点</small>";
   }
-  return '<div class="sitem' + (r ? " held" : "") + (open ? " open" : "") + '">'
-    + '<div class="shead" role="button" tabindex="0" aria-expanded="' + open + '" data-stock-open="' + esc(code) + '">'
-    + '<div class="srow"><span class="sname"><i class="scaret">' + (open ? "▾" : "▸") + "</i>"
-    + esc(s ? s.name : r.name) + "</span>" + roleTag(role) + line1 + "</div>"
-    + infoLine(s, r, role)
-    + (r ? holdLine(r) : "") + "</div>"
-    + (open ? stockDetail(s, r, code) : "") + "</div>";
+  const opener = ' data-stock-open="' + esc(code) + '"';
+  return '<tbody class="sitem' + (r ? " held" : "") + (open ? " open" : "") + (role !== "div" ? " muted" : "") + '">'
+    + '<tr class="shead" role="button" tabindex="0" aria-expanded="' + open + '"' + opener + ">"
+    + '<td class="sn"><span class="sname"><i class="scaret">' + (open ? "▾" : "▸") + "</i>"
+    + esc(s ? s.name : r.name) + "</span>" + roleTag(role) + "</td>"
+    + '<td class="sp">' + price + "</td>"
+    + '<td class="sy">' + (s ? yieldCell(s) : "") + "</td>"
+    + '<td class="sz">' + (s ? posCell(s) : "") + "</td></tr>"
+    + (r ? '<tr class="shold"' + opener + '><td colspan="4">' + holdLine(r) + "</td></tr>" : "")
+    + (open ? '<tr class="sdrow"><td colspan="4">' + stockDetail(s, r, code) + "</td></tr>" : "")
+    + "</tbody>";
+}
+
+// 表の並べ替え（CODE_TASK_08 ⑤）。「持っている」「気になる」のそれぞれの中で並べる。
+// 値が無い銘柄（配当の記録なし・期間の数字なし）は後ろ。同じ値どうしは元の順（feeds.json の順）
+function sortStocks(list) {
+  if (!STOCK_SORT) return list;
+  const val = function (s) {
+    if (STOCK_SORT === "up" || STOCK_SORT === "down") return typeof s.pct === "number" ? (s.diff < 0 ? -1 : 1) * Math.abs(s.pct) : null;
+    if (STOCK_SORT === "yield") return nowYield(s);
+    if (STOCK_SORT === "dy") return dyPosRaw(s);
+    // 期間内で安い順は、端で切らない位置で比べる（安値を割った・高値を超えた分も順に出る）
+    const r = spanOf(s);
+    return r && r.hi > r.lo ? (Number(s.price) - r.lo) / (r.hi - r.lo) : null;
+  };
+  const asc = STOCK_SORT === "down" || STOCK_SORT === "low";   // 下げの大きい順・安い順は小さい値から
+  return list.map(function (s, i) { return { s: s, i: i, v: val(s) }; }).sort(function (a, b) {
+    if (a.v == null || b.v == null) return (a.v == null) - (b.v == null) || a.i - b.i;
+    return (asc ? a.v - b.v : b.v - a.v) || a.i - b.i;
+  }).map(function (x) { return x.s; });
+}
+
+// 表の見出し。押すと並べ替える（銘柄＝元の順、株価＝前日比の上げ順⇄下げ順、
+// 利回り＝いまの利回りの高い順⇄利回りが10年で高い順、位置＝期間内で安い順）。いまの並びの列は色を付ける
+function sortHead(col, label) {
+  const on = col === "name" ? STOCK_SORT === ""
+    : col === "price" ? STOCK_SORT === "up" || STOCK_SORT === "down"
+    : col === "yield" ? STOCK_SORT === "yield" || STOCK_SORT === "dy"
+    : STOCK_SORT === "low";
+  return '<th><button type="button" class="ssort-btn' + (on ? " on" : "") + '" data-stock-sort="' + col + '"'
+    + ' aria-pressed="' + on + '">' + label + "</button></th>";
 }
 
 // 表の見方（凡例。CODE_TASK_05 ⑤）。左に実物と同じ見た目の見本、右に意味。
@@ -1254,30 +1323,40 @@ function stockLegend(held) {
     return '<div class="slg-row"><div class="slg-s' + (cls ? " " + cls : "") + '">' + sample + "</div>"
       + '<div class="slg-t">' + text + "</div></div>";
   };
+  // 表にしたので、見本と説明も表の列の順に並べ直した（CODE_TASK_08 ⑤⑥）
   return '<div class="slegend">'
+    + row("［株価］など",
+      "表の見出しを押すと並べ替え（この端末に覚える）。銘柄＝元の順、株価＝前日比の上げ順（もう一度で下げ順）、"
+      + "利回り＝いまの利回りの高い順（もう一度で利回りが10年で高い順）、位置＝期間内で安い順。"
+      + (held ? "「持っている」「気になる」のそれぞれの中で並ぶ" : "表の上にいまの並びを書いてある"))
     + row('<span class="sname"><i class="scaret">▸</i>名前</span>',
-      "押すと下に詳細が開く（1〜10年の安値・高値と付けた年月、過去1年の配当の内訳、利回りの10年の幅、1年ごとの配当と減った年、外部の銘柄ページ、役割の切り替え）。もう一度押すと閉じる")
+      "行を押すと下に詳細が開く（1〜10年の安値・高値と付けた年月、過去1年の配当の内訳、利回りの10年の幅、1年ごとの配当と減った年、外部の銘柄ページ、役割の切り替え）。もう一度押すと閉じる")
     + row(roleTag("div") + roleTag("long") + roleTag("perk"),
       "役割の札（この端末だけ）。行では見せるだけで、替えるのは詳細の中。長期保有・優待は利回りを控えめな色にし、合計の取得利回りの「高配当だけ」から外す")
     + row('<span class="up">▲</span><span class="down">▼</span>',
-      "前の取引日の終値からの上げ・下げ（日本の慣習で上げが赤、下げが青）。（ ）は率")
-    + row("配当 ○円", "過去1年に実際に支払われた1株配当の合計。「記録なし」は、無配か取れなかったかを見分けられない")
-    + row("いま <b>○%</b>", "いまの利回り＝配当÷いまの株価")
-    + (held ? row("取得 <b>○%</b>", "取得利回り＝配当÷取得単価（持っている銘柄だけ）") : "")
-    + row('<small>安</small><span class="srange"><i style="left:30%"></i></span><small>高</small>',
-      "選んだ期間の安値〜高値の中で、いまの株価がどこにあるか（左端が安値、右端が高値）。棒は全銘柄で同じ位置なので、点だけで見比べられる。「期間内（○年分）」は、上場して間もないなどで期間に足りない銘柄",
+      "株価の下：前の取引日の終値からの上げ・下げと率（日本の慣習で上げが赤、下げが青）")
+    + row("<b>○%</b>　○円", "利回りの列：いまの利回り＝配当÷いまの株価。下は過去1年に実際に支払われた1株配当の合計。「記録なし」は、無配か取れなかったかを見分けられない")
+    + row('<span class="srange"><i class="z-lo" style="left:15%"></i></span><b class="z-lo">安値圏</b>',
+      "位置の列：選んだ期間の安値〜高値の中で、いまの株価がどこにあるか（左端が安値、右端が高値）。"
+      + '下3分の1が<b class="z-lo">安値圏</b>（緑）、上3分の1が<b class="z-hi">高値圏</b>（橙）、あいだが「なかほど」。'
+      + "下は高値から何%下がっているか。「○年分」は、上場して間もないなどで期間に足りない銘柄",
       "bar")
+    + row('<b class="z-lo">緑</b>・<b class="z-hi">橙</b>',
+      "色の意味は株価でも利回りでも同じ。緑＝安い側（株価が安値圏・利回りが10年で高いほう＝配当に比べて株価が安め）、"
+      + "橙＝高い側（株価が高値圏・利回りが10年で低いほう）")
     + row("［1〜10年］",
       "期間の切り替え。全銘柄いっしょに替わり、開くたびに1年から。"
       + "10年の安値は 2020年3〜4月（コロナの暴落）の銘柄が多く、値上がりしてきた銘柄は点が右に寄りやすい")
-    + (held ? row("○株・取得○円", "3行目：株数・取得単価・含み損益（率）（持っている銘柄だけ）")
+    + (held ? row("○株・取得○円", "持っている銘柄の下の行：株数・取得単価・取得利回り（配当÷取得単価）・含み損益（率）")
       + row("💼 保有", "表の上の合計：取得額→評価額、含み損益、取得利回り。株数と取得単価はこの端末だけで、公開されない") : "")
     + "</div>";
 }
 
 // 最下部のブロック。上に保有株の合計（この端末だけ）、その下に「持っている」「気になる」に分けて並べる
 // （以前は feeds.json の順に混ざっていて、持っている銘柄を探すのにスクロールが要った。CODE_TASK_04 ③）。
-// 分け方は端末の保有株で決め、公開側の順番や構成は変えない。それぞれの中は feeds.json の順。
+// 分け方は端末の保有株で決め、公開側の順番や構成は変えない。
+// v1.44.0 から表にした（CODE_TASK_08 ⑤。1銘柄2〜3行のカードでは29銘柄を見比べにくかった）。
+// それぞれの中は、見出しで選んだ並び（決めていなければ feeds.json の順）
 function stockBlock(list) {
   const rows = holdingRows();
   if ((!list || !list.length) && !rows.length) return "";
@@ -1306,15 +1385,22 @@ function stockBlock(list) {
       + (t.nCsv ? "ウォッチ銘柄に無い " + t.nCsv + "銘柄は CSV の現在値で計算。" : "")
       + "銘柄を押すと詳しい数字が開き、その中で役割の札（高配当・長期保有・優待）を替えられます。</small></div>";
   }
-  const mine = (list || []).filter(function (s) { return held[codeOf(s)]; });
-  const others = (list || []).filter(function (s) { return !held[codeOf(s)]; });
-  const csvOnly = rows.filter(function (r) { return r.fromCsv; });
-  if (rows.length) h += '<div class="ssec">💼 持っている<i>' + (mine.length + csvOnly.length) + "</i></div>";
+  const mine = sortStocks((list || []).filter(function (s) { return held[codeOf(s)]; }));
+  const others = sortStocks((list || []).filter(function (s) { return !held[codeOf(s)]; }));
+  const csvOnly = rows.filter(function (r) { return r.fromCsv; });   // 株価の推移が無いので、並べ替えず最後に置く
+  const sec = function (label, n) {
+    return '<tbody class="ssec"><tr><td colspan="4">' + label + "<i>" + n + "</i></td></tr></tbody>";
+  };
+  h += '<div class="ssort">並び：<b>' + STOCK_SORT_LABEL[STOCK_SORT] + "</b><small>（見出しを押して替える）</small></div>"
+    + '<table class="stab"><colgroup><col class="c-n"><col class="c-p"><col class="c-y"><col class="c-z"></colgroup>'
+    + "<thead><tr>" + sortHead("name", "銘柄") + sortHead("price", "株価") + sortHead("yield", "利回り")
+    + sortHead("pos", "位置（" + STOCK_SPAN + "年）") + "</tr></thead>";
+  if (rows.length) h += sec("💼 持っている", mine.length + csvOnly.length);
   mine.forEach(function (s) { h += stockItem(s, held[codeOf(s)]); });
   csvOnly.forEach(function (r) { h += stockItem(null, r); });
-  if (rows.length && others.length) h += '<div class="ssec">👀 気になる<i>' + others.length + "</i></div>";
+  if (rows.length && others.length) h += sec("👀 気になる", others.length);
   others.forEach(function (s) { h += stockItem(s, null); });
-  return h + "</section>";
+  return h + "</table></section>";
 }
 
 function versionBlock(generatedAt) {
@@ -3320,6 +3406,19 @@ APP.addEventListener("click", function (ev) {
   const spanBtn = ev.target.closest("[data-stock-span]");
   if (spanBtn) {
     STOCK_SPAN = spanBtn.dataset.stockSpan;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // ウォッチ銘柄の表の見出し＝並べ替え（CODE_TASK_08 ⑤）。株価・利回りは押すたびに2つの並びを行き来する。端末に覚える
+  const sortBtn = ev.target.closest("[data-stock-sort]");
+  if (sortBtn) {
+    const col = sortBtn.dataset.stockSort;
+    STOCK_SORT = col === "price" ? (STOCK_SORT === "up" ? "down" : "up")
+      : col === "yield" ? (STOCK_SORT === "yield" ? "dy" : "yield")
+      : col === "pos" ? "low" : "";
+    lsSet(STOCK_SORT_KEY, STOCK_SORT);
     const y = window.scrollY;
     rerender();
     window.scrollTo(0, y);
