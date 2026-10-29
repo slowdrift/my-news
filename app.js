@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.44.1";
+const APP_VERSION = "v1.45.0";
 const CHANGELOG = [
+  ["v1.45.0", "2026-10-29", "新着をすべて確認すると、その下に「ホイミ」（1〜2分でできるひと休み）を1つ出すようにした。［できた］で記録し、設定でこの7日にできた日数を見られる。あわせて、新着を見終えるまでの時間をこの端末に記録し、設定で直近7日と平均を見られるようにした。見終えたときの文は「新着はすべて確認しました」に改めた"],
   ["v1.44.1", "2026-10-24", "ウォッチ銘柄の詳細の表で、となりの期間と同じ安値・高値はマスをつなげて1回だけ書くようにした（10年の高値を最近1年で付けた銘柄では、1〜10年の高値に同じ数字が4回並んでいた）。右の縦線の長さが、同じ値の期間を示す"],
   ["v1.44.0", "2026-10-24", "ウォッチ銘柄を表にした（銘柄・株価・利回り・位置の4列）。見出しを押すと並べ替えられ、選んだ並びは覚えておく（元の順・前日比・いまの利回り・利回りが10年で高い順・期間内で安い順）。期間内の位置は「安値圏（緑）・なかほど・高値圏（橙）」の言葉と色、「高値から -○%」で示す。詳細の中の利回りの10年も同じ色の意味にそろえ、配当の内訳と1年ごとの配当を表にした。天気の下の株価は、先頭の3銘柄の代わりに「利回りが10年で高い」高配当の3銘柄を出す（配当が前の年より減った銘柄には「配当↓」、3割以上増えた銘柄には「＊」）"],
   ["v1.43.0", "2026-10-24", "書庫はいつも1行に畳んだ状態で始まるようにした（新着のあるテーマを添える。開いても、1時間以上あけて開き直すとまた畳んだ状態に）。発掘は1週間分で開き、表示中の分を「全部片づけ」でまとめて片づけられる（戻せる）。件数の少ない5テーマ（自治体の生成AI活用・実教出版・グロービス・テレビ情報・Amazonのセール）は、朝刊で「そのほか」の1行にまとめた。グロービスに混ざっていた別の会社（現代グロービス）とホールの記事を外した"],
@@ -1543,13 +1544,18 @@ function toolbar(sources) {
       + orderRow()
       + sourceRow()
       + troubleRow(sources)
+      + hoimiRow()
+      + doneTimeRow()
       + holdingsRow()
       + backupRow()
       + '<details class="howto"><summary>使い方</summary><ul>'
       + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
       + "<li><b>朝刊と書庫</b>：一番上の<b>「きょうの新着」</b>が朝刊です。見出しを見て、読むものは開き、"
-      + "読まないものは<b>✓ 片づけ</b>（押したあと5秒は戻せます）。ゼロになれば今日の分はおしまい。"
+      + "読まないものは<b>✓ 片づけ</b>（押したあと5秒は戻せます）。ゼロになると「新着はすべて確認しました」と出ます。"
       + "行の順番は、朝刊の見出しの<b>↕ 並べ替え</b>で変えられます</li>"
+      + "<li><b>ホイミ</b>：新着をすべて確認すると、その下に1〜2分でできるひと休みを1つ出します。"
+      + "<b>できた</b>で記録（5秒は戻せます）、<b>ほかのにする</b>で別の項目に替えられます。同じ日は同じ項目です。"
+      + "出したくないときは、この設定の「ホイミ」で止められます</li>"
       + "<li>テーマの一覧は<b>書庫</b>です。読んだ記事も薄くして残すので、あとから読み返せます。"
       + "書庫はいつも1行に畳んだ状態で始まります（押すと開きます）。件数の少ないテーマは、朝刊では<b>「そのほか」</b>の1行にまとめています</li>"
       + "<li><b>⛏ 発掘</b>は、初めて見つけた少し前の記事です。開くと1週間分が出ます。上の<b>✓ 全部片づけ</b>で、表示中の分をまとめて片づけられます（5秒は戻せます）</li>"
@@ -2679,6 +2685,220 @@ function topicCards(theme, items) {
   return h;
 }
 
+// ---- ホイミ（新着をすべて確認したあとの、1〜2分のひと休み）---------------------
+// ストレスコーピングアプリ（slowdrift.github.io/Stress_Coping/）は、開くきっかけが無くて使われていなかった。
+// そこで毎日開くこのアプリの「新着はすべて確認しました」の下に、1〜2分でできることを1つだけ出す（CODE_TASK_09 ①）。
+// 名前はドラクエの小さな回復の呪文から（利用者の命名 10/29）。
+// コーピングアプリとはつながず、このアプリだけで完結させる（利用者の決定 10/29。あちらは今後使わないかもしれないため）。
+// 項目はコーピングアプリの初期の一覧から「1〜2分・ふだんの対処（coping か both）・お休み中でない」ものを写した。
+// 番号もコーピングアプリと同じにしてある（あとで突き合わせられるように）。時間帯の印が付いた項目は無い。
+const HOIMI_ITEMS = [
+  ["i03", "と思ってみた法"], ["i05", "深呼吸"], ["i06", "呼吸法"], ["i07", "指を押す"],
+  ["i14", "耳を引っ張る"], ["i17", "サプリを飲む"], ["i23", "音楽を聴く"], ["i24", "自然音を聴く"],
+  ["i26", "植物にふれる"], ["i44", "温かい飲み物を持つ"], ["i45", "顔を洗う・手を冷やす"], ["i47", "白湯を飲む"],
+  ["i49", "手足グーパー"], ["i53", "感謝を3つ"], ["i54", "自分に優しく"], ["i55", "「一時的」と唱える"],
+  ["i58", "香りを使う"], ["i59", "空を見上げる"], ["i60", "口角を上げる"], ["i61", "推しを見る"],
+  ["i62", "ひとくち味わう"], ["i63", "体を揺らす"], ["i66", "いいことを読む"],
+];
+const HOIMI_KEY = "mynews_hoimi";          // { day: "2026-10-29", id: きょう出している項目, skip: [きょう替えた項目] }
+const HOIMI_LOG_KEY = "mynews_hoimi_log";  // [[できた時刻(ms), 項目の番号], …]
+const HOIMI_OFF_KEY = "mynews_hoimi_off";  // "1" なら出さない（既定は出す）
+const HOIMI_LOG_MAX = 400;                 // 1年分あれば足りる。超えたら古いものから減らす
+const HOIMI_WAIT_MAX = 30;                 // 何日空いたら「十分に久しぶり」とみなすか（選ばれやすさの頭打ち）
+
+// 端末の時計で「2026-10-29」の形（日ごとの記録の名前に使う）
+function dayKey(ms) {
+  const d = new Date(ms);
+  return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+}
+
+function hoimiName(id) {
+  const it = HOIMI_ITEMS.find(function (x) { return x[0] === id; });
+  return it ? it[1] : "";
+}
+
+function loadHoimiLog() {
+  try {
+    const v = JSON.parse(lsGet(HOIMI_LOG_KEY, "[]") || "[]");
+    return Array.isArray(v) ? v.filter(function (r) { return Array.isArray(r) && typeof r[0] === "number"; }) : [];
+  } catch (e) { return []; }
+}
+
+function saveHoimiLog(log) {
+  lsSet(HOIMI_LOG_KEY, JSON.stringify(log.slice(-HOIMI_LOG_MAX)));
+}
+
+// 日付から決まる乱数（同じ日・同じ回数なら同じ値）。端末に保存できなくても、同じ日は同じ項目になる
+function hoimiSeed(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) / 4294967296;
+}
+
+// 最後にやってから日が空いた項目ほど選ばれやすくする（コーピングアプリの「ふと、これは？」と同じ考え方）。
+// 重み＝空いた日数＋1。まだ一度もやっていない項目は、十分に久しぶりの項目と同じ扱い。
+function hoimiPick(day, skip) {
+  const last = {};
+  loadHoimiLog().forEach(function (r) { last[r[1]] = Math.max(last[r[1]] || 0, r[0]); });
+  let cands = HOIMI_ITEMS.filter(function (x) { return skip.indexOf(x[0]) < 0; });
+  if (!cands.length) cands = HOIMI_ITEMS.slice();
+  const now = Date.now();
+  const w = cands.map(function (x) {
+    const t = last[x[0]];
+    const waited = t ? Math.floor((now - t) / 86400000) : HOIMI_WAIT_MAX;
+    return Math.min(Math.max(waited, 0), HOIMI_WAIT_MAX) + 1;
+  });
+  let r = hoimiSeed(day + "#" + skip.length) * w.reduce(function (s, v) { return s + v; }, 0);
+  for (let i = 0; i < cands.length; i++) {
+    r -= w[i];
+    if (r < 0) return cands[i][0];
+  }
+  return cands[cands.length - 1][0];
+}
+
+// きょう出す項目。日が替わったら選び直し、同じ日のうちは開き直しても同じ項目にする
+function hoimiToday() {
+  const day = dayKey(Date.now());
+  let st = {};
+  try { st = JSON.parse(lsGet(HOIMI_KEY, "{}") || "{}") || {}; } catch (e) { st = {}; }
+  if (st.day !== day || !hoimiName(st.id) || !Array.isArray(st.skip)) {
+    st = { day: day, id: hoimiPick(day, []), skip: [] };
+    lsSet(HOIMI_KEY, JSON.stringify(st));
+  }
+  return st;
+}
+
+// きょう［できた］を押した記録（無ければ null）
+function hoimiDoneToday() {
+  const day = dayKey(Date.now());
+  const today = loadHoimiLog().filter(function (r) { return dayKey(r[0]) === day; });
+  return today.length ? today[today.length - 1] : null;
+}
+
+// 「新着はすべて確認しました」の下に出す小さな枠。ニュースより目立たせない
+function hoimiCard() {
+  if (lsGet(HOIMI_OFF_KEY, "0") === "1") return "";
+  try {
+    const done = hoimiDoneToday();
+    if (done) {
+      return '<div class="hoimi done"><span class="hlabel">ホイミ</span>'
+        + '<span class="hname">' + esc(hoimiName(done[1]) || "（一覧に無い項目）") + "</span>"
+        + '<span class="hok">✓ きょうはできました</span></div>';
+    }
+    const st = hoimiToday();
+    return '<div class="hoimi"><div class="hlabel">ホイミ（1〜2分）</div>'
+      + '<div class="hname">' + esc(hoimiName(st.id)) + "</div>"
+      + '<div class="hbtns"><button class="hbtn go" type="button" id="hoimi-done">できた</button>'
+      + '<button class="hbtn" type="button" id="hoimi-next">ほかのにする</button></div></div>';
+  } catch (e) { return ""; }   // 何かあっても、新着の画面は壊さない
+}
+
+// 設定の1段：出す・出さないの切り替えと、この7日でできた日数
+function hoimiRow() {
+  const off = lsGet(HOIMI_OFF_KEY, "0") === "1";
+  const log = loadHoimiLog();
+  const now = Date.now();
+  const week = {};
+  for (let i = 0; i < 7; i++) week[dayKey(now - i * 86400000)] = true;
+  const days = {};
+  log.forEach(function (r) { const d = dayKey(r[0]); if (week[d]) days[d] = true; });
+  const known = log.filter(function (r) { return hoimiName(r[1]); });   // 一覧に無い項目の記録は名前を出せない
+  const last = known.length ? known[known.length - 1] : null;
+  return '<div class="srow"><span>ホイミ（新着を確認したあとの、1〜2分のひと休み）'
+    + "<small>この7日で " + Object.keys(days).length + "日できました"
+    + (last ? "（最後は" + dayLabel(last[0]) + "：" + esc(hoimiName(last[1])) + "）" : "") + "</small></span>"
+    + '<button class="tool-btn' + (off ? "" : " on") + '" type="button" id="toggle-hoimi">'
+    + (off ? "出さない" : "出す") + "</button></div>";
+}
+
+// ---- 見終えるまでの時間 ------------------------------------------------------
+// 「短い時間で見終わる」ことを数字で見るため（CODE_TASK_09 ②）。
+// その日の新着が残っていて、画面が表に出ている間だけ数える。新着が0件になったら「見終えた」とする。
+// 画面が裏に回っている間（記事を読みに行っている・画面を消した）は数えない。放っておいた分が混ざらないように。
+// 1日に何度か開いたら、その日の合計にする。記録はこの端末だけ（mynews_ で始まるので書き出しには入る）。
+const DONETIME_KEY = "mynews_donetime";   // { "2026-10-29": [数えた時間(ms), 見終えたら1・まだなら0] }
+const DONETIME_DAYS = 60;                 // 直近60日分だけ残す
+let DT_START = 0;                          // 今数えている区間の始まり（0なら数えていない）
+
+function loadDoneTime() {
+  try {
+    const v = JSON.parse(lsGet(DONETIME_KEY, "{}") || "{}");
+    return isPlainObject(v) ? v : {};
+  } catch (e) { return {}; }
+}
+
+function saveDoneTime(rec) {
+  const oldest = dayKey(Date.now() - (DONETIME_DAYS - 1) * 86400000);
+  const kept = {};
+  Object.keys(rec).forEach(function (d) { if (d >= oldest && Array.isArray(rec[d])) kept[d] = rec[d]; });
+  lsSet(DONETIME_KEY, JSON.stringify(kept));
+}
+
+// ここまで数えた分を、きょうの記録に足す（markDone なら「見終えた」の印も付ける）
+function dtFlush(markDone) {
+  const now = Date.now();
+  const rec = loadDoneTime();
+  const day = dayKey(now);
+  const r = Array.isArray(rec[day]) ? rec[day] : [0, 0];
+  if (DT_START) r[0] += Math.max(0, now - DT_START);
+  if (markDone) r[1] = 1;
+  rec[day] = r;
+  saveDoneTime(rec);
+  if (DT_START) DT_START = now;
+}
+
+function freshLeft() {
+  return freshBlocks().reduce(function (t, b) { return t + b.items.length; }, 0);
+}
+
+// 画面を描き直すたびに呼ぶ。数えている最中に新着が0件になったら、そこで「見終えた」
+function dtCheck() {
+  try {
+    const visible = !document.visibilityState || document.visibilityState !== "hidden";
+    const left = freshLeft();
+    if (DT_START) {
+      if (!left) { dtFlush(true); DT_START = 0; }
+      else if (!visible) { dtFlush(false); DT_START = 0; }
+      else dtFlush(false);   // 途中の分も書いておく（急に閉じられても残るように）
+    } else if (left && visible) {
+      DT_START = Date.now();
+    }
+  } catch (e) { /* 数えられなくても画面は動かす */ }
+}
+
+// 画面が裏に回ったら、そこまでの分を書いて止める
+function dtHidden() {
+  try { if (DT_START) { dtFlush(false); DT_START = 0; } } catch (e) { /* 続行 */ }
+}
+
+// 「4分12秒」の形
+function fmtDuration(ms) {
+  const s = Math.round(ms / 1000);
+  const m = Math.floor(s / 60);
+  return m ? m + "分" + pad2(s % 60) + "秒" : s + "秒";
+}
+
+// 設定の1段：直近7日の時間と平均（平均は見終えた日だけで出す。途中でやめた日を混ぜると短く見えるため）
+function doneTimeRow() {
+  const rec = loadDoneTime();
+  const now = Date.now();
+  const lines = [];
+  let sum = 0, n = 0;
+  for (let i = 0; i < 7; i++) {
+    const ms = now - i * 86400000;
+    const r = rec[dayKey(ms)];
+    if (!Array.isArray(r)) continue;
+    const d = new Date(ms);
+    lines.push((d.getMonth() + 1) + "/" + d.getDate() + " " + fmtDuration(r[0]) + (r[1] ? "" : "（途中まで）"));
+    if (r[1]) { sum += r[0]; n += 1; }
+  }
+  return '<div class="srow dtime"><span>見終えるまでの時間（新着が0件になるまで）<small>'
+    + (lines.length
+      ? lines.join("<br>") + (n ? "<br>平均 " + fmtDuration(sum / n) + "（見終えた" + n + "日）" : "")
+      : "まだ記録がありません")
+    + "</small></span></div>";
+}
+
 // ---- 朝刊（トップ画面の一番上）---------------------------------------------
 // 開いた瞬間に「きょう読むもの」が目に入り、下へ進むと書庫になる（新聞の1面と後ろのページ）。
 // テーマは畳んで1行ずつ並べ、読みたいテーマだけ開く。見終わったら片づけてゼロにする。
@@ -2706,7 +2926,7 @@ function morningEdition() {
   if (MORNING_ARRANGE) return h + morningArrangeList() + "</section>";
 
   if (!total) {
-    h += '<div class="mdone">✓ きょうの分はおしまいです。新しい記事は次の更新で届きます。</div>';
+    h += '<div class="mdone">✓ 新着はすべて確認しました。次の記事は次の更新で届きます。</div>' + hoimiCard();
   } else {
     blocks.forEach(function (b) {
       const open = !!FRESH_OPEN[b.key];
@@ -2844,10 +3064,10 @@ function renderFreshView(data) {
     + toolbar(data.sources) + "</header>"];
 
   // 朝刊のように「読み切れる量で終わる」ことを目指す。
-  // 見出しを見て、読むものは開き、読まないものは片づける。ゼロになったら今日の分はおしまい。
+  // 見出しを見て、読むものは開き、読まないものは片づける。ゼロになったら、きょうの新着は確認済み。
   if (!blocks.length) {
-    parts.push('<div class="empty done-today">✓ きょうの分はおしまいです。<br>'
-      + "新しい記事は次の更新で届きます。古い記事や発掘は「← 書庫へ」でいつでも読めます。</div>");
+    parts.push('<div class="empty done-today">✓ 新着はすべて確認しました。<br>'
+      + "次の記事は次の更新で届きます。古い記事や発掘は「← 書庫へ」でいつでも読めます。</div>" + hoimiCard());
   } else {
     blocks.forEach(function (b) {
       const open = !!FRESH_OPEN[b.key];
@@ -3129,6 +3349,8 @@ function pickLabel() {
 }
 
 function rerender() {
+  // 見終えるまでの時間（新着が0件になった瞬間を拾う）。描く前に数えておくと、設定の一覧にきょうの分まで出る
+  dtCheck();
   render(window.NEWS_DATA);
   applyPrefs();
 }
@@ -3339,6 +3561,39 @@ APP.addEventListener("click", function (ev) {
     HIDE_LOCKED = !HIDE_LOCKED;
     lsSet(HIDELOCK_KEY, HIDE_LOCKED ? "1" : "0");
     rerender();
+    return;
+  }
+  // ホイミ：出す／出さない
+  if (ev.target.closest("#toggle-hoimi")) {
+    lsSet(HOIMI_OFF_KEY, lsGet(HOIMI_OFF_KEY, "0") === "1" ? "0" : "1");
+    rerender();
+    return;
+  }
+  // ホイミ：できた → 記録に1件足す。5秒は戻せる（足した1件だけを消す）
+  if (ev.target.closest("#hoimi-done")) {
+    const st = hoimiToday();
+    const row = [Date.now(), st.id];
+    const log = loadHoimiLog();
+    log.push(row);
+    saveHoimiLog(log);
+    pushUndo("HPが すこし かいふくした！", function () {
+      saveHoimiLog(loadHoimiLog().filter(function (r) { return !(r[0] === row[0] && r[1] === row[1]); }));
+    });
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // ホイミ：ほかのにする → きょう出した項目を避けて選び直す（全部出し切ったら、今の項目だけ避けて最初から）
+  if (ev.target.closest("#hoimi-next")) {
+    const st = hoimiToday();
+    st.skip.push(st.id);
+    if (st.skip.length >= HOIMI_ITEMS.length) st.skip = [st.id];
+    st.id = hoimiPick(st.day, st.skip);
+    lsSet(HOIMI_KEY, JSON.stringify(st));
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
     return;
   }
   // 新着画面で、そのテーマの新着をまとめて既読にする
@@ -3963,11 +4218,17 @@ try {
   if (!data) throw new Error("data.js が読み込まれていません（build_news.py を実行してください）");
   applyPrefs();
   render(data);
+  dtCheck();   // 新着が残っていれば、見終えるまでの時間を数え始める
   // 読み込み直したときは、読んでいた位置に戻す（ページを開いている間だけ覚えている）
   const saved = ssGet();
   if (saved.y) window.scrollTo(0, saved.y);
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") { ssSave({ y: window.scrollY || 0, hid: Date.now() }); return; }
+    if (document.visibilityState === "hidden") {
+      dtHidden();
+      ssSave({ y: window.scrollY || 0, hid: Date.now() });
+      return;
+    }
+    dtCheck();   // 表に戻ったら、新着が残っていれば数え直す
     // 開いたまま1時間以上離れていたら、次に開いたときと同じく書庫を畳んで一番上から（CODE_TASK_08 ①）。
     // スマホがページを読み込み直さずに残していた場合のため
     const hid = ssGet().hid || 0;
