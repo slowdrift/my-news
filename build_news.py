@@ -2105,7 +2105,7 @@ def pick_outside(feed, archive, now, seen_links, seen_titles):
     # 試し運転で日付を変えられるように、環境変数 PICK_TODAY（例 2026-10-23）があればそれを使う
     today = os.environ.get("PICK_TODAY") or now.strftime("%Y-%m-%d")
     if any(a.get("pick_day") == today for a in archive.get(g, [])):
-        return [], "きょうの分は選び済み"
+        return [], "今日の分は選び済み"
     rounds = cfg.get("rounds") or []
     if not rounds:
         return [], "設定に分野の組（rounds）がありません"

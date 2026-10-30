@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.45.0";
+const APP_VERSION = "v1.45.1";
 const CHANGELOG = [
+  ["v1.45.1", "2026-10-30", "ホイミを新着が残っていても出すようにした（「今日の新着」の上の1行を押すと3つ開く）。画面の「きょう」を「今日」に直した"],
   ["v1.45.0", "2026-10-29", "新着をすべて確認すると、その下に「ホイミ」（1〜2分でできるひと休み）を3つ出すようにした（体・息と五感・頭と心から1つずつ。項目は70個）。できたものの［できた］で記録し、設定でこの7日にできた日数を見られる。あわせて、新着を見終えるまでの時間をこの端末に記録し、設定で直近7日と平均を見られるようにした。見終えたときの文は「新着はすべて確認しました」に改めた"],
   ["v1.44.1", "2026-10-24", "ウォッチ銘柄の詳細の表で、となりの期間と同じ安値・高値はマスをつなげて1回だけ書くようにした（10年の高値を最近1年で付けた銘柄では、1〜10年の高値に同じ数字が4回並んでいた）。右の縦線の長さが、同じ値の期間を示す"],
   ["v1.44.0", "2026-10-24", "ウォッチ銘柄を表にした（銘柄・株価・利回り・位置の4列）。見出しを押すと並べ替えられ、選んだ並びは覚えておく（元の順・前日比・いまの利回り・利回りが10年で高い順・期間内で安い順）。期間内の位置は「安値圏（緑）・なかほど・高値圏（橙）」の言葉と色、「高値から -○%」で示す。詳細の中の利回りの10年も同じ色の意味にそろえ、配当の内訳と1年ごとの配当を表にした。天気の下の株価は、先頭の3銘柄の代わりに「利回りが10年で高い」高配当の3銘柄を出す（配当が前の年より減った銘柄には「配当↓」、3割以上増えた銘柄には「＊」）"],
@@ -114,6 +115,7 @@ let TROUBLE_OPEN = false;
 let BORING_OPEN = false;
 let ORDER_OPEN = false;    // テーマの並べ替えを開いているか
 let MORNING_ARRANGE = false;   // 朝刊の行を並べ替えているところか（画面を見ている間だけ）
+let HOIMI_OPEN = false;    // 上の1行のホイミを開いているか（画面を見ている間だけ。v1.45.1）
 let SHOW_READ = false;     // 読んだ記事の一覧を見ているか
 // 「きょうの新着だけ」を見る画面。ボタンを増やさず、見出しの数字を入口にする。
 // 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
@@ -1550,10 +1552,11 @@ function toolbar(sources) {
       + backupRow()
       + '<details class="howto"><summary>使い方</summary><ul>'
       + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
-      + "<li><b>朝刊と書庫</b>：一番上の<b>「きょうの新着」</b>が朝刊です。見出しを見て、読むものは開き、"
+      + "<li><b>朝刊と書庫</b>：一番上の<b>「今日の新着」</b>が朝刊です。見出しを見て、読むものは開き、"
       + "読まないものは<b>✓ 片づけ</b>（押したあと5秒は戻せます）。ゼロになると「新着はすべて確認しました」と出ます。"
       + "行の順番は、朝刊の見出しの<b>↕ 並べ替え</b>で変えられます</li>"
-      + "<li><b>ホイミ</b>：新着をすべて確認すると、その下に1〜2分でできるひと休みを3つ出します（体・息と五感・頭と心から1つずつ）。"
+      + "<li><b>ホイミ</b>：「今日の新着」の上の<b>▸ ホイミ</b>を押すと、1〜2分でできるひと休みを3つ出します（体・息と五感・頭と心から1つずつ）。"
+      + "新着をすべて確認したときは、その下に開いた形で出ます。"
       + "できそうなものの<b>できた</b>を押すと記録します（5秒は戻せます）。<b>ほかの3つにする</b>で入れ替えられます。同じ日は同じ3つです。"
       + "出したくないときは、この設定の「ホイミ」で止められます</li>"
       + "<li>テーマの一覧は<b>書庫</b>です。読んだ記事も薄くして残すので、あとから読み返せます。"
@@ -1620,7 +1623,7 @@ function dayLabel(ms) {
   if (!ms) return "いつ読んだか不明";
   const d = new Date(ms), t = new Date();
   const same = function (x, y) { return x.toDateString() === y.toDateString(); };
-  if (same(d, t)) return "きょう";
+  if (same(d, t)) return "今日";
   const y = new Date(t.getTime() - 86400000);
   if (same(d, y)) return "きのう";
   return (d.getMonth() + 1) + "月" + d.getDate() + "日";
@@ -2685,9 +2688,10 @@ function topicCards(theme, items) {
   return h;
 }
 
-// ---- ホイミ（新着をすべて確認したあとの、1〜2分のひと休み）---------------------
+// ---- ホイミ（1〜2分のひと休み）---------------------------------------------
 // ストレスコーピングアプリ（slowdrift.github.io/Stress_Coping/）は、開くきっかけが無くて使われていなかった。
 // そこで毎日開くこのアプリの「新着はすべて確認しました」の下に、1〜2分でできることを出す（CODE_TASK_09 ①）。
+// v1.45.1 から、新着が残っていても「今日の新着」の上の1行から開ける（hoimiLine）。
 // 名前はドラクエの小さな回復の呪文から（利用者の命名 10/29）。
 // コーピングアプリとはつながず、このアプリだけで完結させる（利用者の決定 10/29。あちらは今後使わないかもしれないため）。
 // 3つ並べ、どれか1つを選んでもらう（利用者の発案 10/29：サプリは無ければ飲めない、体操は家でしかできない、など
@@ -2733,7 +2737,7 @@ const HOIMI_ITEMS = [
   ["h11", "手を洗うとき、水の温度を感じる", "sense"], ["h12", "日の光を浴びる", "sense"],
   ["h13", "スマホを1分伏せて置く", "sense"], ["h14", "動物の動画を1本見る", "sense"],
   ["h15", "ゆっくり10数える", "mind"], ["h16", "好きな言葉を思い出す", "mind"],
-  ["h17", "きょううまくいったことを1つ思い出す", "mind"], ["h18", "楽しみな予定を1つ思い浮かべる", "mind"],
+  ["h17", "今日うまくいったことを1つ思い出す", "mind"], ["h18", "楽しみな予定を1つ思い浮かべる", "mind"],
   ["h19", "いまできることを1つだけ決める", "mind"], ["h20", "気がかりを「あとで考える」とメモする", "mind"],
   ["h21", "家族に一言声をかける", "mind"], ["h22", "誰かに短いメッセージを送る", "mind"],
   ["h23", "好きな写真を1枚見る", "mind"],
@@ -2839,24 +2843,39 @@ function hoimiDoneToday() {
   return today.length ? today[today.length - 1] : null;
 }
 
-// 「新着はすべて確認しました」の下に出す小さな枠。ニュースより目立たせない
-function hoimiCard() {
+// 3つを並べた小さな枠。ニュースより目立たせない。
+// 「新着はすべて確認しました」の下にはそのまま出し、上の1行から開いたとき（top）は見出しを押すと畳める
+function hoimiCard(top) {
   if (lsGet(HOIMI_OFF_KEY, "0") === "1") return "";
   try {
     const done = hoimiDoneToday();
     if (done) {
       return '<div class="hoimi done"><span class="hlabel">ホイミ</span>'
         + '<span class="hname">' + esc(hoimiName(done[1]) || "（一覧に無い項目）") + "</span>"
-        + '<span class="hok">✓ きょうはできました</span></div>';
+        + '<span class="hok">✓ 今日はできました</span></div>';
     }
     const st = hoimiToday();
-    return '<div class="hoimi"><div class="hlabel">ホイミ（1〜2分）　どれか1つ</div>'
+    return '<div class="hoimi">'
+      + (top ? '<button class="hlabel hfoldbtn" type="button" id="hoimi-open">▾ ホイミ（1〜2分）　どれか1つ</button>'
+        : '<div class="hlabel">ホイミ（1〜2分）　どれか1つ</div>')
       + st.ids.map(function (id) {
         return '<div class="hrow"><span class="hname">' + esc(hoimiName(id)) + "</span>"
           + '<button class="hbtn go" type="button" data-hoimi-done="' + esc(id) + '">できた</button></div>';
       }).join("")
       + '<div class="hbtns"><button class="hbtn" type="button" id="hoimi-next">ほかの3つにする</button></div></div>';
   } catch (e) { return ""; }   // 何かあっても、新着の画面は壊さない
+}
+
+// 新着が残っているときに「⚡ 今日の新着」の上に出す1行。押すと3つ開く（v1.45.1）。
+// 新着を全部見るのは時間がかかり、見終わったときだけでは出る日が少ないため（利用者の指摘 2026-10-30）。
+// 新着が0件のときは呼ばない（「確認しました」の下に、今までどおり開いた形で出る）
+function hoimiLine() {
+  if (lsGet(HOIMI_OFF_KEY, "0") === "1") return "";
+  try {
+    if (HOIMI_OPEN || hoimiDoneToday()) return hoimiCard(true);
+    return '<button class="hoimi hfold" type="button" id="hoimi-open">'
+      + '<span class="hlabel">▸ ホイミ</span><span>1〜2分のひと休み</span></button>';
+  } catch (e) { return ""; }
 }
 
 // 設定の1段：出す・出さないの切り替えと、この7日でできた日数
@@ -2980,8 +2999,10 @@ function morningEdition() {
   });
 
   // 見出しの右端に［↕ 並べ替え］。押すと「並べ替え中」になり、［✓ おわる］で戻る（v1.37.0）
-  let h = '<section class="morning' + (MORNING_ARRANGE ? " arranging" : "") + '" id="morning"><div class="mhead">'
-    + "<h2>⚡ きょうの新着</h2>"
+  // その上にホイミの1行（新着が残っているときだけ。0件なら「確認しました」の下に出る。v1.45.1）
+  let h = (total && !MORNING_ARRANGE ? hoimiLine() : "")
+    + '<section class="morning' + (MORNING_ARRANGE ? " arranging" : "") + '" id="morning"><div class="mhead">'
+    + "<h2>⚡ 今日の新着</h2>"
     + (MORNING_ARRANGE ? '<span class="marr-note">並べ替え中</span>'
       : '<span class="mcount">' + total + "件</span>"
         + (since && since < total ? '<span class="since">●前回から ' + since + "</span>" : ""))
@@ -3013,7 +3034,7 @@ function morningEdition() {
   // 発掘の入口は1週間分の件数を基本に、きょうの分は「うちきょう」で添える（CODE_TASK_08 ②）
   if (foundWeek) {
     h += '<button class="mfound" type="button" id="show-found"><b>⛏ 発掘 ' + foundWeek + "件"
-      + (foundToday ? "（うちきょう" + foundToday + "）" : "") + "</b>"
+      + (foundToday ? "（うち今日" + foundToday + "）" : "") + "</b>"
       + "<small>初めて見つけた、少し前の記事</small><i>→</i></button>";
   }
   if (total) {
@@ -3068,7 +3089,7 @@ function morningArrangeList() {
   rows.forEach(function (r, i) {
     h += '<div class="mtheme marr-row"><div class="mrow">'
       + '<span class="mname">' + esc(r.name) + "</span>"
-      + '<span class="mnum' + (r.items.length ? "" : " zero") + '" title="きょうの新着">' + r.items.length + "</span>"
+      + '<span class="mnum' + (r.items.length ? "" : " zero") + '" title="今日の新着">' + r.items.length + "</span>"
       + '<button class="tool-btn" type="button" data-mmove="up" data-mkey="' + esc(r.key) + '"'
       + (i === 0 ? " disabled" : "") + ' aria-label="' + esc(r.name) + 'を上へ">▲</button>'
       + '<button class="tool-btn" type="button" data-mmove="down" data-mkey="' + esc(r.key) + '"'
@@ -3121,13 +3142,14 @@ function renderFreshView(data) {
   const blocks = freshBlocks();
   const total = blocks.reduce(function (n, b) { return n + b.items.length; }, 0);
 
-  const parts = ["<header><h1>⚡ きょうの新着</h1>"
+  const parts = ["<header><h1>⚡ 今日の新着</h1>"
     + '<div class="meta-head">' + headUpdated(data.generated_at)
     + '<button class="newcount on" type="button" id="show-fresh">← 書庫へ</button>'
     + '<span class="unread">' + total + "件</span>"
     + (total ? '<button class="tool-btn tidy-all" type="button" id="tidy-all-fresh">✓ 全部片づけ</button>' : "")
     + "</div>"
     + toolbar(data.sources) + "</header>"];
+  if (blocks.length) parts.push(hoimiLine());   // 朝刊と同じく、新着の上にホイミの1行（v1.45.1）
 
   // 朝刊のように「読み切れる量で終わる」ことを目指す。
   // 見出しを見て、読むものは開き、読まないものは片づける。ゼロになったら、きょうの新着は確認済み。
@@ -3181,7 +3203,7 @@ function renderFoundView(data) {
     + '<span class="unread">' + total + "件</span></div>"
     + '<div class="tools">'
     + '<button class="tool-btn' + (FOUND_TODAY ? " on" : "") + '" type="button" '
-    + 'data-found-span="today">きょう ' + today + "件</button>"
+    + 'data-found-span="today">今日 ' + today + "件</button>"
     + '<button class="tool-btn' + (FOUND_TODAY ? "" : " on") + '" type="button" '
     + 'data-found-span="week">この1週間 ' + week + "件</button>"
     // いま表示している発掘を全部まとめて片づける（知らせから元に戻せる。CODE_TASK_08 ②）
@@ -3635,6 +3657,14 @@ APP.addEventListener("click", function (ev) {
     rerender();
     return;
   }
+  // ホイミ：上の1行を開く／畳む（v1.45.1）
+  if (ev.target.closest("#hoimi-open")) {
+    HOIMI_OPEN = !HOIMI_OPEN;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
   // ホイミ：できた（3つのどれか）→ 記録に1件足す。5秒は戻せる（足した1件だけを消す）
   const hoimiBtn = ev.target.closest("[data-hoimi-done]");
   if (hoimiBtn) {
@@ -3734,7 +3764,7 @@ APP.addEventListener("click", function (ev) {
     const pick = FOUND_TODAY ? isFoundToday : isFound;
     const items = [];
     ALL_GROUPS.forEach(function (x) { (x.group.items || []).filter(pick).forEach(function (a) { items.push(a); }); });
-    tidyUp(items, FOUND_TODAY ? "きょうの発掘" : "この1週間の発掘", "foundall", "found");
+    tidyUp(items, FOUND_TODAY ? "今日の発掘" : "この1週間の発掘", "foundall", "found");
     rerender();
     window.scrollTo(0, 0);
     return;
@@ -3742,7 +3772,7 @@ APP.addEventListener("click", function (ev) {
   if (ev.target.closest("#tidy-all-fresh")) {
     const items = [];
     ALL_GROUPS.forEach(function (x) { (x.group.items || []).filter(isFresh).forEach(function (a) { items.push(a); }); });
-    tidyUp(items, "きょうの新着", "tidyall", SHOW_FRESH ? "fresh" : "morning");
+    tidyUp(items, "今日の新着", "tidyall", SHOW_FRESH ? "fresh" : "morning");
     rerender();
     window.scrollTo(0, 0);
     return;

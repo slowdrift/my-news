@@ -709,6 +709,15 @@
   .hoimi.done { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
   .hoimi.done .hname { flex: 0 1 auto; font-size: calc(12.5px * var(--fs)); }
   .hoimi .hok { font-weight: 700; }
+  /* 新着が残っているときの上の1行（v1.45.1）。押すと3つ開き、開いた枠の見出しを押すと畳む */
+  .hoimi.hfold {
+    display: flex; align-items: baseline; gap: 8px; width: 100%; min-height: 40px;
+    background: transparent; text-align: left; font-family: inherit; cursor: pointer;
+  }
+  .hoimi .hfoldbtn {
+    display: block; width: 100%; min-height: 32px; padding: 0; border: 0; background: transparent;
+    text-align: left; font-family: inherit; color: inherit; cursor: pointer;
+  }
   #toggle-hoimi { white-space: nowrap; }   /* 設定の［出す］が「出／す」と折れないように */
   /* 同じ話題の記事（朝刊で1枚に畳んだ分） */
   .topic-more {
