@@ -25,9 +25,12 @@
     --hp-ok:#15803d; --hp-mid:#c2410c; --hp-low:#b91c1c;
     /* ホイミの職場向けの色（文字は白地で 6.04、薄い地で 5.53） */
     --work-ink:#be185d; --work-bg:#fdf2f8;
-    /* ふり返りの組ごとの色（体・息と五感・頭と心・職場向け）。色覚の違いでも隣どうしを見分けられることを
-       検査の式で確かめた。白地とのコントラストが低い色があるので、下に組の名前と回数を必ず書く */
-    --k-body:#2a78d6; --k-sense:#1baf7a; --k-mind:#6250d6; --k-work:#e87ba4;
+    /* ホイミのレベルで増えた項目の色（金色。文字は白地で 6.85、薄い地で 6.62。v1.48.0） */
+    --lv-ink:#854d0e; --lv-bg:#fefce8;
+    /* ふり返りの組ごとの色（体・息と五感・頭と心・職場向け・レベルで増えた）。色覚の違いでも隣どうしを見分けられることを
+       検査の式で確かめた。白地とのコントラストが低い色があるので、下に組の名前と回数を必ず書く。
+       レベルで増えた（金色）は、色覚の3つの型で今の4色と比べ、どの型でも今の4色の一番近い組より離れている（v1.48.0） */
+    --k-body:#2a78d6; --k-sense:#1baf7a; --k-mind:#6250d6; --k-work:#e87ba4; --k-lv:#e0b000;
     --fs:1;           /* 文字サイズの倍率 */
   }
   /* 端末が暗い設定のとき（手動指定が無い＝自動のとき）だけ暗くする */
@@ -46,7 +49,8 @@
       --zlo:#4ade80; --zhi:#fb923c; --zlo-bg:#14532d; --zhi-bg:#7c2d12;   /* 文字は 9.48・7.30 */
       --hp-ok:#4ade80; --hp-mid:#fb923c; --hp-low:#f87171;   /* 文字は 9.48・7.30・5.97 */
       --work-ink:#f9a8d4; --work-bg:#3a1a2c;                 /* 文字は 9.10・8.49 */
-      --k-body:#3987e5; --k-sense:#199e70; --k-mind:#9085e9; --k-work:#d55181;
+      --lv-ink:#fcd34d; --lv-bg:#33290d;                     /* 文字は 11.45・9.95 */
+      --k-body:#3987e5; --k-sense:#199e70; --k-mind:#9085e9; --k-work:#d55181; --k-lv:#e0b000;
     }
   }
   /* 手動で「暗い」を選んだとき */
@@ -64,7 +68,8 @@
     --zlo:#4ade80; --zhi:#fb923c; --zlo-bg:#14532d; --zhi-bg:#7c2d12;
     --hp-ok:#4ade80; --hp-mid:#fb923c; --hp-low:#f87171;
     --work-ink:#f9a8d4; --work-bg:#3a1a2c;
-    --k-body:#3987e5; --k-sense:#199e70; --k-mind:#9085e9; --k-work:#d55181;
+    --lv-ink:#fcd34d; --lv-bg:#33290d;
+    --k-body:#3987e5; --k-sense:#199e70; --k-mind:#9085e9; --k-work:#d55181; --k-lv:#e0b000;
   }
   /* 文字サイズ */
   :root[data-font="s"] { --fs:.92; }
@@ -722,6 +727,12 @@
     border-left: 4px solid var(--work-ink); border-radius: 6px; background: var(--work-bg);
   }
   .wtag { flex-basis: 100%; color: var(--work-ink); font-size: calc(11px * var(--fs)); font-weight: 700; }
+  /* 5つ目（レベルで増えた）は金色の枠と札で、職場向けとも区別する（v1.48.0、CODE_TASK_12） */
+  .hoimi .hrow.lv {
+    flex-wrap: wrap; row-gap: 0; margin-top: 8px; padding: 6px 8px; border: 0;
+    border-left: 4px solid var(--lv-ink); border-radius: 6px; background: var(--lv-bg);
+  }
+  .ltag { flex-basis: 100%; color: var(--lv-ink); font-size: calc(11px * var(--fs)); font-weight: 700; }
   /* ［ほかの3つにする］は［できた］の列から16px離し、枠だけの灰色にして見た目を変える */
   .hoimi .hbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
   .hbtn {
@@ -765,6 +776,7 @@
   .hsec h2 { font-size: calc(15px * var(--fs)); margin: 0 0 8px; }
   .hsec h3 { font-size: calc(12.5px * var(--fs)); color: var(--sub); margin: 16px 0 6px; }
   .hsec h3.work { color: var(--work-ink); }
+  .hsec h3.lv { color: var(--lv-ink); }
   /* ふり返りの一番上：レベル・経験値・今月使った種類（v1.47.0） */
   .hsum { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
   .hlv { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 10px; }
@@ -773,6 +785,7 @@
   .hxp { display: block; height: 6px; margin: 6px 0 8px; border-radius: 3px; background: var(--line); overflow: hidden; }
   .hxp i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
   .hkinds { font-size: calc(12.5px * var(--fs)); }
+  .hnext { margin-top: 2px; color: var(--sub); font-size: calc(11.5px * var(--fs)); }   /* 次に増えるレベル（v1.48.0） */
   /* 縦の棒グラフ（直近7日・月ごと）。棒の上に回数、下の線が0の位置。今日・今月は文字を濃く */
   .hcols { display: flex; gap: 6px; padding: 0 2px; }
   .hcol { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
@@ -791,6 +804,7 @@
   .k-sense { background: var(--k-sense); }
   .k-mind { background: var(--k-mind); }
   .k-work { background: var(--k-work); }
+  .k-lvup { background: var(--k-lv); }
   .hkeys { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: calc(12px * var(--fs)); }
   .hkey { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   .hkey .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
@@ -812,6 +826,7 @@
   .hitem.open .hname { font-weight: 700; }
   .hitem .hact { display: flex; justify-content: flex-end; padding: 0 10px 8px; }
   .hitem.work .hhead { border-left: 4px solid var(--work-ink); }
+  .hitem.lv .hhead { border-left: 4px solid var(--lv-ink); }
   .hitem .hago { color: var(--sub); font-size: calc(12px * var(--fs)); white-space: nowrap; }
   .hitem .hago.today { color: var(--accent); font-weight: 700; }
   .hitem .hago.rare { color: var(--found-ink); font-weight: 700; }
