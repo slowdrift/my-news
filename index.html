@@ -21,6 +21,13 @@
     /* ウォッチ銘柄の位置の色（安い側＝緑・高い側＝橙。株価の位置と利回りの位置で同じ意味）。
        文字は白地で 5.02・5.18。帯は棒の3つの区間の薄い色 */
     --zlo:#15803d; --zhi:#c2410c; --zlo-bg:#bbf7d0; --zhi-bg:#fed7aa;
+    /* ホイミの HP の色（51以上・26〜50・25以下）。文字は白地で 5.02・5.18・6.47、灰色の地で 4.56〜5.88（v1.47.0） */
+    --hp-ok:#15803d; --hp-mid:#c2410c; --hp-low:#b91c1c;
+    /* ホイミの職場向けの色（文字は白地で 6.04、薄い地で 5.53） */
+    --work-ink:#be185d; --work-bg:#fdf2f8;
+    /* ふり返りの組ごとの色（体・息と五感・頭と心・職場向け）。色覚の違いでも隣どうしを見分けられることを
+       検査の式で確かめた。白地とのコントラストが低い色があるので、下に組の名前と回数を必ず書く */
+    --k-body:#2a78d6; --k-sense:#1baf7a; --k-mind:#6250d6; --k-work:#e87ba4;
     --fs:1;           /* 文字サイズの倍率 */
   }
   /* 端末が暗い設定のとき（手動指定が無い＝自動のとき）だけ暗くする */
@@ -37,6 +44,9 @@
       --role-long:#5eead4; --role-perk:#fbbf24;
       --field-bg:#14301f; --field-ink:#86efac;   /* コントラスト比 10.16 */
       --zlo:#4ade80; --zhi:#fb923c; --zlo-bg:#14532d; --zhi-bg:#7c2d12;   /* 文字は 9.48・7.30 */
+      --hp-ok:#4ade80; --hp-mid:#fb923c; --hp-low:#f87171;   /* 文字は 9.48・7.30・5.97 */
+      --work-ink:#f9a8d4; --work-bg:#3a1a2c;                 /* 文字は 9.10・8.49 */
+      --k-body:#3987e5; --k-sense:#199e70; --k-mind:#9085e9; --k-work:#d55181;
     }
   }
   /* 手動で「暗い」を選んだとき */
@@ -52,6 +62,9 @@
     --role-long:#5eead4; --role-perk:#fbbf24;
     --field-bg:#14301f; --field-ink:#86efac;
     --zlo:#4ade80; --zhi:#fb923c; --zlo-bg:#14532d; --zhi-bg:#7c2d12;
+    --hp-ok:#4ade80; --hp-mid:#fb923c; --hp-low:#f87171;
+    --work-ink:#f9a8d4; --work-bg:#3a1a2c;
+    --k-body:#3987e5; --k-sense:#199e70; --k-mind:#9085e9; --k-work:#d55181;
   }
   /* 文字サイズ */
   :root[data-font="s"] { --fs:.92; }
@@ -697,53 +710,108 @@
   .hoimi .hlabel { font-size: calc(11px * var(--fs)); font-weight: 700; }
   .hoimi div.hlabel { display: flex; align-items: baseline; gap: 8px; }
   .hoimi .hn { margin-left: auto; font-weight: 700; white-space: nowrap; }   /* 「今日 ○回」は右端に */
-  /* 3つを1行ずつ。項目名が長いときは折り返し、［できた］は右端にそろえる */
-  .hoimi .hrow { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px dotted var(--line); }
-  .hoimi .hname { flex: 1 1 auto; color: var(--ink); font-size: calc(13.5px * var(--fs)); font-weight: 700; }
-  .hoimi .hbtns { display: flex; gap: 8px; margin-top: 6px; }
-  .hoimi .hbtn {
-    min-height: 36px; padding: 0 12px; border-radius: 8px; cursor: pointer;
-    border: 1px solid var(--line); background: transparent; color: var(--sub);
-    font-size: calc(12px * var(--fs)); font-weight: 600; white-space: nowrap;
+  /* 1つずつ1行。項目名が長いときは折り返し、［できた］は右端にそろえる。
+     ボタンは高さ・幅とも44px以上。上下の［できた］の間は行の余白で12px（CODE_TASK_11 ②） */
+  .hoimi .hrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dotted var(--line); }
+  .hname { flex: 1 1 auto; min-width: 0; color: var(--ink); font-size: calc(13.5px * var(--fs)); font-weight: 700; }
+  /* 項目名の下の一言の説明（CODE_TASK_11 ③） */
+  .hdesc { display: block; margin-top: 1px; color: var(--sub); font-size: calc(11.5px * var(--fs)); font-weight: 400; line-height: 1.4; }
+  /* 4つ目（職場向け）は色の付いた枠と札で、前の3つと区別する（CODE_TASK_11 ⑥） */
+  .hoimi .hrow.work {
+    flex-wrap: wrap; row-gap: 0; margin-top: 8px; padding: 6px 8px; border: 0;
+    border-left: 4px solid var(--work-ink); border-radius: 6px; background: var(--work-bg);
   }
-  .hoimi .hbtn.go { border-color: var(--accent); color: var(--accent); }
-  /* 新着が残っているときの上の1行（v1.45.1）。押すとホイミの画面に移る（v1.46.0） */
+  .wtag { flex-basis: 100%; color: var(--work-ink); font-size: calc(11px * var(--fs)); font-weight: 700; }
+  /* ［ほかの3つにする］は［できた］の列から16px離し、枠だけの灰色にして見た目を変える */
+  .hoimi .hbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .hbtn {
+    min-height: 44px; min-width: 44px; padding: 0 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: transparent; color: var(--sub); font-family: inherit;
+    font-size: calc(12.5px * var(--fs)); font-weight: 600; white-space: nowrap;
+  }
+  /* ［できた］は緑の塗りつぶし（HP が回復する色）。文字は地の色で、明るい 5.02・暗い 9.48 */
+  .hbtn.go { min-width: 72px; border-color: var(--hp-ok); background: var(--hp-ok); color: var(--card); font-weight: 700; }
+  /* 新着が残っているときの上の1行（v1.45.1）。押すとホイミの画面に移る（v1.46.0）。
+     v1.47.0 から HP のゲージとレベルを並べる。文字が大きいときは折り返す */
   .hoimi.hfold {
-    display: flex; align-items: baseline; gap: 8px; width: 100%; min-height: 40px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; width: 100%; min-height: 44px;
     background: transparent; text-align: left; font-family: inherit; cursor: pointer;
   }
-  #toggle-hoimi { white-space: nowrap; }   /* 設定の［出す］が「出／す」と折れないように */
+  #toggle-hoimi, #toggle-hp, #toggle-hoimi-work { white-space: nowrap; }   /* 設定の［出す］が「出／す」と折れないように */
+  /* HP のゲージ（v1.47.0）。色はドラゴンクエストのように、51以上＝緑・26〜50＝橙・25以下＝赤。
+     文字も同じ色（地とのコントラスト比は上の変数の説明） */
+  .hpg {
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    color: var(--hpc); font-size: calc(12px * var(--fs)); font-weight: 700;
+  }
+  .hpg.ok { --hpc: var(--hp-ok); }
+  .hpg.mid { --hpc: var(--hp-mid); }
+  .hpg.low { --hpc: var(--hp-low); }
+  .hpbar { width: 64px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .hpbar i { display: block; height: 100%; border-radius: 4px; background: var(--hpc); transition: width .4s; }
+  .hplv { color: var(--ink); }
+  .hpline { margin: 4px 0 2px; }
+  /* レベルが上がったときだけ、ゲージを少し光らせる（2回点滅。音は出さない） */
+  .hpg.lvup { animation: hpglow .6s ease-in-out 2; border-radius: 6px; }
+  @keyframes hpglow { 50% { filter: brightness(1.4) drop-shadow(0 0 5px var(--hpc)); } }
+  @media (prefers-reduced-motion: reduce) {
+    .hpg.lvup { animation: none; }
+    .hpbar i { transition: none; }
+  }
+  #hoimi-back { min-height: 44px; min-width: 44px; padding: 0 14px; }
   /* ホイミの画面（v1.46.0）。上＝今の3つ、中＝ふり返り、下＝一覧 */
   .hoimi.hview { margin-top: 12px; border-style: solid; background: var(--card); }
   .hsec { margin: 18px 0 8px; }
   .hsec h2 { font-size: calc(15px * var(--fs)); margin: 0 0 8px; }
-  .hsec h3 { font-size: calc(12.5px * var(--fs)); color: var(--sub); margin: 14px 0 6px; }
-  .hstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .hstat {
-    padding: 8px 4px; border-radius: 10px; text-align: center;
-    border: 1px solid var(--line); background: var(--card);
+  .hsec h3 { font-size: calc(12.5px * var(--fs)); color: var(--sub); margin: 16px 0 6px; }
+  .hsec h3.work { color: var(--work-ink); }
+  /* ふり返りの一番上：レベル・経験値・今月使った種類（v1.47.0） */
+  .hsum { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
+  .hlv { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 10px; }
+  .hlv b { color: var(--ink); font-size: calc(20px * var(--fs)); }
+  .hlv span { color: var(--sub); font-size: calc(12.5px * var(--fs)); }
+  .hxp { display: block; height: 6px; margin: 6px 0 8px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .hxp i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+  .hkinds { font-size: calc(12.5px * var(--fs)); }
+  /* 縦の棒グラフ（直近7日・月ごと）。棒の上に回数、下の線が0の位置。今日・今月は文字を濃く */
+  .hcols { display: flex; gap: 6px; padding: 0 2px; }
+  .hcol { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+  .hcol .cb {
+    display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+    width: 100%; height: 92px; border-bottom: 1px solid var(--sub);
   }
-  .hstat small { display: block; color: var(--sub); font-size: calc(11px * var(--fs)); }
-  .hstat b { display: block; color: var(--ink); font-size: calc(19px * var(--fs)); }
-  .hline { margin-top: 8px; font-size: calc(12.5px * var(--fs)); }
-  /* 月ごとの回数は横棒（今月は太字） */
-  .hmon { display: flex; align-items: center; gap: 8px; min-height: 22px; font-size: calc(12px * var(--fs)); }
-  .hmon .m { width: 3em; color: var(--sub); }
-  .hmon .bar { flex: 1 1 auto; height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
-  .hmon .bar i { display: block; height: 100%; background: var(--accent); }
-  .hmon .n { width: 3.5em; text-align: right; }
-  .hmon.now .m, .hmon.now .n { color: var(--ink); font-weight: 700; }
+  .hcol .cv { color: var(--sub); font-size: calc(11px * var(--fs)); line-height: 1.3; }
+  .hcol .cb i { display: block; width: 60%; max-width: 28px; border-radius: 4px 4px 0 0; background: var(--accent); }
+  .hcol .cl { margin-top: 3px; color: var(--sub); font-size: calc(10.5px * var(--fs)); white-space: nowrap; }
+  .hcol.now .cv, .hcol.now .cl { color: var(--ink); font-weight: 700; }
+  /* 今月の組ごと：1本の横棒を組の色で分ける（間は2pxあける）。下に色の見本と回数 */
+  .hstack { display: flex; gap: 2px; height: 14px; border-radius: 4px; overflow: hidden; }
+  .hstack i { display: block; flex-basis: 0; min-width: 4px; }
+  .k-body { background: var(--k-body); }
+  .k-sense { background: var(--k-sense); }
+  .k-mind { background: var(--k-mind); }
+  .k-work { background: var(--k-work); }
+  .hkeys { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: calc(12px * var(--fs)); }
+  .hkey { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .hkey .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+  .hkey small { color: var(--sub); }
   .htop { margin: 0; padding-left: 1.6em; font-size: calc(12.5px * var(--fs)); }
   .htop li { padding: 2px 0; }
   .htop li span { margin-right: 8px; }
-  /* 一覧の1行。行のどこを押しても記録する。右は最後にやった日 */
-  .hitem {
-    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 42px; padding: 6px 10px;
-    border: 0; border-bottom: 1px solid var(--line); background: var(--card); color: var(--ink);
+  /* 一覧の1行。行を押すと、その行の中に［できた］が出る（v1.47.0。押しただけでは記録しない）。
+     行の高さは44px以上。行と行はすき間をあけず線で区切る（すき間を足すと一覧が約660px長くなるため） */
+  .hitem { border-bottom: 1px solid var(--line); background: var(--card); }
+  .hitem .hhead {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 10px;
+    border: 0; background: transparent; color: var(--ink);
     text-align: left; font-family: inherit; font-size: calc(13.5px * var(--fs)); cursor: pointer;
   }
-  .hitem:active { background: var(--bg); }
-  .hitem .hname { flex: 1 1 auto; }
+  .hitem .hhead:active { background: var(--bg); }
+  .hitem .hname { font-weight: 400; }
+  .hitem.open { background: var(--pick-bg); }
+  .hitem.open .hname { font-weight: 700; }
+  .hitem .hact { display: flex; justify-content: flex-end; padding: 0 10px 8px; }
+  .hitem.work .hhead { border-left: 4px solid var(--work-ink); }
   .hitem .hago { color: var(--sub); font-size: calc(12px * var(--fs)); white-space: nowrap; }
   .hitem .hago.today { color: var(--accent); font-weight: 700; }
   .hitem .hago.rare { color: var(--found-ink); font-weight: 700; }

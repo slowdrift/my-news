@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.46.0";
+const APP_VERSION = "v1.47.0";
 const CHANGELOG = [
+  ["v1.47.0", "2026-10-31", "ホイミに HP と経験値・レベルを足した（記事を開くと HP−3・ホイミで＋15、日付が変わると100に戻る。読む・見終える・ホイミで経験値。レベルは下がらない）。一覧は行を押すと［できた］が出る形にし、押し間違いで記録されないようにした。全部の項目に一言の説明を付け、職場向けの13個を4つ目として足した。ふり返りを棒グラフにし、［できた］のあとの言葉を10通りにした。「元に戻す」を5秒から15秒にした"],
   ["v1.46.0", "2026-10-30", "ホイミを1日に何回でもできるようにした。「今日の新着」の上の1行を押すとホイミの画面に移り、今の3つ・ふり返り（今日・この7日・今月の回数、今月使った種類、月ごとの回数、よく使う5つ）・70個の一覧（最後にやった日つき。押すとそのまま記録）が並ぶ。［できた］のあとは、今日まだやっていない項目から次の3つを出す"],
   ["v1.45.1", "2026-10-30", "ホイミを新着が残っていても出すようにした（「今日の新着」の上の1行を押すと3つ開く）。画面の「きょう」を「今日」に直した"],
   ["v1.45.0", "2026-10-29", "新着をすべて確認すると、その下に「ホイミ」（1〜2分でできるひと休み）を3つ出すようにした（体・息と五感・頭と心から1つずつ。項目は70個）。できたものの［できた］で記録し、設定でこの7日にできた日数を見られる。あわせて、新着を見終えるまでの時間をこの端末に記録し、設定で直近7日と平均を見られるようにした。見終えたときの文は「新着はすべて確認しました」に改めた"],
@@ -120,6 +121,9 @@ let MORNING_ARRANGE = false;   // 朝刊の行を並べ替えているところ�
 // 戻ったときに元の位置へ戻れるよう、開いたときの位置を覚えておく
 let SHOW_HOIMI = false;
 let HOIMI_BACK_Y = 0;
+// 一覧で［できた］を出している行の番号（v1.47.0）。押しただけでは記録せず、行の中に［できた］を出す。
+// スクロールのつもりで触れて記録されてしまうことがあったため（CODE_TASK_11 ①）
+let HOIMI_PICKED = "";
 let SHOW_READ = false;     // 読んだ記事の一覧を見ているか
 // 「きょうの新着だけ」を見る画面。ボタンを増やさず、見出しの数字を入口にする。
 // 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
@@ -1555,19 +1559,22 @@ function toolbar(sources) {
       + holdingsRow()
       + backupRow()
       + '<details class="howto"><summary>使い方</summary><ul>'
-      + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後5秒は戻せます）</li>"
+      + "<li>カードを<b>右へ払う</b>と既読、<b>左へ払う</b>とお気に入り（払った後" + UNDO_SEC + "秒は戻せます）</li>"
       + "<li><b>朝刊と書庫</b>：一番上の<b>「今日の新着」</b>が朝刊です。見出しを見て、読むものは開き、"
-      + "読まないものは<b>✓ 片づけ</b>（押したあと5秒は戻せます）。ゼロになると「新着はすべて確認しました」と出ます。"
+      + "読まないものは<b>✓ 片づけ</b>（押したあと" + UNDO_SEC + "秒は戻せます）。ゼロになると「新着はすべて確認しました」と出ます。"
       + "行の順番は、朝刊の見出しの<b>↕ 並べ替え</b>で変えられます</li>"
       + "<li><b>ホイミ</b>：「今日の新着」の上の<b>▸ ホイミ</b>を押すと、ホイミの画面に移ります。"
-      + "1〜2分でできるひと休みが3つ（体・息と五感・頭と心から1つずつ）と、ふり返りの数字、70個の一覧が並びます。"
-      + "できそうなものの<b>できた</b>を押すと記録し、今日まだやっていないものから次の3つが出ます（何回でもできます。5秒は戻せます）。"
-      + "<b>ほかの3つにする</b>で入れ替えられます。一覧の項目は、押すとそのまま記録します。"
-      + "新着をすべて確認したときは、その下に3つが出ます。"
+      + "1〜2分でできるひと休みが3つ（体・息と五感・頭と心から1つずつ）と職場向けの1つ、ふり返り、全部の一覧が並びます。"
+      + "できそうなものの<b>できた</b>を押すと記録し、今日まだやっていないものから次の組が出ます（何回でもできます。" + UNDO_SEC + "秒は戻せます）。"
+      + "<b>ほかの4つにする</b>（職場向けを出さないときは「ほかの3つにする」）で入れ替えられます。"
+      + "一覧の項目は、押すと<b>できた</b>が出て、それを押すと記録します。"
+      + "新着をすべて確認したときは、その下に出ます。"
+      + "<b>HP</b>は記事を開くと3減り（10より下がりません）、<b>できた</b>で15回復し、日付が変わると100に戻ります。"
+      + "読む・見終える・ホイミで経験値がたまり、<b>Lv</b>が上がります（下がることはありません）。"
       + "出したくないときは、この設定の「ホイミ」で止められます</li>"
       + "<li>テーマの一覧は<b>書庫</b>です。読んだ記事も薄くして残すので、あとから読み返せます。"
       + "書庫はいつも1行に畳んだ状態で始まります（押すと開きます）。件数の少ないテーマは、朝刊では<b>「そのほか」</b>の1行にまとめています</li>"
-      + "<li><b>⛏ 発掘</b>は、初めて見つけた少し前の記事です。開くと1週間分が出ます。上の<b>✓ 全部片づけ</b>で、表示中の分をまとめて片づけられます（5秒は戻せます）</li>"
+      + "<li><b>⛏ 発掘</b>は、初めて見つけた少し前の記事です。開くと1週間分が出ます。上の<b>✓ 全部片づけ</b>で、表示中の分をまとめて片づけられます（" + UNDO_SEC + "秒は戻せます）</li>"
       + "<li>テーマの<b>🔒</b>は、そのテーマの読めない記事をまとめて既読にします</li>"
       + "<li>記事右上の<b>☆</b>は、一覧から消えても残る保存です</li>"
       + "<li>書庫のテーマ名を押すと<b>畳めます</b>（書庫の並び順は設定の「書庫のテーマの並べ替え」で変えられます）</li>"
@@ -2701,67 +2708,139 @@ function topicCards(theme, items) {
 // v1.46.0 から、その1行を押すと「ホイミの画面」に移る（今の3つ・ふり返り・70個の一覧）。1日に何回でもできる
 // （利用者の指摘 10/30「1日1回しかできないのが不満」「ストレスコーピングはやればやるほど良いもの」）。
 // 一覧は元のコーピングアプリの核心「最近やっていないものが見える」をそのまま持ってきたもの。
-// 連続記録・通知・ストレスの点数は入れない（コーピングアプリで外した理由のまま。点数は手帳とすみ分け）。
+// v1.47.0 で HP と経験値・レベルを足した（利用者の希望 10/30。下の「HP と経験値」）。
+// ただし、減って責められる作り（連続記録が途切れる・レベルが下がる・HPが0で終わる）は入れない。
+// 通知とストレスの点数も入れない（コーピングアプリで外した理由のまま。点数は手帳とすみ分け）。
 // 名前はドラクエの小さな回復の呪文から（利用者の命名 10/29）。
 // コーピングアプリとはつながず、このアプリだけで完結させる（利用者の決定 10/29。あちらは今後使わないかもしれないため）。
 // 3つ並べ、どれか1つを選んでもらう（利用者の発案 10/29：サプリは無ければ飲めない、体操は家でしかできない、など
 // 1つだけだと、その場でできないことがあるため）。3つは性格の違う組から1つずつ出す。
 // 「心」の組はほぼどこでもできるので、3つのうち少なくとも1つはその場でできる。
 //   body … 体（動かす・ゆるめる）  sense … 息・五感・まわり  mind … 頭と心（考え方・言葉・書く・人とのつながり）
-// 項目は70個（利用者の了承 10/29。組み分けは Claude の判断）。番号の付け方：
+// 項目は元の70個（利用者の了承 10/29。組み分けは Claude の判断）と、職場向けの13個（v1.47.0）。番号の付け方：
 //   i〇〇   … コーピングアプリ（Stress_Coping）の1〜2分の項目そのまま（番号も同じ）
 //   i〇〇-n … コーピングアプリの小分け（音楽・自然音）を1つずつにしたもの
 //   i〇〇s  … コーピングアプリの5〜15分の項目を、1〜2分でできる形に縮めたもの（言い回しは Claude の案）
 //   h〇〇   … このアプリで足した新しい項目（Claude の案）
-const HOIMI_KINDS = ["body", "sense", "mind"];
+//   w〇〇   … 職場向け（CODE_TASK_11 ⑥。元の70個は利用者が厳選したものなので、混ぜずに別の組にした）
+// 4つ目の値は一言の説明（CODE_TASK_11 ③。名前の下に小さく出す。文は Claude の案で、README に一覧がある）。
+// 元のコーピングアプリには説明が無かったので、意味が分からない項目（と思ってみた法・呼吸法）は推測で書いた。
+const HOIMI_KINDS = ["body", "sense", "mind"];   // 今の3つの組（1つずつ出す）
+const HOIMI_WORK = "work";                        // 4つ目に出す組（職場向け）
+const HOIMI_ALL_KINDS = HOIMI_KINDS.concat([HOIMI_WORK]);
 const HOIMI_ITEMS = [
   // コーピングアプリの1〜2分（32）
-  ["i01", "青竹を踏む", "body"], ["i07", "指を押す", "body"], ["i14", "耳を引っ張る", "body"],
-  ["i49", "手足グーパー", "body"], ["i51", "ガムを噛む", "body"], ["i60", "口角を上げる", "body"],
-  ["i63", "体を揺らす", "body"],
-  ["i05", "深呼吸", "sense"], ["i06", "呼吸法", "sense"], ["i17", "サプリを飲む", "sense"],
-  ["i23-1", "音楽を聴く：井上陽水", "sense"], ["i23-2", "音楽を聴く：ドビュッシー", "sense"],
-  ["i23-3", "音楽を聴く：鈴木愛理", "sense"],
-  ["i24-1", "自然音を聴く：雨", "sense"], ["i24-2", "自然音を聴く：川", "sense"],
-  ["i24-3", "自然音を聴く：波", "sense"], ["i24-4", "自然音を聴く：焚き火", "sense"],
-  ["i26", "植物にふれる", "sense"], ["i44", "温かい飲み物を持つ", "sense"], ["i45", "顔を洗う・手を冷やす", "sense"],
-  ["i47", "白湯を飲む", "sense"], ["i50", "グラウンディング", "sense"], ["i58", "香りを使う", "sense"],
-  ["i59", "空を見上げる", "sense"], ["i62", "ひとくち味わう", "sense"],
-  ["i03", "と思ってみた法", "mind"], ["i08", "ストレス把握（いまのストレスに10点満点で点をつける）", "mind"],
-  ["i53", "感謝を3つ", "mind"], ["i54", "自分に優しく", "mind"], ["i55", "「一時的」と唱える", "mind"],
-  ["i61", "推しを見る", "mind"], ["i66", "いいことを読む", "mind"],
+  ["i01", "青竹を踏む", "body", "青竹の上で足踏みし、足の裏を刺激する"],
+  ["i07", "指を押す", "body", "指先を1本ずつ、反対の手でぎゅっと押す"],
+  ["i14", "耳を引っ張る", "body", "耳たぶを横・上・下へ、やさしく引っ張る"],
+  ["i49", "手足グーパー", "body", "手足をにぎって開く、を10回くり返す"],
+  ["i51", "ガムを噛む", "body", "ガムをゆっくり噛んで、あごを動かす"],
+  ["i60", "口角を上げる", "body", "口の両端を上げて、10秒そのままにする"],
+  ["i63", "体を揺らす", "body", "立ったまま、または座ったまま体を左右に揺らす"],
+  ["i05", "深呼吸", "sense", "鼻からゆっくり吸って、口から長く吐く"],
+  ["i06", "呼吸法", "sense", "決めている呼吸法を1〜2分続ける"],
+  ["i17", "サプリを飲む", "sense", "いつものサプリを、水と一緒に飲む"],
+  ["i23-1", "音楽を聴く：井上陽水", "sense", "1曲だけ、ほかのことをせずに聴く"],
+  ["i23-2", "音楽を聴く：ドビュッシー", "sense", "1曲だけ、ほかのことをせずに聴く"],
+  ["i23-3", "音楽を聴く：鈴木愛理", "sense", "1曲だけ、ほかのことをせずに聴く"],
+  ["i24-1", "自然音を聴く：雨", "sense", "目を閉じて、1〜2分だけ聴く"],
+  ["i24-2", "自然音を聴く：川", "sense", "目を閉じて、1〜2分だけ聴く"],
+  ["i24-3", "自然音を聴く：波", "sense", "目を閉じて、1〜2分だけ聴く"],
+  ["i24-4", "自然音を聴く：焚き火", "sense", "目を閉じて、1〜2分だけ聴く"],
+  ["i26", "植物にふれる", "sense", "葉や土にふれて、手ざわりを感じる"],
+  ["i44", "温かい飲み物を持つ", "sense", "両手で包んで、温かさを感じる"],
+  ["i45", "顔を洗う・手を冷やす", "sense", "冷たい水で、気分を切り替える"],
+  ["i47", "白湯を飲む", "sense", "温かいお湯を、ゆっくり飲む"],
+  ["i50", "グラウンディング", "sense", "足の裏が床についている感じに意識を向ける"],
+  ["i58", "香りを使う", "sense", "好きな香りをかぐ（アロマ・ハンドクリームなど）"],
+  ["i59", "空を見上げる", "sense", "顔を上げて、雲や空の色を眺める"],
+  ["i62", "ひとくち味わう", "sense", "ひと口を、味と香りに集中して食べる"],
+  ["i03", "と思ってみた法", "mind", "浮かんだ考えに「…と思った」と付けて眺める"],
+  ["i08", "ストレス把握", "mind", "いまのストレスに10点満点で点をつける"],
+  ["i53", "感謝を3つ", "mind", "ありがたかったことを3つ思い浮かべる"],
+  ["i54", "自分に優しく", "mind", "友だちにかけるような言葉を、自分にかける"],
+  ["i55", "「一時的」と唱える", "mind", "「この気分は一時的」と心の中で言う"],
+  ["i61", "推しを見る", "mind", "好きな人やキャラクターの写真・動画を見る"],
+  ["i66", "いいことを読む", "mind", "書きためた「良かったこと」を読み返す"],
   // コーピングアプリの5〜15分を、1〜2分に縮めたもの（15）
-  ["i12s", "首と肩を回す", "body"], ["i13s", "手のひらをもむ", "body"], ["i16s", "スクワットを10回", "body"],
-  ["i57s", "机の上を1か所だけ片づける", "body"],
-  ["i21s", "好きな歌を口ずさむ", "sense"], ["i25s", "自然の映像を少し見る", "sense"],
-  ["i27s", "外の空気を吸う", "sense"], ["i48s", "手のひらで目を覆う", "sense"],
-  ["i04s", "1分だけ目を閉じて座る", "mind"], ["i09s", "日記を1行だけ書く", "mind"], ["i18s", "本を1ページ読む", "mind"],
-  ["i22s", "短いお笑いを1本見る", "mind"], ["i52s", "気になっていることを1行書き出す", "mind"],
-  ["i56s", "誰かに一言お礼を言う", "mind"], ["i65s", "行きたい場所を1つ調べる", "mind"],
+  ["i12s", "首と肩を回す", "body", "首をゆっくり回し、肩を前後に回す"],
+  ["i13s", "手のひらをもむ", "body", "手のひらを、反対の親指でぐっともむ"],
+  ["i16s", "スクワットを10回", "body", "ゆっくり腰を落として、10回"],
+  ["i57s", "机の上を1か所だけ片づける", "body", "目に入る1か所だけ。全部はやらない"],
+  ["i21s", "好きな歌を口ずさむ", "sense", "1番だけ、小さな声で"],
+  ["i25s", "自然の映像を少し見る", "sense", "海や森の映像を1〜2分だけ眺める"],
+  ["i27s", "外の空気を吸う", "sense", "窓を開けるか外に出て、深く吸う"],
+  ["i48s", "手のひらで目を覆う", "sense", "温めた手のひらで、目を暗くして休める"],
+  ["i04s", "1分だけ目を閉じて座る", "mind", "息の出入りだけに意識を向ける"],
+  ["i09s", "日記を1行だけ書く", "mind", "今日のことを1行だけ書く"],
+  ["i18s", "本を1ページ読む", "mind", "読みかけの本やマンガを1ページ"],
+  ["i22s", "短いお笑いを1本見る", "mind", "漫才やコントを1本だけ"],
+  ["i52s", "気になっていることを1行書き出す", "mind", "頭の中のもやもやを、紙に出す"],
+  ["i56s", "誰かに一言お礼を言う", "mind", "身近な人に「ありがとう」を伝える"],
+  ["i65s", "行きたい場所を1つ調べる", "mind", "旅の計画の、はじめの一歩にする"],
   // 新しく足したもの（23）
-  ["h01", "背伸びをする", "body"], ["h02", "肩をすくめて、すとんと落とす", "body"],
-  ["h03", "こぶしを5秒にぎって、ゆるめる", "body"], ["h04", "胸を開いて姿勢を正す", "body"],
-  ["h05", "手をこすって温める", "body"], ["h06", "その場で足踏みを30回", "body"],
-  ["h07", "吸うより長く吐く（4つ吸って6つ吐く）", "sense"], ["h08", "吸い足して、長いため息を2回", "sense"],
-  ["h09", "遠くを見る", "sense"], ["h10", "目を閉じて、聞こえる音を3つ数える", "sense"],
-  ["h11", "手を洗うとき、水の温度を感じる", "sense"], ["h12", "日の光を浴びる", "sense"],
-  ["h13", "スマホを1分伏せて置く", "sense"], ["h14", "動物の動画を1本見る", "sense"],
-  ["h15", "ゆっくり10数える", "mind"], ["h16", "好きな言葉を思い出す", "mind"],
-  ["h17", "今日うまくいったことを1つ思い出す", "mind"], ["h18", "楽しみな予定を1つ思い浮かべる", "mind"],
-  ["h19", "いまできることを1つだけ決める", "mind"], ["h20", "気がかりを「あとで考える」とメモする", "mind"],
-  ["h21", "家族に一言声をかける", "mind"], ["h22", "誰かに短いメッセージを送る", "mind"],
-  ["h23", "好きな写真を1枚見る", "mind"],
+  ["h01", "背伸びをする", "body", "両手を上げて、全身をぐっと伸ばす"],
+  ["h02", "肩をすくめて、すとんと落とす", "body", "肩を耳に近づけてから、力を抜いて落とす"],
+  ["h03", "こぶしを5秒にぎって、ゆるめる", "body", "力を入れてから抜くと、ゆるんだ感じが分かる"],
+  ["h04", "胸を開いて姿勢を正す", "body", "肩を後ろに引き、胸を広げて座り直す"],
+  ["h05", "手をこすって温める", "body", "手のひらをこすり合わせ、温かさを感じる"],
+  ["h06", "その場で足踏みを30回", "body", "腕も振って、体を温める"],
+  ["h07", "吸うより長く吐く（4つ吸って6つ吐く）", "sense", "吐く息を長めにして、5回くり返す"],
+  ["h08", "吸い足して、長いため息を2回", "sense", "2回続けて吸ってから、口から長く吐く"],
+  ["h09", "遠くを見る", "sense", "窓の外など、遠くの1点を眺める"],
+  ["h10", "目を閉じて、聞こえる音を3つ数える", "sense", "近い音・遠い音を聞き分ける"],
+  ["h11", "手を洗うとき、水の温度を感じる", "sense", "手を洗うついでに、水の感じに集中する"],
+  ["h12", "日の光を浴びる", "sense", "窓辺や外で、顔に日の光を当てる"],
+  ["h13", "スマホを1分伏せて置く", "sense", "画面を見ない時間を1分つくる"],
+  ["h14", "動物の動画を1本見る", "sense", "短い動物の動画を1本だけ"],
+  ["h15", "ゆっくり10数える", "mind", "数えることだけに集中する"],
+  ["h16", "好きな言葉を思い出す", "mind", "支えになっている言葉を1つ思い出す"],
+  ["h17", "今日うまくいったことを1つ思い出す", "mind", "小さなことでよい"],
+  ["h18", "楽しみな予定を1つ思い浮かべる", "mind", "週末や次の休みのことを考える"],
+  ["h19", "いまできることを1つだけ決める", "mind", "次にやることを1つにしぼる"],
+  ["h20", "気がかりを「あとで考える」とメモする", "mind", "考える時間を後に回して、頭を空ける"],
+  ["h21", "家族に一言声をかける", "mind", "「お疲れさま」など短くてよい"],
+  ["h22", "誰かに短いメッセージを送る", "mind", "気軽な一言を1通だけ"],
+  ["h23", "好きな写真を1枚見る", "mind", "家族や旅の写真を1枚"],
+  // 職場向け（13。CODE_TASK_11 ⑥。言い回しは指示書のとおり。出典は README）
+  ["w01", "首を横に倒して伸ばす", "work", "左右10秒ずつ。座ったままできる"],
+  ["w02", "座ったまま上体をひねる", "work", "片手を反対のひざに置き、ゆっくり左右"],
+  ["w03", "手を前で組んで背中を丸める", "work", "肩甲骨の間をのばす"],
+  ["w04", "額・あご・肩の力を順に抜く", "work", "力が入っている所に気づいてゆるめる"],
+  ["w05", "両足を床につけて座り直す", "work", "背すじをのばして姿勢を整える"],
+  ["w06", "箱呼吸", "work", "4つ吸う・4つ止める・4つ吐く・4つ止める、を3回"],
+  ["w07", "冷たい水をひと口飲む", "work", "温度の変化で気分を切り替える"],
+  ["w08", "画面を暗くし、通知を1つ切る", "work", "目と耳に入るものを減らす"],
+  ["w09", "眉間や鎖骨の下を指で軽くたたく", "work", "タッピング。気がかりを言葉にしながら"],
+  ["w10", "考えを実況中継する", "work", "「いま〜と考えている」と、良し悪しをつけずに言葉にする"],
+  ["w11", "言い換えてみる", "work", "起きたことを別の言葉・別の見方で言い直す"],
+  ["w12", "変えられること・変えられないことに分ける", "work", "変えられないことは手放す"],
+  ["w13", "終わった作業に✓をつけてから次へ", "work", "区切りをつけて頭を切り替える"],
 ];
-const HOIMI_KEY = "mynews_hoimi";          // { day: "2026-10-29", ids: [きょう出している3つ（組の順）], skip: [きょう替えた項目] }
+const HOIMI_KEY = "mynews_hoimi";          // { day: "2026-10-29", ids: [今日出している3つか4つ（組の順）], skip: [今日替えた項目] }
 const HOIMI_LOG_KEY = "mynews_hoimi_log";  // [[できた時刻(ms), 項目の番号], …]
 const HOIMI_OFF_KEY = "mynews_hoimi_off";  // "1" なら出さない（既定は出す）
+const HOIMI_WORK_OFF_KEY = "mynews_hoimi_work_off";   // "1" なら4つ目（職場向け）を出さない（既定は出す。v1.47.0）
 // 超えたら古いものから減らす。v1.45.0 の 400 は1日1回のつもりの数だった。
 // 何回でもできるようにしたので 5000 に（1日10回でも1年以上残る。v1.46.0）
 const HOIMI_LOG_MAX = 5000;
 const HOIMI_WAIT_MAX = 30;                 // 何日空いたら「十分に久しぶり」とみなすか（選ばれやすさの頭打ち）
 const HOIMI_RARE_DAYS = 10;                // 一覧でこれだけ空いた項目に「○日ぶり✨」を付ける
 const HOIMI_MONTHS = 6;                    // ふり返りの月ごとの回数を何か月分並べるか
-const HOIMI_KIND_LABEL = { body: "体", sense: "息と五感", mind: "頭と心" };
+const HOIMI_KIND_LABEL = { body: "体", sense: "息と五感", mind: "頭と心", work: "職場向け" };
+// ［できた］のあとの言葉。順に出す（CODE_TASK_11 ⑦。ドラゴンクエストの言い回し風。1つ目は利用者が選んだ文）
+const HOIMI_MSGS = [
+  "HPが すこし かいふくした！",
+  "からだに ちからが みなぎってきた！",
+  "いきが ととのった！",
+  "かたの ちからが ぬけた！",
+  "こころが すこし かるくなった！",
+  "あたまが すっきりした！",
+  "げんきが わいてきた！",
+  "きもちが ほっと やすらいだ！",
+  "めのまえが すこし あかるくなった！",
+  "つかれが すこし とれた！",
+];
 
 // 端末の時計で「2026-10-29」の形（日ごとの記録の名前に使う）
 function dayKey(ms) {
@@ -2787,7 +2866,18 @@ function hoimiKind(id) {
   return it ? it[2] : "";
 }
 
+function hoimiDesc(id) {
+  const it = HOIMI_ITEMS.find(function (x) { return x[0] === id; });
+  return it ? it[3] || "" : "";
+}
+
 function hoimiOff() { return lsGet(HOIMI_OFF_KEY, "0") === "1"; }
+function hoimiWorkOff() { return lsGet(HOIMI_WORK_OFF_KEY, "0") === "1"; }
+
+// 今出す組。4つ目（職場向け）は設定で止められる
+function hoimiShownKinds() {
+  return hoimiWorkOff() ? HOIMI_KINDS : HOIMI_ALL_KINDS;
+}
 
 function loadHoimiLog() {
   try {
@@ -2830,20 +2920,31 @@ function hoimiPick(seed, skip, kind) {
   return cands[cands.length - 1][0];
 }
 
-// 3つの組から1つずつ選ぶ（組の順に並べる）
-function hoimiPickSet(day, skip) {
-  return HOIMI_KINDS.map(function (k) { return hoimiPick(day + "#" + skip.length + "#" + k, skip, k); });
+// 組ごとに1つずつ選ぶ（組の順に並べる）。種は組ごとなので、4つ目を足しても前の3つは変わらない
+function hoimiPickSet(day, skip, kinds) {
+  return kinds.map(function (k) { return hoimiPick(day + "#" + skip.length + "#" + k, skip, k); });
 }
 
-// きょう出す3つ。日が替わったら選び直し、同じ日のうちは開き直しても同じ3つにする
+// 今日出す3つ（4つ目を出すなら4つ）。日が替わったら選び直し、同じ日のうちは開き直しても同じにする
 function hoimiToday() {
   const day = dayKey(Date.now());
+  const kinds = hoimiShownKinds();
   let st = {};
   try { st = JSON.parse(lsGet(HOIMI_KEY, "{}") || "{}") || {}; } catch (e) { st = {}; }
   const ok = st.day === day && Array.isArray(st.skip) && Array.isArray(st.ids)
-    && st.ids.length === HOIMI_KINDS.length && st.ids.every(hoimiName);
+    && st.ids.length >= HOIMI_KINDS.length && st.ids.length <= HOIMI_ALL_KINDS.length
+    && st.ids.every(function (id, i) { return hoimiKind(id) === HOIMI_ALL_KINDS[i]; });
   if (!ok) {
-    st = { day: day, ids: hoimiPickSet(day, []), skip: [] };
+    st = { day: day, ids: hoimiPickSet(day, [], kinds), skip: [] };
+    lsSet(HOIMI_KEY, JSON.stringify(st));
+  } else if (st.ids.length !== kinds.length) {
+    // 4つ目の出す・出さないを切り替えたとき（v1.47.0 に上げた最初の日も）：
+    // 今の3つはそのままにして、4つ目だけ足す・外す
+    st.ids = st.ids.slice(0, HOIMI_KINDS.length);
+    if (kinds.length > HOIMI_KINDS.length) {
+      const skip = st.skip.concat(hoimiDoneIds());
+      st.ids.push(hoimiPick(day + "#" + skip.length + "#" + HOIMI_WORK, skip, HOIMI_WORK));
+    }
     lsSet(HOIMI_KEY, JSON.stringify(st));
   }
   return st;
@@ -2871,22 +2972,30 @@ function hoimiCountToday() {
 function hoimiNext() {
   const st = hoimiToday();
   const done = hoimiDoneIds();
+  const kinds = hoimiShownKinds();
   st.skip = st.skip.concat(st.ids);
-  HOIMI_KINDS.forEach(function (k, i) {
+  kinds.forEach(function (k, i) {
     const all = HOIMI_ITEMS.filter(function (x) { return x[2] === k; }).map(function (x) { return x[0]; });
     const left = all.filter(function (id) { return st.skip.indexOf(id) < 0 && done.indexOf(id) < 0; });
     if (!left.length) {
       st.skip = st.skip.filter(function (id) { return all.indexOf(id) < 0 || id === st.ids[i]; });
     }
   });
-  st.ids = hoimiPickSet(st.day, st.skip.concat(done));
+  st.ids = hoimiPickSet(st.day, st.skip.concat(done), kinds);
   lsSet(HOIMI_KEY, JSON.stringify(st));
   return st;
 }
 
+// ［できた］のあとの言葉。これまでの回数で順に回す（取り消すと回数が戻るので、次も同じ言葉になる）
+function hoimiMsg() {
+  const n = loadHoimiLog().length;
+  return HOIMI_MSGS[(Math.max(n, 1) - 1) % HOIMI_MSGS.length];
+}
+
 // ［できた］（今の3つ・一覧のどちらからでも）：記録に1件足す。
 // 今の3つに入っている項目なら、すぐ次の3つにする（利用者の依頼 10/30「1回できたら2回目を提案してほしい」）。
-// 戻す手順を返す。戻すと、足した1件を消し、入れ替える前の3つに戻す
+// 戻す手順を返す。戻すと、足した1件を消し、入れ替える前の3つに戻す。
+// HP と経験値はこの記録から数え直すので、戻せば HP と経験値も戻る
 function hoimiDone(id) {
   const st = hoimiToday();
   const before = JSON.stringify(st);
@@ -2901,21 +3010,34 @@ function hoimiDone(id) {
   };
 }
 
-// 3つを並べた枠。inView … ホイミの画面の中（見出しを「今の3つ」に、一覧への入口は出さない）。
-// 新着を全部確認したときの枠はニュースより目立たせず、下に一覧・ふり返りへの入口を置く
+// 名前と、その下の小さな説明（今の3つ・一覧で同じ形）
+function hoimiNameHTML(id) {
+  const d = hoimiDesc(id);
+  return '<span class="hname">' + esc(hoimiName(id))
+    + (d ? '<small class="hdesc">' + esc(d) + "</small>" : "") + "</span>";
+}
+
+// 3つ（4つ目を出すなら4つ）を並べた枠。inView … ホイミの画面の中（見出しを「今の3つ」に、一覧への入口は出さない）。
+// 新着を全部確認したときの枠はニュースより目立たせず、下に一覧・ふり返りへの入口を置く。
+// ［できた］は緑で塗り、［ほかの3つにする］は枠だけにして下に離す（押し間違えないように。CODE_TASK_11 ②）
 function hoimiCard(inView) {
   if (!inView && hoimiOff()) return "";
   try {
     const st = hoimiToday();
     const n = hoimiCountToday();
+    const k = st.ids.length;
     return '<div class="hoimi' + (inView ? " hview" : "") + '">'
-      + '<div class="hlabel"><span>' + (inView ? "今の3つ" : "ホイミ（1〜2分）") + "　どれか1つ</span>"
+      + '<div class="hlabel"><span>' + (inView ? "今の" + k + "つ" : "ホイミ（1〜2分）") + "　どれか1つ</span>"
       + (n ? '<span class="hn">今日 ' + n + "回</span>" : "") + "</div>"
+      + (!inView && !hpOff() ? '<div class="hpline">' + hpGauge() + "</div>" : "")
       + st.ids.map(function (id) {
-        return '<div class="hrow"><span class="hname">' + esc(hoimiName(id)) + "</span>"
+        // 4つ目（職場向け）は色を変えて、前の3つと区別する（CODE_TASK_11 ⑥）
+        const work = hoimiKind(id) === HOIMI_WORK;
+        return '<div class="hrow' + (work ? " work" : "") + '">'
+          + (work ? '<span class="wtag">職場向け</span>' : "") + hoimiNameHTML(id)
           + '<button class="hbtn go" type="button" data-hoimi-done="' + esc(id) + '">できた</button></div>';
       }).join("")
-      + '<div class="hbtns"><button class="hbtn" type="button" id="hoimi-next">ほかの3つにする</button>'
+      + '<div class="hbtns"><button class="hbtn" type="button" id="hoimi-next">↻ ほかの' + k + "つにする</button>"
       + (inView ? "" : '<button class="hbtn" type="button" id="hoimi-open">一覧・ふり返り →</button>')
       + "</div></div>";
   } catch (e) { return ""; }   // 何かあっても、新着の画面は壊さない
@@ -2923,14 +3045,192 @@ function hoimiCard(inView) {
 
 // 新着が残っているときに「⚡ 今日の新着」の上に出す1行（v1.45.1）。押すとホイミの画面に移る（v1.46.0）。
 // 新着を全部見るのは時間がかかり、見終わったときだけでは出る日が少ないため（利用者の指摘 2026-10-30）。
+// v1.47.0 から HP のゲージとレベルを並べる。ゲージが橙・赤になっても、呼びかけの文は出さず、
+// この1行がそのままホイミの入口になる（CODE_TASK_11 ④）。幅に収めるため「1〜2分のひと休み」は外した
+// （HP の表示を切ると元の1行に戻る）。
 // 新着が0件のときは呼ばない（「確認しました」の下に3つが出る）
 function hoimiLine() {
   if (hoimiOff()) return "";
   try {
     return '<button class="hoimi hfold" type="button" id="hoimi-open">'
-      + '<span class="hlabel">▸ ホイミ</span><span>1〜2分のひと休み</span>'
+      + '<span class="hlabel">▸ ホイミ</span>'
+      + (hpOff() ? "<span>1〜2分のひと休み</span>" : hpGauge())
       + '<span class="hn">今日 ' + hoimiCountToday() + "回</span></button>";
   } catch (e) { return ""; }
+}
+
+// ---- HP と経験値（v1.47.0、CODE_TASK_11 ④）---------------------------------
+// 利用者の発案「ニュースを読むとHPが減る代わりに経験値が入る。ホイミでHPが回復する」。
+// 読むと少し疲れ、ホイミで回復する流れを、ゲージの色で見せる（呼びかけの文は出さない）。
+// 減って責められる作りは入れない：HP は 10 より下がらず、0 で何かが終わることもない。
+// 休んだ日があっても何も減らない。レベルは下がらない。
+// gcal-excel-app の「実績・レベル」（v1.12.0 で廃止）からの教訓：あちらは一度きりの実績でレベルが上がり、
+// 最初に一気に上がって止まった。こちらは毎日くり返す行動（読む・見終える・ホイミ）だけから経験値が入る。
+//
+// 今日の HP と経験値は、すでにある記録から毎回数え直す：
+//   読み方の記録（READLOG）の「開いた」 … 記事・動画のリンクを押した回数（どの画面でも）
+//   ホイミの記録（mynews_hoimi_log）    … ［できた］の回数と、今月はじめての種類か
+//   見終えるまでの時間（mynews_donetime）… その日の新着を見終えたか
+// こうすると「元に戻す」や記録の読み込みのあとも数字が食い違わない。
+// 端末に新しく残すのは、前の日までの経験値の合計と、最後に知らせたレベルだけ（mynews_hp）。
+const HP_KEY = "mynews_hp";          // { day: "2026-10-31"（この日より前の分は xp に足し込み済み）, xp: その合計, lv: 最後に知らせたレベル }
+const HP_OFF_KEY = "mynews_hp_off";  // "1" なら HP・経験値を出さない（既定は出す。出さない間も経験値は数える）
+// 数字は1か所にまとめる（後で調整しやすいように。初期値は指示書のとおり）
+const HP_RULE = {
+  max: 100,         // 日付が変わった最初の表示で、ここに戻る
+  min: 10,          // これより下がらない
+  open: 3,          // 記事を1本開くと減る（✓片づけ・払う・👎 では減らない）
+  hoimi: 15,        // ホイミの［できた］で増える
+  mid: 50,          // これ以下で橙
+  low: 25,          // これ以下で赤
+  xpOpen: 2,        // 記事を開く（1日 xpOpenMax 本まで）
+  xpOpenMax: 20,
+  xpDone: 10,       // その日の新着を見終えた（1日1回）
+  xpHoimi: 5,       // ホイミの［できた］（1日 xpHoimiMax 回まで）
+  xpHoimiMax: 10,
+  xpNewKind: 10,    // 今月はじめてやる種類のホイミ（月が変わると数え直す）
+  lvBase: 100,      // 次のレベルまでに要る経験値＝lvBase＋lvStep×（いまのレベル−1）
+  // 指示書の初期値は 20。60日の試しで、ふつうの日（記事10本・見終える・ホイミ3回）の経験値が見込みの45でなく
+  // 約66になり（今月はじめての種類の＋10が3回のうち平均2回付く）、レベルが見込みの1.5倍ほど早かったので 30 にした
+  // （利用者の決定 2026-10-31。Lv10 が約30日・Lv20 が約3.5か月・Lv30 が約7.5か月）
+  lvStep: 30,
+  lvMax: 99,
+};
+
+function hpOff() { return lsGet(HP_OFF_KEY, "0") === "1"; }
+
+function hpLoad() {
+  try {
+    const v = JSON.parse(lsGet(HP_KEY, "{}") || "{}");
+    return isPlainObject(v) ? v : {};
+  } catch (e) { return {}; }
+}
+
+// 日ごとの経験値（from 以上 to 未満の日。日は "2026-10-31" の形で比べる）
+function hpXpByDay(from, to) {
+  const opens = {}, hoimi = {}, out = {};
+  READLOG.forEach(function (r) {
+    if (r[1] !== "open" || typeof r[0] !== "number") return;
+    const d = dayKey(r[0]);
+    if (d >= from && d < to) opens[d] = (opens[d] || 0) + 1;
+  });
+  // 「今月はじめての種類」は、月と項目の組で最初の記録かどうか。月の初めから見る必要があるので全部を時刻順に
+  const first = {};
+  loadHoimiLog().slice().sort(function (a, b) { return a[0] - b[0]; }).forEach(function (r) {
+    const d = dayKey(r[0]);
+    const mk = d.slice(0, 7) + "#" + r[1];
+    const isNew = !!hoimiName(r[1]) && !first[mk];   // 一覧に無い番号は回数だけ（ふり返りと同じ扱い）
+    first[mk] = true;
+    if (d >= from && d < to) {
+      const h = hoimi[d] = hoimi[d] || { n: 0, fresh: 0 };
+      h.n += 1;
+      if (isNew) h.fresh += 1;
+    }
+  });
+  const done = loadDoneTime();
+  const days = {};
+  [opens, hoimi, done].forEach(function (o) { Object.keys(o).forEach(function (d) { if (d >= from && d < to) days[d] = true; }); });
+  Object.keys(days).forEach(function (d) {
+    const h = hoimi[d] || { n: 0, fresh: 0 };
+    out[d] = Math.min(opens[d] || 0, HP_RULE.xpOpenMax) * HP_RULE.xpOpen
+      + (Array.isArray(done[d]) && done[d][1] ? HP_RULE.xpDone : 0)
+      + Math.min(h.n, HP_RULE.xpHoimiMax) * HP_RULE.xpHoimi
+      + h.fresh * HP_RULE.xpNewKind;
+  });
+  return out;
+}
+
+// 今日の HP。今日の「開いた」（−3）と［できた］（＋15）を時刻順に当て、上下の端で止める
+function hpToday(now) {
+  const day = dayKey(now);
+  const ev = [];
+  READLOG.forEach(function (r) {
+    if (r[1] === "open" && typeof r[0] === "number" && dayKey(r[0]) === day) ev.push([r[0], -HP_RULE.open]);
+  });
+  loadHoimiLog().forEach(function (r) { if (dayKey(r[0]) === day) ev.push([r[0], HP_RULE.hoimi]); });
+  ev.sort(function (a, b) { return a[0] - b[0]; });
+  let hp = HP_RULE.max;
+  ev.forEach(function (e) { hp = Math.min(HP_RULE.max, Math.max(HP_RULE.min, hp + e[1])); });
+  return hp;
+}
+
+// 経験値の合計からレベルを出す。lv … レベル、into … 今のレベルに入ってからの経験値、need … 次までに要る分
+function hpLevel(xp) {
+  let lv = 1, rest = xp, need = HP_RULE.lvBase;
+  while (lv < HP_RULE.lvMax && rest >= need) {
+    rest -= need;
+    lv += 1;
+    need = HP_RULE.lvBase + HP_RULE.lvStep * (lv - 1);
+  }
+  return { lv: lv, into: rest, need: lv < HP_RULE.lvMax ? need : 0 };
+}
+
+// 今の HP・経験値・レベル。日付が変わっていたら、前の日までの分を合計に足し込む。
+// 初めて開いた日は、その日から数える（前の日までの記録はさかのぼらない＝初日にレベルが一気に上がらないように）
+function hpState() {
+  const now = Date.now();
+  const today = dayKey(now);
+  let st = hpLoad();
+  if (typeof st.day !== "string" || !/^\d{4}-\d\d-\d\d$/.test(st.day) || typeof st.xp !== "number" || !(st.xp >= 0)) {
+    st = { day: today, xp: 0, lv: 1 };
+    lsSet(HP_KEY, JSON.stringify(st));
+  } else if (st.day < today) {
+    const byDay = hpXpByDay(st.day, today);
+    st.xp += Object.keys(byDay).reduce(function (s, d) { return s + byDay[d]; }, 0);
+    st.day = today;
+    lsSet(HP_KEY, JSON.stringify(st));
+  }
+  const todayXp = hpXpByDay(today, today + "~")[today] || 0;   // "~" は数字より後ろに並ぶので、今日の分だけになる
+  const xp = st.xp + todayXp;
+  const lv = hpLevel(xp);
+  return { hp: hpToday(now), xp: xp, todayXp: todayXp, lv: lv.lv, into: lv.into, need: lv.need, shown: Number(st.lv) || 1 };
+}
+
+// ゲージの色の名前（51以上はふつう・26〜50 は橙・25以下は赤。ドラゴンクエストと同じく色だけで見せる）
+function hpTone(hp) {
+  return hp <= HP_RULE.low ? "low" : hp <= HP_RULE.mid ? "mid" : "ok";
+}
+
+// 「HP 72/100」と棒とレベル。朝刊の1行・新着0件の枠・ホイミの画面で使う
+function hpGauge(s) {
+  try {
+    s = s || hpState();
+    return '<span class="hpg ' + hpTone(s.hp) + '">'
+      + '<span class="hpn">HP ' + s.hp + "/" + HP_RULE.max + "</span>"
+      + '<span class="hpbar"><i style="width:' + Math.round(s.hp / HP_RULE.max * 100) + '%"></i></span>'
+      + '<span class="hplv">Lv ' + s.lv + "</span></span>";
+  } catch (e) { return ""; }
+}
+
+// 描き直さずにゲージの数字だけ書き換える（記事を開いたとき。戻ったときに減っているのが分かるように）
+function hpPaint() {
+  if (hpOff()) return;
+  try {
+    const html = hpGauge();
+    [].slice.call(document.querySelectorAll(".hpg")).forEach(function (el) { el.outerHTML = html; });
+  } catch (e) { /* 書き換えられなくても、次に描き直したときに直る */ }
+}
+
+// レベルが上がっていたら1回だけ「レベルが あがった！」と出し、ゲージを少し光らせる（音は出さない）。
+// 「元に戻す」の知らせが出ているときは、その文に足す（上書きすると戻せなくなるため）。
+// 同じレベルには二度知らせない。HP・経験値を出さない設定のときは、知らせずに覚えだけ進める
+function hpNotice() {
+  try {
+    const s = hpState();
+    if (s.lv <= s.shown) return;
+    const st = hpLoad();
+    st.lv = s.lv;
+    lsSet(HP_KEY, JSON.stringify(st));
+    if (hpOff()) return;
+    const msg = "レベルが あがった！（Lv " + s.lv + "）";
+    if (UNDO_STACK.length) {
+      UNDO_STACK[UNDO_STACK.length - 1].msg += "　" + msg;
+      showToast();
+    } else {
+      toast(msg);
+    }
+    [].slice.call(document.querySelectorAll(".hpg")).forEach(function (el) { el.classList.add("lvup"); });
+  } catch (e) { /* 知らせられなくても続ける */ }
 }
 
 // ふり返りの数字。GCal→Excel 変換ツールの振り返り（月ごとのまとめと推移）にならう。
@@ -2940,15 +3240,15 @@ function hoimiStats(now) {
   const thisMonth = monthOf(now);
   const s = {
     today: 0, week: 0, weekDays: 0, month: 0, prev: 0, kinds: 0, total: 0,
-    byKind: { body: 0, sense: 0, mind: 0 }, months: [], top: [],
+    byKind: { body: 0, sense: 0, mind: 0, work: 0 }, days: [], months: [], top: [],
   };
-  const weekDays = {}, used = {}, perMonth = {}, freq = {};
+  const weekDays = {}, used = {}, perMonth = {}, freq = {}, perDay = [0, 0, 0, 0, 0, 0, 0];
   loadHoimiLog().forEach(function (r) {
     const d = calDays(r[0], now);
     if (d < 0) return;   // 端末の時計を戻したときの未来の記録は数えない
     s.total += 1;
     if (d === 0) s.today += 1;
-    if (d < 7) { s.week += 1; weekDays[dayKey(r[0])] = true; }
+    if (d < 7) { s.week += 1; weekDays[dayKey(r[0])] = true; perDay[d] += 1; }
     const m = monthOf(r[0]);
     const kind = hoimiKind(r[1]);   // 一覧に無い項目の記録は、回数にだけ数える
     if (m === thisMonth) {
@@ -2963,6 +3263,12 @@ function hoimiStats(now) {
   });
   s.weekDays = Object.keys(weekDays).length;
   s.kinds = Object.keys(used).length;
+  // 直近7日（古い日から今日へ）。日付は暦で数える（夜の分が翌朝「今日」にならないように）
+  const t = new Date(now);
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() - i);
+    s.days.push({ label: i ? (d.getMonth() + 1) + "/" + d.getDate() : "今日", n: perDay[i], now: !i });
+  }
   for (let m = thisMonth - HOIMI_MONTHS + 1; m <= thisMonth; m++) {
     s.months.push({ label: (m % 12 + 1) + "月", n: perMonth[m] || 0, now: m === thisMonth });
   }
@@ -2974,32 +3280,57 @@ function hoimiStats(now) {
   return s;
 }
 
-// ホイミの画面の中ほど：ふり返り
+// 縦の棒グラフ（直近7日・月ごと）。外部のライブラリは使わず、CSS の高さで描く（CODE_TASK_11 ⑤）。
+// 回数は棒の上に小さく。今日・今月の棒と文字は濃くする。0回の日は棒を描かず「0」だけ
+function hoimiCols(rows, label) {
+  const max = Math.max.apply(null, rows.map(function (r) { return r.n; }).concat([1]));
+  return '<div class="hcols" role="img" aria-label="' + esc(label + "：" + rows.map(function (r) {
+    return r.label + " " + r.n + "回";
+  }).join("、")) + '">'
+    + rows.map(function (r) {
+      // 棒の高さは一番多い日（月）を72pxとして比べる。回数は棒のすぐ上に乗る
+      return '<div class="hcol' + (r.now ? " now" : "") + '"><span class="cb">'
+        + '<span class="cv">' + r.n + "</span>"
+        + (r.n ? '<i style="height:' + Math.max(4, Math.round(r.n / max * 72)) + 'px"></i>' : "")
+        + '</span><span class="cl">' + r.label + "</span></div>";
+    }).join("") + "</div>";
+}
+
+// 今月の組ごとの回数。1本の横棒を組の色で分け、下に色の見本と回数を並べる（偏りがひと目で分かるように）
+function hoimiKindBar(s) {
+  if (!s.month) return '<div class="note">今月はまだありません。</div>';
+  const known = HOIMI_ALL_KINDS.reduce(function (t, k) { return t + s.byKind[k]; }, 0);
+  return '<div class="hstack" role="img" aria-label="' + esc("今月の組ごとの回数：" + HOIMI_ALL_KINDS.map(function (k) {
+    return HOIMI_KIND_LABEL[k] + " " + s.byKind[k] + "回";
+  }).join("、")) + '">'
+    + HOIMI_ALL_KINDS.filter(function (k) { return s.byKind[k]; }).map(function (k) {
+      return '<i class="k-' + k + '" style="flex-grow:' + s.byKind[k] + '"></i>';
+    }).join("") + "</div>"
+    + '<div class="hkeys">' + HOIMI_ALL_KINDS.map(function (k) {
+      const pct = known ? Math.round(s.byKind[k] / known * 100) : 0;
+      return '<span class="hkey"><i class="sw k-' + k + '"></i>' + HOIMI_KIND_LABEL[k]
+        + " <b>" + s.byKind[k] + "</b>回<small>（" + pct + "%）</small></span>";
+    }).join("") + "</div>";
+}
+
+// ホイミの画面の中ほど：ふり返り（v1.47.0 で、数字の枠をグラフに置き換えた）。
+// 上にレベル・経験値・今月使った種類をまとめ、その下に直近7日・月ごとの棒、組ごとの色分けの横棒、よく使う5つ
 function hoimiReview(s) {
-  const tile = function (label, num, sub) {
-    return '<div class="hstat"><small>' + label + "</small><b>" + num + "</b>"
-      + (sub ? "<small>" + sub + "</small>" : "") + "</div>";
-  };
-  const max = Math.max.apply(null, s.months.map(function (m) { return m.n; }).concat([1]));
-  let h = '<section class="hsec"><h2>ふり返り</h2>';
+  let h = '<section class="hsec"><h2>ふり返り</h2><div class="hsum">';
+  if (!hpOff()) {
+    const p = hpState();
+    h += '<div class="hlv"><b>Lv ' + p.lv + "</b>"
+      + "<span>経験値 " + p.xp.toLocaleString("ja-JP")
+      + (p.need ? "（次のレベルまで あと " + (p.need - p.into) + "）" : "") + "</span></div>"
+      + (p.need ? '<span class="hxp"><i style="width:' + Math.round(p.into / p.need * 100) + '%"></i></span>' : "");
+  }
+  h += '<div class="hkinds">今月使った種類　<b>' + s.kinds + "</b> / " + HOIMI_ITEMS.length + "</div></div>";
   if (!s.total) {
     return h + '<div class="note">［できた］を押すと、ここに回数がたまります。</div></section>';
   }
-  h += '<div class="hstats">'
-    + tile("今日", s.today + "回")
-    + tile("この7日", s.week + "回", s.weekDays + "日")
-    + tile("今月", s.month + "回", "先月 " + s.prev + "回")
-    + "</div>"
-    + '<div class="hline">今月使った種類　<b>' + s.kinds + "</b> / " + HOIMI_ITEMS.length + "</div>"
-    + '<div class="hline">今月の組ごと　' + HOIMI_KINDS.map(function (k) {
-      return HOIMI_KIND_LABEL[k] + " <b>" + s.byKind[k] + "</b>回";
-    }).join("・") + "</div>"
-    + '<h3>月ごとの回数</h3><div class="hmonths">'
-    + s.months.map(function (m) {
-      return '<div class="hmon' + (m.now ? " now" : "") + '"><span class="m">' + m.label + "</span>"
-        + '<span class="bar"><i style="width:' + Math.round(m.n / max * 100) + '%"></i></span>'
-        + '<span class="n">' + m.n + "回</span></div>";
-    }).join("") + "</div>";
+  h += "<h3>この7日　" + s.week + "回（" + s.weekDays + "日）</h3>" + hoimiCols(s.days, "この7日の回数")
+    + "<h3>月ごとの回数　今月 " + s.month + "回・先月 " + s.prev + "回</h3>" + hoimiCols(s.months, "月ごとの回数")
+    + "<h3>今月の組ごと</h3>" + hoimiKindBar(s);
   if (s.top.length) {
     h += "<h3>よく使う5つ（この" + HOIMI_MONTHS + "か月）</h3><ol class=\"htop\">"
       + s.top.map(function (t) {
@@ -3019,40 +3350,48 @@ function hoimiAgo(t, now) {
   return { text: d + "日前", cls: "" };
 }
 
-// ホイミの画面の下：70個を組ごとに全部。並びは毎回同じ（居場所が変わらないように）。押せばそのまま記録
+// ホイミの画面の下：全部の項目を組ごとに。並びは毎回同じ（居場所が変わらないように）。
+// v1.47.0 から、行を押すとその行の中に［できた］が出るだけ（もう一度押すと閉じる）。記録は［できた］のときだけ。
+// スクロールのつもりで触れて記録されてしまうことがあったため（CODE_TASK_11 ①）
 function hoimiList(now) {
   const last = {};
   loadHoimiLog().forEach(function (r) { last[r[1]] = Math.max(last[r[1]] || 0, r[0]); });
   let h = '<section class="hsec hlist"><h2>一覧（' + HOIMI_ITEMS.length + "）</h2>"
-    + '<div class="note">押すと、やったこととして記録します（5秒は元に戻せます）。'
+    + '<div class="note">行を押すと［できた］が出ます。［できた］を押すと記録します（' + UNDO_SEC + "秒は元に戻せます）。"
     + "右は最後にやった日です。</div>";
-  HOIMI_KINDS.forEach(function (k) {
+  HOIMI_ALL_KINDS.forEach(function (k) {
     const items = HOIMI_ITEMS.filter(function (x) { return x[2] === k; });
-    h += "<h3>" + HOIMI_KIND_LABEL[k] + "（" + items.length + "）</h3>"
+    h += '<h3 class="' + (k === HOIMI_WORK ? "work" : "") + '">' + HOIMI_KIND_LABEL[k] + "（" + items.length + "）</h3>"
       + items.map(function (x) {
         const a = hoimiAgo(last[x[0]], now);
-        return '<button class="hitem" type="button" data-hoimi-done="' + esc(x[0]) + '">'
-          + '<span class="hname">' + esc(x[1]) + "</span>"
-          + '<span class="hago' + (a.cls ? " " + a.cls : "") + '">' + a.text + "</span></button>";
+        const open = HOIMI_PICKED === x[0];
+        return '<div class="hitem' + (open ? " open" : "") + (k === HOIMI_WORK ? " work" : "") + '">'
+          + '<button class="hhead" type="button" data-hoimi-pick="' + esc(x[0]) + '" aria-expanded="' + open + '">'
+          + hoimiNameHTML(x[0])
+          + '<span class="hago' + (a.cls ? " " + a.cls : "") + '">' + a.text + "</span></button>"
+          + (open ? '<div class="hact"><button class="hbtn go" type="button" data-hoimi-done="' + esc(x[0]) + '">できた</button></div>' : "")
+          + "</div>";
       }).join("");
   });
   return h + "</section>";
 }
 
-// ホイミの画面（v1.46.0）。上＝今の3つ、中＝ふり返り、下＝70個の一覧。
-// 発掘画面などと同じく、上の［← 戻る］で元の画面へ（スマホの戻るボタンでは戻らない）
+// ホイミの画面（v1.46.0）。上＝今の3つ、中＝ふり返り、下＝一覧。
+// 発掘画面などと同じく、上の［← 戻る］で元の画面へ（スマホの戻るボタンでは戻らない）。
+// v1.47.0 から、［← 戻る］の横に HP のゲージとレベル（［できた］で回復するのが見えるように）
 function renderHoimiView(data) {
   const now = Date.now();
   APP.innerHTML = "<header><h1>🌿 ホイミ</h1>"
     + '<div class="meta-head">'
     + '<button class="newcount on" type="button" id="hoimi-back">← 戻る</button>'
-    + '<span class="unread">1〜2分のひと休み</span></div></header>'
+    + (hpOff() ? '<span class="unread">1〜2分のひと休み</span>' : hpGauge()) + "</div></header>"
     + hoimiCard(true)
     + hoimiReview(hoimiStats(now))
     + hoimiList(now);
 }
 
-// 設定の1段：出す・出さないの切り替えと、この7日の回数・日数
+// 設定の段：ホイミの出す・出さないの切り替えと、この7日の回数・日数。
+// その下に、HP・経験値と4つ目（職場向け）の出す・出さない（v1.47.0）
 function hoimiRow() {
   const off = hoimiOff();
   const log = loadHoimiLog();
@@ -3069,7 +3408,16 @@ function hoimiRow() {
     + "<small>この7日で " + n + "回（" + Object.keys(days).length + "日）"
     + (last ? "（最後は" + dayLabel(last[0]) + "：" + esc(hoimiName(last[1])) + "）" : "") + "</small></span>"
     + '<button class="tool-btn' + (off ? "" : " on") + '" type="button" id="toggle-hoimi">'
-    + (off ? "出さない" : "出す") + "</button></div>";
+    + (off ? "出さない" : "出す") + "</button></div>"
+    + toggleRow("ホイミの HP・経験値", "出さない間も経験値は数えています", "toggle-hp", !hpOff())
+    + toggleRow("ホイミの4つ目（職場向け）", "一覧の「職場向け」は出さないときも残ります", "toggle-hoimi-work", !hoimiWorkOff());
+}
+
+// 設定の「出す／出さない」の1段
+function toggleRow(label, note, id, on) {
+  return '<div class="srow"><span>' + label + "<small>" + note + "</small></span>"
+    + '<button class="tool-btn' + (on ? " on" : "") + '" type="button" id="' + id + '">'
+    + (on ? "出す" : "出さない") + "</button></div>";
 }
 
 // ---- 見終えるまでの時間 ------------------------------------------------------
@@ -3619,11 +3967,12 @@ function rerender() {
   dtCheck();
   render(window.NEWS_DATA);
   applyPrefs();
+  hpNotice();   // 見終えた・ホイミでレベルが上がっていたら、1回だけ知らせる（v1.47.0）
 }
 
 // テーマ内の記事をまとめて既読にする
 // まとめて片づける（既読にする）。確認のダイアログは出さず、押したあとで戻せるようにする。
-// スワイプと同じ考え方：迷わず押せて、間違えたら5秒以内に戻す。
+// スワイプと同じ考え方：迷わず押せて、間違えたら15秒以内に戻す（UNDO_SEC）。
 // how / where は「どう読んだか」の記録に残す操作と画面（logRead を参照）。
 function tidyUp(items, label, how, where) {
   if (!items.length) return;
@@ -3835,10 +4184,23 @@ APP.addEventListener("click", function (ev) {
     rerender();
     return;
   }
+  // ホイミの HP・経験値：出す／出さない（v1.47.0）
+  if (ev.target.closest("#toggle-hp")) {
+    lsSet(HP_OFF_KEY, hpOff() ? "0" : "1");
+    rerender();
+    return;
+  }
+  // ホイミの4つ目（職場向け）：出す／出さない（v1.47.0）
+  if (ev.target.closest("#toggle-hoimi-work")) {
+    lsSet(HOIMI_WORK_OFF_KEY, hoimiWorkOff() ? "0" : "1");
+    rerender();
+    return;
+  }
   // ホイミ：上の1行・［一覧・ふり返り →］→ ホイミの画面へ（v1.46.0）
   if (ev.target.closest("#hoimi-open")) {
     HOIMI_BACK_Y = window.scrollY || 0;
     SHOW_HOIMI = true;
+    HOIMI_PICKED = "";
     rerender();
     window.scrollTo(0, 0);
     return;
@@ -3846,17 +4208,32 @@ APP.addEventListener("click", function (ev) {
   // ホイミの画面から戻る（開く前に見ていた位置へ）
   if (ev.target.closest("#hoimi-back")) {
     SHOW_HOIMI = false;
+    HOIMI_PICKED = "";
     rerender();
     window.scrollTo(0, HOIMI_BACK_Y);
     return;
   }
-  // ホイミ：できた（今の3つ・一覧のどれか）→ 記録に1件足し、今の3つの項目ならすぐ次の3つ。
-  // 5秒は戻せる（足した1件を消し、前の3つに戻す）
+  // ホイミの一覧：行を押すと、その行の中に［できた］を出す（もう一度押すと閉じる。開くのは1行だけ）。
+  // ここでは記録しない（v1.47.0、CODE_TASK_11 ①）
+  const hoimiPick = ev.target.closest("[data-hoimi-pick]");
+  if (hoimiPick) {
+    const id = hoimiPick.dataset.hoimiPick;
+    HOIMI_PICKED = HOIMI_PICKED === id ? "" : id;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // ホイミ：できた（今の3つ・一覧で開いた行）→ 記録に1件足し、今の3つの項目ならすぐ次の3つ。
+  // 15秒は戻せる（足した1件を消し、前の3つに戻す。HP と経験値も戻る）。
+  // レベルが上がったら、rerender の中の hpNotice が知らせの文に「レベルが あがった！」を足す
   const hoimiBtn = ev.target.closest("[data-hoimi-done]");
   if (hoimiBtn) {
     const id = hoimiBtn.dataset.hoimiDone;
     if (!hoimiName(id)) return;
-    pushUndo("HPが すこし かいふくした！", hoimiDone(id));
+    const undo = hoimiDone(id);
+    pushUndo(hoimiMsg(), undo);
+    HOIMI_PICKED = "";
     const y = window.scrollY;
     rerender();
     window.scrollTo(0, y);
@@ -4253,6 +4630,7 @@ APP.addEventListener("click", function (ev) {
     tally(OPENED_KEY, OPENED, a);
     markRead(a);
     logRead([a], "open", screenOf(link));
+    hpPaint();   // HP が減ったのを、戻ったときに数字で見えるように（描き直しはしない。v1.47.0）
     const card = link.closest(".card");
     if (card) card.classList.add("read");
   }
@@ -4290,6 +4668,9 @@ function swipeHint(kind, ready) {
 // 取り消しは直前の1件だけだと、続けて払ったときに戻せない。
 // 直近5件まで覚えておき、押すたびに1件ずつ戻す。
 const UNDO_MAX = 5;
+// 「元に戻す」を出しておく秒数。v1.46.0 までは5秒だったが、間違えたときに短くて戻せなかったので
+// 15秒にした（利用者の指摘 2026-10-31。片づけ・払う・👎・ホイミのすべて）
+const UNDO_SEC = 15;
 let UNDO_STACK = [];
 let UNDO_TIMER = null;
 
@@ -4328,7 +4709,7 @@ function showToast() {
   UNDO_TIMER = setTimeout(function () {
     el.remove();
     UNDO_STACK = [];
-  }, 5000);
+  }, UNDO_SEC * 1000);
 
   el.querySelector("#toast-undo").addEventListener("click", function () {
     const item = UNDO_STACK.pop();
@@ -4493,6 +4874,7 @@ try {
   applyPrefs();
   render(data);
   dtCheck();   // 新着が残っていれば、見終えるまでの時間を数え始める
+  hpNotice();  // 前に開いてからレベルが上がっていたら、1回だけ知らせる（v1.47.0）
   // 読み込み直したときは、読んでいた位置に戻す（ページを開いている間だけ覚えている）
   const saved = ssGet();
   if (saved.y) window.scrollTo(0, saved.y);
@@ -4503,6 +4885,8 @@ try {
       return;
     }
     dtCheck();   // 表に戻ったら、新着が残っていれば数え直す
+    hpPaint();   // 記事から戻ったとき・日付が変わったときの HP を、描き直さずに出し直す（v1.47.0）
+    hpNotice();
     // 開いたまま1時間以上離れていたら、次に開いたときと同じく書庫を畳んで一番上から（CODE_TASK_08 ①）。
     // スマホがページを読み込み直さずに残していた場合のため
     const hid = ssGet().hid || 0;
