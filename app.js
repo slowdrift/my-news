@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.48.0";
+const APP_VERSION = "v1.49.0";
 const CHANGELOG = [
+  ["v1.49.0", "2026-10-31", "HP が片づけたときと長く読んだときにも減るようにした（開かずに既読にすると1本で1、1日30まで。記事から戻るまで1分ごとに1、開いたときの3と合わせて1本で10まで。30分以上たって戻ったら3だけ）。経験値は変えていない"],
   ["v1.48.0", "2026-10-31", "レベルが上がるとホイミのリストに項目が増えるようにした（Lv3 から3レベルごとに2つ、全部で17個。資料で確かめて選んだ）。増えた項目は5つ目として、場所や体調にあまりとらわれずに出す（4つ目の職場向けは今までどおり）。増えた日は5つ目に先に出して「新しく増えた」の札を付ける。「元に戻す」でレベルが下がったときは、増えた項目もいったん消え、もう一度上がるとまた知らせる"],
   ["v1.47.0", "2026-10-31", "ホイミに HP と経験値・レベルを足した（記事を開くと HP−3・ホイミで＋15、日付が変わると100に戻る。読む・見終える・ホイミで経験値。レベルは下がらない）。一覧は行を押すと［できた］が出る形にし、押し間違いで記録されないようにした。全部の項目に一言の説明を付け、職場向けの13個を4つ目として足した。ふり返りを棒グラフにし、［できた］のあとの言葉を10通りにした。「元に戻す」を5秒から15秒にした"],
   ["v1.46.0", "2026-10-30", "ホイミを1日に何回でもできるようにした。「今日の新着」の上の1行を押すとホイミの画面に移り、今の3つ・ふり返り（今日・この7日・今月の回数、今月使った種類、月ごとの回数、よく使う5つ）・70個の一覧（最後にやった日つき。押すとそのまま記録）が並ぶ。［できた］のあとは、今日まだやっていない項目から次の3つを出す"],
@@ -1571,7 +1572,8 @@ function toolbar(sources) {
       + "<b>ほかの○つにする</b>で入れ替えられます。"
       + "一覧の項目は、押すと<b>できた</b>が出て、それを押すと記録します。"
       + "新着をすべて確認したときは、その下に出ます。"
-      + "<b>HP</b>は記事を開くと3減り（10より下がりません）、<b>できた</b>で15回復し、日付が変わると100に戻ります。"
+      + "<b>HP</b>は記事を開くと3減り、戻るまで1分ごとにさらに1減ります（1本で10まで。30分以上たって戻ったら3だけ）。"
+      + "開かずに片づけても1本につき1減ります（1日30まで）。10より下がらず、<b>できた</b>で15回復し、日付が変わると100に戻ります。"
       + "読む・見終える・ホイミで経験値がたまり、<b>Lv</b>が上がります（休んでも下がりません。"
       + "ホイミを元に戻したときだけ、その分が無かったことになって戻ります）。"
       + "Lv3 から3レベルごとに、ホイミのリストに項目が2つずつ増えます。"
@@ -3218,17 +3220,28 @@ function hoimiLine() {
 //
 // 今日の HP と経験値は、すでにある記録から毎回数え直す：
 //   読み方の記録（READLOG）の「開いた」 … 記事・動画のリンクを押した回数（どの画面でも）
+//   読み方の記録の、開かずに既読にした行 … 払う・✓片づけなど（HP だけ。v1.49.0）
+//   記事から戻るまでの時間（mynews_hp_away）… 長く読んだ分（HP だけ。v1.49.0）
 //   ホイミの記録（mynews_hoimi_log）    … ［できた］の回数と、今月はじめての種類か
 //   見終えるまでの時間（mynews_donetime）… その日の新着を見終えたか
 // こうすると「元に戻す」や記録の読み込みのあとも数字が食い違わない。
 // 端末に新しく残すのは、前の日までの経験値の合計と、最後に知らせたレベルだけ（mynews_hp）。
 const HP_KEY = "mynews_hp";          // { day: "2026-10-31"（この日より前の分は xp に足し込み済み）, xp: その合計, lv: 最後に知らせたレベル }
 const HP_OFF_KEY = "mynews_hp_off";  // "1" なら HP・経験値を出さない（既定は出す。出さない間も経験値は数える）
+const HP_AWAY_KEY = "mynews_hp_away"; // [[記事を開いた時刻, マイニュースに戻った時刻], …]（今日開いた分だけ。v1.49.0）
 // 数字は1か所にまとめる（後で調整しやすいように。初期値は指示書のとおり）
 const HP_RULE = {
   max: 100,         // 日付が変わった最初の表示で、ここに戻る
   min: 10,          // これより下がらない
-  open: 3,          // 記事を1本開くと減る（✓片づけ・払う・👎 では減らない）
+  open: 3,          // 記事を1本開くと減る
+  // 開かずに既読にしても、見出しを見てニュースを浴びたことに変わりはないので少し減らす（CODE_TASK_13 ①）。
+  // 1日の上限は、新着77本を全部片づけた日に毎日下限に張りつき、色の変化に意味がなくなるのを防ぐため
+  clear: 1,         // 払う・✓片づけ・ここまで見た・選んで既読・👎・全部片づけ・発掘の片づけ 1本につき減る
+  clearMax: 30,     // 片づけで減る分の1日の上限（記事を開いた分・長く読んだ分はここに数えない）
+  // 本文を取っていないので記事の長さは分からない。開いてから戻るまでの時間を、読んだ長さとみなす（CODE_TASK_13 ②）
+  readMin: 1,       // 戻るまでの1分ごとに、開いたときの分に足して減る
+  readMax: 10,      // 開いたときの分と合わせた、1本あたりの上限（開いたまま別のアプリにいた時間を数えすぎないため）
+  readAwayMax: 30,  // これ以上（分）離れていたら読んでいたとはみなさず、開いたときの分だけにする
   hoimi: 15,        // ホイミの［できた］で増える
   mid: 50,          // これ以下で橙
   low: 25,          // これ以下で赤
@@ -3289,17 +3302,75 @@ function hpXpByDay(from, to) {
   return out;
 }
 
-// 今日の HP。今日の「開いた」（−3）と［できた］（＋15）を時刻順に当て、上下の端で止める
+// 開かずに既読にした操作（読み方の記録の2つ目。HOW_LABEL の名前）。
+// 「すべて既読」（all）は入れない：画面に入口が無く、何件片づけても記録が1行しか残らないため
+const HP_CLEAR_HOW = { swipe: 1, tidy: 1, seen: 1, found: 1, tidyall: 1, foundall: 1, pick: 1, boring: 1 };
+
+function loadHpAway() {
+  try {
+    const v = JSON.parse(lsGet(HP_AWAY_KEY, "[]") || "[]");
+    return Array.isArray(v) ? v.filter(function (r) {
+      return Array.isArray(r) && typeof r[0] === "number" && typeof r[1] === "number" && r[1] > r[0];
+    }) : [];
+  } catch (e) { return []; }
+}
+
+// 記事を開いてから戻るまで ms ミリ秒だったときに、開いたときの分に足して減る数
+function hpReadExtra(ms) {
+  const min = Math.floor(ms / 60000);
+  if (!(min >= 1) || min >= HP_RULE.readAwayMax) return 0;
+  return Math.min(min * HP_RULE.readMin, HP_RULE.readMax - HP_RULE.open);
+}
+
+// 記事のリンクを押した時刻を覚える。スマホが戻ったときにページを読み込み直しても測れるように、
+// ページを開いている間だけ覚える場所（sessionStorage）に置く。続けて開いたら新しいほうで上書きする
+function hpAwayStart() {
+  ssSave({ hpOpenAt: Date.now() });
+}
+
+// マイニュースの画面に戻ったら（表に出た・読み込み直した）、離れていた時間を記録に足す。
+// 減る数は hpToday で記録から数え直すので、ここでは時刻だけ残す（数字を変えても記録はそのまま使える）
+function hpAwayEnd() {
+  try {
+    const at = Number(ssGet().hpOpenAt) || 0;
+    if (!at) return;
+    ssSave({ hpOpenAt: 0 });
+    const now = Date.now();
+    const today = dayKey(now);
+    // 前の日に開いた分は前の日の HP に入るが、前の日の HP はもう出さないので残さない
+    if (!(now > at) || dayKey(at) !== today) return;
+    const rec = loadHpAway().filter(function (r) { return dayKey(r[0]) === today; });
+    rec.push([at, now]);
+    lsSet(HP_AWAY_KEY, JSON.stringify(rec));
+  } catch (e) { /* 測れなくても、開いたときの分は減っている */ }
+}
+
+// 今日の HP。今日の「開いた」（−3）・長く読んだ分・開かずに既読（−1、1日30まで）と
+// ［できた］（＋15）を時刻順に当て、上下の端で止める
 function hpToday(now) {
   const day = dayKey(now);
   const ev = [];
   READLOG.forEach(function (r) {
-    if (r[1] === "open" && typeof r[0] === "number" && dayKey(r[0]) === day) ev.push([r[0], -HP_RULE.open]);
+    if (typeof r[0] !== "number" || dayKey(r[0]) !== day) return;
+    if (r[1] === "open") ev.push([r[0], -HP_RULE.open]);
+    else if (HP_CLEAR_HOW[r[1]]) ev.push([r[0], -HP_RULE.clear, true]);
+  });
+  // 長く読んだ分は、記事を開いた時刻に置く（開いた日の HP に入る）
+  loadHpAway().forEach(function (r) {
+    const x = hpReadExtra(r[1] - r[0]);
+    if (x && dayKey(r[0]) === day) ev.push([r[0], -x]);
   });
   loadHoimiLog().forEach(function (r) { if (dayKey(r[0]) === day) ev.push([r[0], HP_RULE.hoimi]); });
   ev.sort(function (a, b) { return a[0] - b[0]; });
-  let hp = HP_RULE.max;
-  ev.forEach(function (e) { hp = Math.min(HP_RULE.max, Math.max(HP_RULE.min, hp + e[1])); });
+  let hp = HP_RULE.max, cleared = 0;
+  ev.forEach(function (e) {
+    let d = e[1];
+    if (e[2]) {   // 片づけの分：その日の最初の clearMax ぶんまで
+      d = -Math.min(-d, Math.max(0, HP_RULE.clearMax - cleared));
+      cleared -= d;
+    }
+    hp = Math.min(HP_RULE.max, Math.max(HP_RULE.min, hp + d));
+  });
   return hp;
 }
 
@@ -4813,6 +4884,7 @@ APP.addEventListener("click", function (ev) {
     tally(OPENED_KEY, OPENED, a);
     markRead(a);
     logRead([a], "open", screenOf(link));
+    hpAwayStart();   // 戻るまでの時間を測り始める（長く読んだ分も減らす。v1.49.0）
     hpPaint();   // HP が減ったのを、戻ったときに数字で見えるように（描き直しはしない。v1.47.0）
     const card = link.closest(".card");
     if (card) card.classList.add("read");
@@ -5055,6 +5127,7 @@ try {
   const data = window.NEWS_DATA;
   if (!data) throw new Error("data.js が読み込まれていません（build_news.py を実行してください）");
   applyPrefs();
+  hpAwayEnd();   // 記事を読んでいる間にスマホがページを読み込み直した場合も、離れていた時間を測る（v1.49.0）
   const lvMsg = hpSync();   // 前に開いてからレベルが上がっていたら、描く前に増えた項目を覚える（v1.48.0）
   render(data);
   dtCheck();   // 新着が残っていれば、見終えるまでの時間を数え始める
@@ -5070,6 +5143,7 @@ try {
       return;
     }
     dtCheck();   // 表に戻ったら、新着が残っていれば数え直す
+    hpAwayEnd(); // 記事から戻ったなら、離れていた時間の分も HP を減らす（v1.49.0）
     hpPaint();   // 記事から戻ったとき・日付が変わったときの HP を、描き直さずに出し直す（v1.47.0）
     hpNotice();
     // 開いたまま1時間以上離れていたら、次に開いたときと同じく書庫を畳んで一番上から（CODE_TASK_08 ①）。
