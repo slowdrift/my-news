@@ -1510,6 +1510,14 @@ def fetch_weather(cfg):
     except Exception as e:
         print(f"天気: 形が読めず（{type(e).__name__}）")
         return out if out["days"] else None
+    # 平年の気温（2つ目＝週間予報にある。地点名が一致するもの）。画面で「平年より ○℃ 高い」に使う（CODE_TASK_14 ③）。
+    # 取れなければ持たせないだけ（2026-11-02 に水戸の分があるのを確かめた）
+    try:
+        avg = data[1]["tempAverage"]["areas"]
+        a = next((x for x in avg if x["area"]["name"] == out["place"]), avg[0])
+        out["normal"] = {"max": float(a["max"]), "min": float(a["min"])}
+    except Exception:
+        pass
     print(f"天気: {out['place']} {len(out['days'])}日分")
     return out
 
@@ -1788,6 +1796,9 @@ def fetch_stocks(items):
                                for day, amt, orig in span_dividend_list(events, since1)]
             stamps = result.get("timestamp") or []
             last = local_day(stamps[-1], int(m.get("gmtoffset") or 0)) if stamps else None
+            # 値段の日付（最後の取引日）。天気の下の株価のカードに「10/31 終値」と出す（CODE_TASK_14 ①）
+            if last:
+                row["at"] = last.isoformat()
             # 1年の高値・安値（買い増しの目安に、いまがその間のどのあたりかを画面で示す。CODE_TASK_04 ②）。
             # 今の値が日足の範囲の外にあれば（取引中の値など）、範囲を広げて合わせる
             r1 = span_range(result, since1)

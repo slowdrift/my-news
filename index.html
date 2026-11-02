@@ -31,6 +31,13 @@
        検査の式で確かめた。白地とのコントラストが低い色があるので、下に組の名前と回数を必ず書く。
        レベルで増えた（金色）は、色覚の3つの型で今の4色と比べ、どの型でも今の4色の一番近い組より離れている（v1.48.0） */
     --k-body:#2a78d6; --k-sense:#1baf7a; --k-mind:#6250d6; --k-work:#e87ba4; --k-lv:#e0b000;
+    /* 上部の札（v1.50.0、CODE_TASK_14）。株価の「利回り4%超へ」（緑）・「下回る」（橙）、天気の「傘はいらない」は緑の札、
+       「傘を持って」は青の札。文字と地のコントラスト比は 6.49・6.38・7.15 */
+    --stag-lo-bg:#dcfce7; --stag-lo-ink:#166534; --stag-hi-bg:#ffedd5; --stag-hi-ink:#9a3412;
+    --rain-bg:#dbeafe; --rain-ink:#1e40af; --pop:#93c5fd;
+    /* トップのホイミのカード（薄い緑の地＋細い枠）。地の上の文字：ふつう 16.84・下の段 7.29、
+       HP の色 4.76・4.92・6.14。右の「ホイミ」は白い文字で 5.48 */
+    --hc-bg:#ecfdf5; --hc-line:#a7f3d0; --hc-ink2:#065f46; --hc-bar:#d1fae5; --hc-go-bg:#047857; --hc-go-ink:#ffffff;
     --fs:1;           /* 文字サイズの倍率 */
   }
   /* 端末が暗い設定のとき（手動指定が無い＝自動のとき）だけ暗くする */
@@ -51,6 +58,9 @@
       --work-ink:#f9a8d4; --work-bg:#3a1a2c;                 /* 文字は 9.10・8.49 */
       --lv-ink:#fcd34d; --lv-bg:#33290d;                     /* 文字は 11.45・9.95 */
       --k-body:#3987e5; --k-sense:#199e70; --k-mind:#9085e9; --k-work:#d55181; --k-lv:#e0b000;
+      --stag-lo-bg:#14532d; --stag-lo-ink:#bbf7d0; --stag-hi-bg:#7c2d12; --stag-hi-ink:#fed7aa;   /* 7.52・6.92 */
+      --rain-bg:#1e3a8a; --rain-ink:#bfdbfe; --pop:#3b6db3;                                      /* 7.29 */
+      --hc-bg:#0f2a20; --hc-line:#1f5c45; --hc-ink2:#a7f3d0; --hc-bar:#1f5c45; --hc-go-bg:#34d399; --hc-go-ink:#052e1f;   /* 12.70・11.93・HP 8.78〜5.53・7.71 */
     }
   }
   /* 手動で「暗い」を選んだとき */
@@ -70,6 +80,9 @@
     --work-ink:#f9a8d4; --work-bg:#3a1a2c;
     --lv-ink:#fcd34d; --lv-bg:#33290d;
     --k-body:#3987e5; --k-sense:#199e70; --k-mind:#9085e9; --k-work:#d55181; --k-lv:#e0b000;
+    --stag-lo-bg:#14532d; --stag-lo-ink:#bbf7d0; --stag-hi-bg:#7c2d12; --stag-hi-ink:#fed7aa;
+    --rain-bg:#1e3a8a; --rain-ink:#bfdbfe; --pop:#3b6db3;
+    --hc-bg:#0f2a20; --hc-line:#1f5c45; --hc-ink2:#a7f3d0; --hc-bar:#1f5c45; --hc-go-bg:#34d399; --hc-go-ink:#052e1f;
   }
   /* 文字サイズ */
   :root[data-font="s"] { --fs:.92; }
@@ -89,7 +102,20 @@
     color: var(--sub); font-size: calc(12px * var(--fs)); margin-top: 3px;
     display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
   }
-  header .age.stale { color: #d08700; font-weight: 600; }
+  /* 見出しの行（v1.50.0、CODE_TASK_14 ②）。左に日付と画面の名前、右に更新の時刻と何時間前か。
+     文字は地（--bg）の上なので、--sub（4.39 で足りない）ではなく --chip-ink（9.37・暗い 11.27）にした */
+  header .headtop { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+  header .htitle { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  header .hdate { color: var(--chip-ink); font-size: calc(12px * var(--fs)); font-weight: 700; letter-spacing: .04em; }
+  header .hupd {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 1px; padding-bottom: 2px;
+    color: var(--chip-ink); font-size: calc(12px * var(--fs)); white-space: nowrap;
+  }
+  header .hupd > span:first-child { display: inline-flex; align-items: center; gap: 5px; }
+  /* 小さな丸：いつもは緑、12時間以上たったら橙（色だけに頼らず「13時間前」の文字も残す） */
+  header .hdot { display: inline-block; width: 8px; height: 8px; border-radius: 4px; background: var(--zlo); }
+  header .hupd.stale .hdot { background: var(--zhi); }
+  header .hupd.stale .age { color: var(--zhi); font-weight: 700; }   /* 地の上で 4.71・暗い 8.21 */
   /* 今日読むべき「新着」を主役に。貯まっている「未読」は控えめに添える。 */
   header .newcount {
     font-weight: 800; color: #111827; background: #f59e0b;
@@ -321,6 +347,74 @@
   .weather .wst i.down { color: var(--down); }
   :root[data-theme="dark"] .weather .wpop.strong,
   :root[data-theme="auto"] .weather .wpop.strong { color: #93c5fd; }
+
+  /* 天気のカード（v1.50.0、CODE_TASK_14 ③）。1段目＝絵・天気の文・最高気温、札、時間帯の降水確率、明日 */
+  .wx {
+    margin-top: 8px; padding: 12px 14px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--line); color: var(--ink);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .wxtop { display: flex; align-items: center; gap: 12px; }
+  .wxicon { font-size: calc(30px * var(--fs)); line-height: 1; }
+  .wxicon.s { font-size: calc(16px * var(--fs)); }
+  .wxmain { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
+  .wxmain small { color: var(--chip-ink); font-size: calc(12px * var(--fs)); }
+  .wxmain b { font-size: calc(16px * var(--fs)); }
+  .wxtemp { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+  .wxbig { font-size: calc(30px * var(--fs)); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .wxbig small { font-size: calc(15px * var(--fs)); font-weight: 700; }
+  .wxtemp > small { font-size: calc(12px * var(--fs)); font-weight: 700; margin-top: 3px; }
+  .wxtemp > small.up { color: var(--up); }
+  .wxtemp > small.down { color: var(--down); }
+  .wxchips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .wc {
+    display: inline-block; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+    background: var(--chip-bg); color: var(--chip-ink); font-size: calc(13px * var(--fs));
+  }
+  .wc.ok { background: var(--stag-lo-bg); color: var(--stag-lo-ink); font-weight: 700; }
+  .wc.rain { background: var(--rain-bg); color: var(--rain-ink); font-weight: 700; }
+  /* 時間帯の降水確率。棒の高さが % で、50%以上は濃い色 */
+  .wxpops { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .wxp { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--chip-ink); font-size: calc(12px * var(--fs)); }
+  .wxp b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .wxp.strong b { color: var(--down); }
+  .wxbar {
+    display: flex; align-items: flex-end; width: 100%; height: 26px; border-radius: 6px;
+    background: var(--chip-bg); overflow: hidden;
+  }
+  .wxbar i { display: block; width: 100%; background: var(--pop); }
+  .wxp.strong .wxbar i { background: var(--down); }
+  .wxtmr {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding-top: 8px;
+    border-top: 1px dashed var(--line); font-size: calc(14px * var(--fs));
+  }
+  .wxtmr > b { color: var(--chip-ink); }
+  .wxtmr .wxt { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .wxtmr .wc { margin-left: auto; }
+
+  /* 株価のカード（v1.50.0、CODE_TASK_14 ①）。1行目＝日付・上げ下げの数・保有の今日の損益、2行目以降＝目立つ動き */
+  .wstocks {
+    display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding: 10px 14px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--line); color: var(--ink); text-decoration: none;
+    font-size: calc(14px * var(--fs)); min-height: 44px;
+  }
+  .wsh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+  .wsh > span { color: var(--chip-ink); font-size: calc(13px * var(--fs)); }
+  .wsh .wsme { margin-left: auto; }
+  .wstocks b.up { color: var(--up); }
+  .wstocks b.down { color: var(--down); }
+  .wsm { display: flex; align-items: center; gap: 8px; }
+  .wsm > b:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wsm > span, .wsm > b:last-child { margin-left: auto; white-space: nowrap; }
+  .wsm > span { color: var(--chip-ink); font-size: calc(13px * var(--fs)); }
+  .stag {
+    flex: none; padding: 2px 7px; border-radius: 6px; font-style: normal; font-weight: 700;
+    font-size: calc(11.5px * var(--fs)); background: var(--chip-bg); color: var(--chip-ink);
+  }
+  .stag.lo { background: var(--stag-lo-bg); color: var(--stag-lo-ink); }
+  .stag.hi { background: var(--stag-hi-bg); color: var(--stag-hi-ink); }
+  .stag.up { color: var(--up); }       /* 灰色の地で 5.67・暗い 5.07 */
+  .stag.down { color: var(--down); }   /* 灰色の地で 5.87・暗い 7.77 */
 
   /* 記事の古さの区切り（NEWバッジとは役割が違う） */
   /* テーマの入口リンク（𝕏 情報局・TVer など） */
@@ -742,11 +836,52 @@
   }
   /* ［できた］は緑の塗りつぶし（HP が回復する色）。文字は地の色で、明るい 5.02・暗い 9.48 */
   .hbtn.go { min-width: 72px; border-color: var(--hp-ok); background: var(--hp-ok); color: var(--card); font-weight: 700; }
-  /* 新着が残っているときの上の1行（v1.45.1）。押すとホイミの画面に移る（v1.46.0）。
-     v1.47.0 から HP のゲージとレベルを並べる。文字が大きいときは折り返す */
-  .hoimi.hfold {
-    display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; width: 100%; min-height: 44px;
-    background: transparent; text-align: left; font-family: inherit; cursor: pointer;
+  /* 新着が残っているときの上のカード（v1.45.1 の1行を v1.50.0 でカードにした。CODE_TASK_14 ④）。
+     押すとホイミの画面に移る。薄い緑の地＋細い枠。グラデーションや動きは付けない */
+  .hoimi.hcard {
+    display: flex; flex-direction: column; gap: 10px; width: 100%; margin: 10px 0 4px; padding: 12px 14px;
+    border: 1px solid var(--hc-line); border-radius: 16px; background: var(--hc-bg); color: var(--ink);
+    text-align: left; font-family: inherit; font-size: calc(13px * var(--fs)); cursor: pointer;
+  }
+  .hcard .hctop { display: flex; align-items: center; gap: 12px; width: 100%; }
+  /* レベルの丸い札（金色） */
+  .hcard .hclv {
+    flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 48px; height: 48px; border-radius: 24px; border: 2px solid var(--k-lv);
+    background: var(--lv-bg); color: var(--lv-ink); line-height: 1;
+  }
+  .hcard .hclv small { font-size: calc(10px * var(--fs)); font-weight: 700; }
+  .hcard .hclv b { font-size: calc(18px * var(--fs)); font-weight: 800; }
+  .hcard .hcmid { display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; min-width: 0; border-radius: 6px; }
+  .hcard .hpc.ok { --hpc: var(--hp-ok); }
+  .hcard .hpc.mid { --hpc: var(--hp-mid); }
+  .hcard .hpc.low { --hpc: var(--hp-low); }
+  .hcard .hchp { color: var(--hpc); font-size: calc(15px * var(--fs)); font-weight: 700; white-space: nowrap; }
+  .hcard .hcbar { display: block; height: 12px; border-radius: 6px; background: var(--hc-bar); overflow: hidden; }
+  .hcard .hcbar i { display: block; height: 100%; border-radius: 6px; background: var(--hpc); transition: width .4s; }
+  .hcard .hcnext { color: var(--hc-ink2); font-size: calc(12px * var(--fs)); }
+  /* 右の「ホイミ」（カード全体が1つのボタンなので、これは見た目だけ。高さ44px） */
+  .hcard .hcgo {
+    flex: none; display: flex; align-items: center; min-height: 44px; padding: 0 16px; margin-left: auto;
+    border-radius: 999px; background: var(--hc-go-bg); color: var(--hc-go-ink);
+    font-size: calc(14px * var(--fs)); font-weight: 700;
+  }
+  .hcard .hcbot {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; width: 100%;
+    padding-top: 8px; border-top: 1px solid var(--hc-line); color: var(--hc-ink2);
+  }
+  .hcard .hcnx { min-width: 0; }
+  .hcard .hcnx b { color: var(--ink); }
+  .hcard.plain .hcnx { color: var(--hc-ink2); }
+  .hcard .hcdots { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; white-space: nowrap; }
+  .hcard .hcdots b { margin-left: 4px; color: var(--ink); }
+  /* 今日その組で1回でもできたら塗る、まだなら枠だけ（組の色は --kc） */
+  .hcard .hcdot { display: inline-block; width: 10px; height: 10px; border-radius: 5px; border: 2px solid var(--kc); }
+  .hcard .hcdot.on { background: var(--kc); }
+  .hcard .hcmid.lvup { animation: hpglow .6s ease-in-out 2; }
+  @media (prefers-reduced-motion: reduce) {
+    .hcard .hcmid.lvup { animation: none; }
+    .hcard .hcbar i { transition: none; }
   }
   #toggle-hoimi, #toggle-hp, #toggle-hoimi-work { white-space: nowrap; }   /* 設定の［出す］が「出／す」と折れないように */
   /* HP のゲージ（v1.47.0）。色はドラゴンクエストのように、51以上＝緑・26〜50＝橙・25以下＝赤。
@@ -838,14 +973,6 @@
     font-size: calc(12px * var(--fs)); font-weight: 700;
   }
   .topic-more small { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* 天気：短くまとめる */
-  .weather.compact { padding: 6px 10px; }
-  .weather.compact .wline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .weather.compact .wplace { margin: 0 4px 0 0; font-size: calc(11px * var(--fs)); }
-  .weather.compact .wday { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-  .weather.compact .wday b { color: var(--sub); font-weight: 700; }
-  .weather.compact .wsep { color: var(--line); }
-  .weather.compact .wstocks { margin-top: 3px; padding-top: 3px; }
   /* 開いたテーマの一番下：読み終えたらここで片づけて次へ */
   .mseen {
     width: 100%; min-height: 46px; margin: 4px 0 6px; border-radius: 10px; cursor: pointer;

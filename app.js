@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.49.0";
+const APP_VERSION = "v1.50.0";
 const CHANGELOG = [
+  ["v1.50.0", "2026-11-02", "上部を見直した。見出しの行に日付と更新時刻、天気は傘の一言・昨日や平年との差・時間帯の降水確率・明日の1行のカードに、株価は上げ下げの数・保有の今日の損益・利回り4%をまたいだ銘柄・大きく動いた銘柄のカードに、ホイミの行はレベル・HP・次の項目・今日できた組が見えるカードにした"],
   ["v1.49.0", "2026-10-31", "HP が片づけたときと長く読んだときにも減るようにした（開かずに既読にすると1本で1、1日30まで。記事から戻るまで1分ごとに1、開いたときの3と合わせて1本で10まで。30分以上たって戻ったら3だけ）。経験値は変えていない"],
   ["v1.48.0", "2026-10-31", "レベルが上がるとホイミのリストに項目が増えるようにした（Lv3 から3レベルごとに2つ、全部で17個。資料で確かめて選んだ）。増えた項目は5つ目として、場所や体調にあまりとらわれずに出す（4つ目の職場向けは今までどおり）。増えた日は5つ目に先に出して「新しく増えた」の札を付ける。「元に戻す」でレベルが下がったときは、増えた項目もいったん消え、もう一度上がるとまた知らせる"],
   ["v1.47.0", "2026-10-31", "ホイミに HP と経験値・レベルを足した（記事を開くと HP−3・ホイミで＋15、日付が変わると100に戻る。読む・見終える・ホイミで経験値。レベルは下がらない）。一覧は行を押すと［できた］が出る形にし、押し間違いで記録されないようにした。全部の項目に一言の説明を付け、職場向けの13個を4つ目として足した。ふり返りを棒グラフにし、［できた］のあとの言葉を10通りにした。「元に戻す」を5秒から15秒にした"],
@@ -931,22 +932,32 @@ function troubleRow(sources) {
   return h;
 }
 
+// 見出しの行（CODE_TASK_14 ②）。左に今日の日付（小さめ）と画面の名前、右に更新の時刻と何時間前か。
+// 以前は見出しの下に「更新: 2026-11-02 08:22（1時間前）」の行があった。朝刊・お気に入り・新着の画面で使う
+const WEEK_JA = "日月火水木金土";
+function headTop(title, generatedAt) {
+  const now = new Date();
+  const today = (now.getMonth() + 1) + "月" + now.getDate() + "日（" + WEEK_JA[now.getDay()] + "）";
+  return '<div class="headtop"><div class="htitle"><span class="hdate">' + today + "</span>"
+    + "<h1>" + title + "</h1></div>" + headUpdated(generatedAt) + "</div>";
+}
+
+// 右の「8:22 に更新」「1時間前」と小さな丸。丸はいつもは緑、12時間以上たったら橙。
+// 朝と昼の2回更新しているので、半日あいたら止まっている可能性がある（色だけに頼らず「13時間前」の文字も残す）。
+// 前の日以前の更新なら「11/1 19:55 に更新」のように日付も添える
 function headUpdated(generatedAt) {
   if (!generatedAt) return "";
   const m = String(generatedAt).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-  if (!m) return "更新: " + esc(generatedAt);
+  if (!m) return '<div class="hupd"><span>' + esc(generatedAt) + "</span></div>";
   const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
-  const hours = (Date.now() - d.getTime()) / 3600000;
-  let note = "";
-  if (hours >= 1) {
-    note = hours < 24
-      ? "（" + Math.floor(hours) + "時間前）"
-      : "（" + Math.floor(hours / 24) + "日前）";
-  }
-  // 朝と昼の2回更新しているので、半日あいたら止まっている可能性がある。
-  // 以前は2日たたないと色が変わらず、半日止まっても気づけなかった。
-  const stale = hours >= 12 ? " stale" : "";
-  return "更新: " + esc(generatedAt) + '<span class="age' + stale + '">' + note + "</span>";
+  const mins = (Date.now() - d.getTime()) / 60000;
+  const hours = mins / 60;
+  const when = (dayKey(d.getTime()) === dayKey(Date.now()) ? "" : (d.getMonth() + 1) + "/" + d.getDate() + " ")
+    + d.getHours() + ":" + pad2(d.getMinutes()) + " に更新";
+  const ago = mins < 1 ? "たった今" : mins < 60 ? Math.floor(mins) + "分前"
+    : hours < 24 ? Math.floor(hours) + "時間前" : Math.floor(hours / 24) + "日前";
+  return '<div class="hupd' + (hours >= 12 ? " stale" : "") + '">'
+    + '<span><i class="hdot"></i>' + when + '</span><span class="age">' + ago + "</span></div>";
 }
 
 // ---- 天気と株価 ------------------------------------------------------------
@@ -962,25 +973,127 @@ function popPart(d, hour, label) {
   return '<span class="wpop' + strong + '">' + label + " ☔" + v + "%</span>";
 }
 
-// 朝刊をトップに置いたので、天気は短くまとめる（以前は約160pxあり、朝刊を押し下げていた）。
-// 「今日 ☁ 25℃ ☔10%｜明日 ☔ 26/19℃ ☔30%」の1行と、株価の1行。
-// 降水確率は朝・夕の高いほう。詳しい予報文は長押しで出る（title）。
+// 天気のカード（CODE_TASK_14 ③。v1.49.0 までは「今日｜明日」の1行で、株価と同じ枠だった）。
+//   1段目：天気の絵・「水戸・今日」と天気の文・右に最高気温（大きく）と「昨日より ○℃」
+//   札　　：傘の一言（数字を読まなくても判断できるように）・平年との差
+//   2段目：今日のこれからの時間帯の降水確率（小さな棒と %）
+//   3段目：明日を1行（天気・最高/最低・傘の一言）
+// 予報の全文は今までどおり長押しで出る（title）。
+// 警報・注意報の札は入れていない：指示書の取り先（warning/{県}.json）は 2026-05-28 で更新が止まっていて、
+// 新しい形（warning/data/r8/）は番号と名前の対応を確かめられなかったため（利用者の決定 2026-11-02）
+const UMBRELLA_YES = 50, UMBRELLA_MAYBE = 30;   // 傘の一言の線（降水確率 %）
+const POP_SLOTS = [["00", "未明"], ["06", "朝"], ["12", "昼"], ["18", "夜"]];   // 気象庁の6時間ごとの区切り
+const TEMP_NOTE_MIN = 2;   // 昨日・平年との差がこれ以上（℃）のときだけ札を出す
+// その日に表示した最高気温（{"2026-11-01": 20, "2026-11-02": 18}。直近2日分）。
+// 気象庁の予報には昨日の値が無いので、「昨日より」は昨日この端末に出した予報と比べる
+const WX_MAX_KEY = "mynews_wx_max";
+
+function umbrellaWord(pop) {
+  return pop == null ? "" : pop >= UMBRELLA_YES ? "傘を持って" : pop >= UMBRELLA_MAYBE ? "折りたたみがあると安心" : "傘はいらない";
+}
+function umbrellaCls(pop) { return pop >= UMBRELLA_YES ? "rain" : pop >= UMBRELLA_MAYBE ? "" : "ok"; }
+function popOf(d, hour) {
+  const v = d.pops && d.pops[hour];
+  return v == null || v === "" || isNaN(Number(v)) ? null : Number(v);
+}
+// 今日の傘：06・12 時の区切りの高いほう。夕方の予報で朝・昼の区切りがもう無いときは、残っている区切りで見る
+function todayPop(d) {
+  let v = ["06", "12"].map(function (h) { return popOf(d, h); }).filter(function (x) { return x != null; });
+  if (!v.length) v = POP_SLOTS.map(function (s) { return popOf(d, s[0]); }).filter(function (x) { return x != null; });
+  return v.length ? Math.max.apply(null, v) : null;
+}
+// 明日の傘：最初に 50% 以上になる時間帯で「朝から傘」のように言う。無ければ今日と同じ言い方
+function tomorrowUmbrella(d) {
+  const hit = POP_SLOTS.filter(function (s) { const p = popOf(d, s[0]); return p != null && p >= UMBRELLA_YES; })[0];
+  if (hit) return { text: hit[1] + "から傘", cls: "rain" };
+  const v = POP_SLOTS.map(function (s) { return popOf(d, s[0]); }).filter(function (x) { return x != null; });
+  if (!v.length) return null;
+  const p = Math.max.apply(null, v);
+  return { text: umbrellaWord(p), cls: umbrellaCls(p) };
+}
+// 昨日この端末に出した最高気温と比べる（前の日の記録が無ければ null）。今日の分を覚えるのもここ
+function wxVsYesterday(date, max) {
+  let st = {};
+  try { st = JSON.parse(lsGet(WX_MAX_KEY, "{}") || "{}") || {}; } catch (e) { st = {}; }
+  if (typeof st !== "object" || Array.isArray(st)) st = {};
+  const y = new Date(date + "T12:00:00");
+  y.setDate(y.getDate() - 1);
+  const prev = st[dayKey(y.getTime())];
+  if (st[date] !== max) {
+    const keep = {};
+    keep[dayKey(y.getTime())] = prev;
+    keep[date] = max;
+    if (typeof prev !== "number") delete keep[dayKey(y.getTime())];
+    lsSet(WX_MAX_KEY, JSON.stringify(keep));
+  }
+  return typeof prev === "number" ? max - prev : null;
+}
+function tempNote(label, diff) {
+  if (diff == null || Math.abs(diff) < TEMP_NOTE_MIN) return "";
+  return label + "より " + Math.round(Math.abs(diff)) + "℃ " + (diff > 0 ? "高い" : "低い");
+}
+
 function weatherLine(w) {
   if (!w || !w.days || !w.days.length) return "";
-  const cells = w.days.slice(0, 2).map(function (d, i) {
-    const temp = d.max != null && d.min != null ? d.max + "/" + d.min + "℃"
-      : d.max != null ? d.max + "℃" : "";
-    const pops = [d.pops && d.pops["06"], d.pops && d.pops["12"]]
-      .filter(function (v) { return v != null; }).map(Number);
-    const pop = pops.length ? Math.max.apply(null, pops) : null;
-    return '<span class="wday" title="' + esc(d.text || d.short || "") + '"><b>' + (i === 0 ? "今日" : "明日") + "</b>"
-      + '<span class="wicon">' + (d.icon || "") + "</span>"
-      + (temp ? '<span class="wtemp">' + temp + "</span>" : "")
-      + (pop != null ? '<span class="wpop' + (pop >= 50 ? " strong" : "") + '">☔' + pop + "%</span>" : "")
-      + "</span>";
-  }).join('<span class="wsep">｜</span>');
-  return '<div class="weather compact"><div class="wline"><span class="wplace">' + esc(w.place || "") + "</span>"
-    + cells + "</div>" + stockStrip((window.NEWS_DATA || {}).stocks) + "</div>";
+  try {
+    // 古いデータ（前の日の分）を開いたときは、日付が今日の分を「今日」にする
+    const today = dayKey(Date.now());
+    let i = w.days.findIndex(function (d) { return d.date === today; });
+    const isToday = i >= 0;
+    if (i < 0) i = 0;
+    const d = w.days[i], t = w.days[i + 1];
+    const nowH = new Date().getHours();
+
+    // 1段目
+    const big = d.max != null ? '<b class="wxbig">' + d.max + "<small>℃</small></b>"
+      : d.min != null ? '<b class="wxbig"><small>最低 </small>' + d.min + "<small>℃</small></b>" : "";
+    const vsY = isToday && d.max != null ? wxVsYesterday(d.date, d.max) : null;
+    const yNote = tempNote("昨日", vsY);
+    let h = '<div class="wx" title="' + esc(d.text || d.short || "") + '">'
+      + '<div class="wxtop"><span class="wxicon">' + (d.icon || "") + "</span>"
+      + '<span class="wxmain"><small>' + esc(w.place || "") + "・" + (isToday ? "今日" : shortDate(d.date)) + "</small>"
+      + "<b>" + esc(d.short || d.text || "") + "</b></span>"
+      + '<span class="wxtemp">' + big
+      + (yNote ? '<small class="' + (vsY > 0 ? "up" : "down") + '">' + yNote + "</small>" : "") + "</span></div>";
+
+    // 札：傘・平年との差
+    const pop = todayPop(d);
+    const nNote = w.normal && d.max != null ? tempNote("平年", d.max - w.normal.max) : "";
+    const chips = (pop != null ? '<span class="wc ' + umbrellaCls(pop) + '">' + umbrellaWord(pop) + "</span>" : "")
+      + (nNote ? '<span class="wc">' + nNote + "</span>" : "");
+    if (chips) h += '<div class="wxchips">' + chips + "</div>";
+
+    // 2段目：今の時間帯とこれからの時間帯（今日の分。前の日のデータなら残っている区切りを全部）
+    const slots = POP_SLOTS.filter(function (s) {
+      return popOf(d, s[0]) != null && (!isToday || Number(s[0]) + 6 > nowH);
+    });
+    if (slots.length) {
+      h += '<div class="wxpops">' + slots.map(function (s) {
+        const p = popOf(d, s[0]);
+        return '<span class="wxp' + (p >= UMBRELLA_YES ? " strong" : "") + '">'
+          + "<small>" + s[1] + "</small>"
+          + '<span class="wxbar"><i style="height:' + Math.max(4, p) + '%"></i></span>'
+          + "<b>" + p + "%</b></span>";
+      }).join("") + "</div>";
+    }
+
+    // 3段目：明日
+    if (t) {
+      const temp = t.max != null && t.min != null ? t.max + "/" + t.min + "℃" : t.max != null ? t.max + "℃" : "";
+      const u = tomorrowUmbrella(t);
+      h += '<div class="wxtmr" title="' + esc(t.text || t.short || "") + '"><b>明日</b>'
+        + '<span class="wxicon s">' + (t.icon || "") + "</span>"
+        + '<span class="wxtx">' + esc(t.short || t.text || "") + "</span>"
+        + (temp ? '<span class="wxt">' + temp + "</span>" : "")
+        + (u ? '<span class="wc ' + u.cls + '">' + u.text + "</span>" : "") + "</div>";
+    }
+    return h + "</div>";
+  } catch (e) { return ""; }   // 天気で何かあっても、朝刊は止めない
+}
+// "2026-11-03" → "11/3"
+function shortDate(s) {
+  const m = String(s || "").match(/^\d{4}-(\d\d)-(\d\d)/);
+  return m ? Number(m[1]) + "/" + Number(m[2]) : "";
 }
 
 function weatherLineFull(w) {
@@ -1000,69 +1113,91 @@ function weatherLineFull(w) {
     + stockStrip((window.NEWS_DATA || {}).stocks) + "</div>";
 }
 
-// 天気の下に添える一行。株価そのものは最下部に置いたまま
-// （記事を優先したいというご指示のため）、朝のひと目だけここで済ませる。
+// 天気の下の株価のカード（CODE_TASK_14 ①。利用者が画面案の D「全体のようす＋目立つ動き」を選んだ）。
+// 株価そのものは最下部に置いたまま（記事を優先したいというご指示のため）、朝のひと目だけここで済ませる。
 // 押すと最下部のウォッチ銘柄ブロックへ飛ぶ。自動で横に流れる表示はしない。
-// 保有株を読み込んだ端末では「含み損益と取得利回りの合計」の行を出し、その下に3銘柄を添える。
-// 3銘柄は「利回りが10年で高い順」（CODE_TASK_08 ⑦。以前は feeds.json の先頭3銘柄で、選んだ意味が無かった）
-const STRIP_MAX = 3;   // 天気の下に並べる銘柄の数
-// 3銘柄の選び方：役割が高配当（この端末の札）で配当の記録がある銘柄を、
-// いまの利回りが10年の中で高い順（＝配当に比べて株価が安い順）に並べる。
-// 利回りの10年が無い銘柄は、指示書どおり表の上で選んでいる期間の中の株価の位置（安い順）で比べるが、
-// 2つの物差しを1つの順位に混ぜないよう、利回りの10年がある銘柄の後ろに回す（2026-10-24 の公開版では該当なし）
-function stripPicks(list) {
-  const cand = (list || []).filter(function (s) {
-    return roleOf(String(s.code || "").replace(/\.T$/, "")) === "div" && nowYield(s) != null;
-  });
-  const byDy = cand.filter(function (s) { return dyPosRaw(s) != null; })
-    .sort(function (a, b) { return dyPosRaw(b) - dyPosRaw(a); });
-  const byPrice = cand.filter(function (s) { return dyPosRaw(s) == null && spanPosRaw(s) != null; })
-    .sort(function (a, b) { return spanPosRaw(a) - spanPosRaw(b); });
-  return byDy.concat(byPrice).slice(0, STRIP_MAX);
+//   1行目（毎日）：値段の日付「10/31 終値」・上げと下げの銘柄の数・保有株を読み込んだ端末だけ今日の損益
+//   2行目以降　　：目立つ動きがある銘柄だけ、最大3つ（無い日は1行目だけ）
+// v1.49.0 までは「利回りが10年で高い3銘柄」を出していたが、10年の物差しはゆっくりしか動かず、
+// 顔ぶれが毎日ほぼ同じだった。含み損益・取得利回りの合計は最下部のウォッチ銘柄の表に任せた
+const STRIP_MAX = 3;          // 2行目以降に出す銘柄の数の上限
+// 利回りの目安の線（%）。役割が高配当の銘柄の利回りが、前の日はこれ未満で今日これ以上になったら
+// 「利回り4%超へ」、逆なら「利回り4%を下回る」。銘柄ごとの10年の位置ではなく、全銘柄で同じ線
+// （利用者の決定 2026-11-02「高利回りの目安4%で良いかもしれない。2%のは、そもそも高配当株じゃなさそう」）
+const STRIP_YIELD_LINE = 4;
+const STRIP_BIG_PCT = 3;      // 前日比がこれ以上（±%）なら「大きく上げ／大きく下げ」
+// 前の日の利回り。前の日の値段は「いまの株価 − 前日比」で出せる（端末に記録を足さずに判定できる）
+function prevYield(s) {
+  const p = Number(s.price) - Number(s.diff);
+  return typeof s.div === "number" && typeof s.diff === "number" && p > 0 ? s.div / p * 100 : null;
 }
-// 過去1年の配当の印（詳細の「1年ごとの配当」と同じ決め方）。
-// down＝前の年より減った（年の区切りが決算の年とずれるので、本当は減っていなくても出ることがある）、
-// bump＝前の年より3割以上多い（特別配当・記念配当なら、いまの利回りは高めに出ている）
-function divFlags(s) {
-  const ys = s.dyears || [];
-  if (ys.length < 2) return { down: false, bump: false };
-  const last = ys[ys.length - 1][1], before = ys[ys.length - 2][1];
-  return { down: before != null && last < before * DIV_DOWN, bump: before > 0 && last > DIV_BUMP * before };
+// 利回りが10年の中のどのあたりかを言葉で（「10年で上位1割」）。利回りの10年が無ければ ""
+function dyWords(s) {
+  const p = dyPosRaw(s);
+  if (p == null) return "";
+  if (p >= 100) return "10年で最も高い";
+  if (p <= 0) return "10年で最も低い";
+  return p >= 50 ? "10年で上位" + Math.max(1, Math.ceil((100 - p) / 10)) + "割"
+    : "10年で下位" + Math.max(1, Math.ceil(p / 10)) + "割";
+}
+// 目立つ動きの銘柄。並べる順：利回り4%超へ → 利回り4%を下回る → 前日比の大きさ順。
+// 同じ銘柄が2つに当てはまったら上のほうだけ
+function stripMoves(list) {
+  const out = [], seen = {};
+  const add = function (s, kind) {
+    if (seen[s.code]) return;
+    seen[s.code] = true;
+    out.push({ s: s, kind: kind });
+  };
+  const div = (list || []).filter(function (s) {
+    return roleOf(String(s.code || "").replace(/\.T$/, "")) === "div" && nowYield(s) != null && prevYield(s) != null;
+  });
+  div.forEach(function (s) { if (prevYield(s) < STRIP_YIELD_LINE && nowYield(s) >= STRIP_YIELD_LINE) add(s, "in"); });
+  div.forEach(function (s) { if (prevYield(s) >= STRIP_YIELD_LINE && nowYield(s) < STRIP_YIELD_LINE) add(s, "out"); });
+  (list || []).filter(function (s) { return typeof s.pct === "number" && Math.abs(s.pct) >= STRIP_BIG_PCT; })
+    .sort(function (a, b) { return Math.abs(b.pct) - Math.abs(a.pct); })
+    .forEach(function (s) { add(s, s.pct > 0 ? "up" : "down"); });
+  return out.slice(0, STRIP_MAX);
+}
+// 保有株の今日の損益（各銘柄の 株数×前日比 の合計）。保有株を読み込んでいなければ null
+function holdingToday() {
+  if (!HOLD) return null;
+  const watch = watchByCode();
+  let sum = null;
+  HOLD.items.forEach(function (h) {
+    const w = watch[h.code];
+    if (w && typeof w.diff === "number") sum = (sum || 0) + w.diff * h.qty;
+  });
+  return sum;
 }
 function stockStrip(list) {
-  const rows = holdingRows();
-  let h = "";
-  if (rows.length) {
-    const t = holdingTotals(rows);
-    // 長期保有・優待の札を付けた銘柄があれば、高配当だけの取得利回りを出す（札が無ければ全体と同じ）
-    const y = t.nOther ? t.yieldPctH : t.yieldPct;
-    h += '<span class="wrow"><span class="wst"><b>💼 含み損益</b>'
-      + fmtYen(t.pl, true) + '<i class="' + signCls(t.pl) + '">' + fmtPct(t.plPct, true) + "</i></span>"
-      + (y != null ? '<span class="wst"><b>取得利回り' + (t.nOther ? "（高配当）" : "") + "</b>" + fmtPct(y) + "</span>" : "")
-      + "</span>";
-  }
-  const picks = stripPicks(list);
-  if (picks.length) {
-    // 選んだ理由は前に1つだけ書く。全部が10年の中で上3分の1なら「高め」、そうでなければ並べた順だけを言う。
-    // 利回りの10年が無く株価の位置で選んだ銘柄には、その銘柄に理由（「1年の安値圏」など）を添える
-    const nDy = picks.filter(function (s) { return dyPosRaw(s) != null; }).length;
-    const high = nDy === picks.length && picks.every(function (s) { return dyPosRaw(s) > 200 / 3; });
-    const label = high ? "利回りが10年で高め" : nDy ? "利回りが10年で高い順" : "株価が期間内で安い順";
-    h += '<span class="wrow"><span class="wlb' + (high ? " z-lo" : "") + '">' + label + "</span>"
-      + picks.map(function (s) {
-        const f = divFlags(s);
-        let why = "";
-        if (dyPosRaw(s) == null) {
-          const z = zoneOf(Math.max(0, Math.min(100, spanPosRaw(s) * 100)));
-          why = '<i class="z-' + z + '">' + STOCK_SPAN + "年の" + ZONE_LABEL[z] + "</i>";
-        }
-        return '<span class="wst"><b>' + esc(s.name) + "</b>" + Number(s.price).toLocaleString("ja-JP") + why
-          + (f.down ? '<i class="down" title="過去1年の配当が前の年より減った">配当↓</i>' : "")
-          + (f.bump ? '<i title="過去1年の配当が前の年より3割以上多い（特別配当なら、利回りは高めに出ている）">＊</i>' : "")
-          + "</span>";
-      }).join("") + "</span>";
-  }
-  return h ? '<a class="wstocks" href="#stocks">' + h + "</a>" : "";
+  list = (list || []).filter(function (s) { return s && s.price != null; });
+  if (!list.length) return "";
+  const up = list.filter(function (s) { return Number(s.diff) > 0; }).length;
+  const down = list.filter(function (s) { return Number(s.diff) < 0; }).length;
+  // 値段の日付は、いちばん新しい取引日（銘柄ごとの at。v1.50.0 より前のデータには無いので、そのときは出さない）
+  const at = list.map(function (s) { return s.at || ""; }).sort().pop();
+  const today = holdingToday();
+  let h = '<span class="wsh"><b>株</b>' + (at ? "<span>" + shortDate(at) + " 終値</span>" : "")
+    + "<span>ウォッチ" + list.length + '　<b class="up">▲' + up + '</b>　<b class="down">▼' + down + "</b></span>"
+    + (today != null ? '<span class="wsme">保有 <b class="' + signCls(today) + '">' + fmtYen(today, true) + "</b></span>" : "")
+    + "</span>";
+  h += stripMoves(list).map(function (m) {
+    const s = m.s;
+    let tag, right;
+    if (m.kind === "in" || m.kind === "out") {
+      tag = m.kind === "in" ? '<i class="stag lo">利回り' + STRIP_YIELD_LINE + "%超へ</i>"
+        : '<i class="stag hi">利回り' + STRIP_YIELD_LINE + "%を下回る</i>";
+      const words = dyWords(s);
+      // 札に「利回り」とあるので、右は数字と位置だけ（銘柄名が「…」で切れにくいように）
+      right = "<span>" + nowYield(s).toFixed(1) + "%" + (words ? "・" + words : "") + "</span>";
+    } else {
+      tag = '<i class="stag ' + m.kind + '">大きく' + (m.kind === "up" ? "上げ" : "下げ") + "</i>";
+      right = '<b class="' + m.kind + '">' + (m.kind === "up" ? "▲" : "▼") + Math.abs(s.pct).toFixed(1) + "%</b>";
+    }
+    return '<span class="wsm">' + tag + "<b>" + esc(s.name) + "</b>" + right + "</span>";
+  }).join("");
+  return '<a class="wstocks" href="#stocks">' + h + "</a>";
 }
 
 // 保有している銘柄の行の下に添える1行（株数・取得単価・取得利回り・含み損益。この端末だけ）。
@@ -1565,7 +1700,7 @@ function toolbar(sources) {
       + "<li><b>朝刊と書庫</b>：一番上の<b>「今日の新着」</b>が朝刊です。見出しを見て、読むものは開き、"
       + "読まないものは<b>✓ 片づけ</b>（押したあと" + UNDO_SEC + "秒は戻せます）。ゼロになると「新着はすべて確認しました」と出ます。"
       + "行の順番は、朝刊の見出しの<b>↕ 並べ替え</b>で変えられます</li>"
-      + "<li><b>ホイミ</b>：「今日の新着」の上の<b>▸ ホイミ</b>を押すと、ホイミの画面に移ります。"
+      + "<li><b>ホイミ</b>：「今日の新着」の上の緑のカードを押すと、ホイミの画面に移ります。"
       + "1〜2分でできるひと休みが3つ（体・息と五感・頭と心から1つずつ）と職場向けの1つ、"
       + "Lv3 からはレベルで増えた1つ、ふり返り、全部の一覧が並びます。"
       + "できそうなものの<b>できた</b>を押すと記録し、今日まだやっていないものから次の組が出ます（何回でもできます。" + UNDO_SEC + "秒は戻せます）。"
@@ -1588,7 +1723,7 @@ function toolbar(sources) {
       + "<li>記事の<b>👍</b>は「この発信元をもっと」の印です（既読にしません）。"
       + "<b>👎</b>は「読まずに片づける」印です（発信元の評価には数えません）</li>"
       + "<li>見出しの<b>⚠</b>は、取得できなかった配信元がある印です</li>"
-      + "<li><b>保有株</b>：SBI証券のポートフォリオの CSV を読み込むと、天気の下に含み損益と取得利回り、"
+      + "<li><b>保有株</b>：SBI証券のポートフォリオの CSV を読み込むと、天気の下の株価のカードに今日の損益、"
       + "最下部のウォッチ銘柄に銘柄ごとの損益が出ます（株数・取得単価はこの端末だけに置き、公開されません）</li>"
       + "<li><b>⬇ 書き出す</b>は、この端末だけにある記録（既読・お気に入り・👍👎など）をファイルに保存します。"
       + "保有株は「保有株も入れる」を選んだときだけ入ります。"
@@ -1605,8 +1740,8 @@ function renderFavView(data) {
   const items = Object.keys(FAV).map(function (k) { return FAV[k]; })
     .sort(function (x, y) { return (y.saved_at || 0) - (x.saved_at || 0); });
 
-  const parts = ["<header><h1>★ お気に入り</h1>"
-    + '<div class="meta-head">' + headUpdated(data.generated_at)
+  const parts = ["<header>" + headTop("★ お気に入り", data.generated_at)
+    + '<div class="meta-head">'
     + '<button class="newcount on" type="button" id="fav-back">← 全部を見る</button>'
     + '<span class="unread">' + items.length + "件を保存中</span></div>"
     + toolbar(data.sources) + "</header>"];
@@ -3198,14 +3333,43 @@ function hoimiCard(inView) {
 // v1.47.0 から HP のゲージとレベルを並べる。ゲージが橙・赤になっても、呼びかけの文は出さず、
 // この1行がそのままホイミの入口になる（CODE_TASK_11 ④）。幅に収めるため「1〜2分のひと休み」は外した
 // （HP の表示を切ると元の1行に戻る）。
-// 新着が0件のときは呼ばない（「確認しました」の下に3つが出る）
+// 新着が0件のときは呼ばない（「確認しました」の下に3つが出る）。
+// v1.50.0 で点線の枠・灰色の文字の1行をやめ、薄い緑のカードにした（CODE_TASK_14 ④）。カード全体が1つのボタン：
+//   上の段：左にレベルの丸い札（金色）、真ん中に「HP 46 / 100」と太めのゲージと「次のレベルまで あと 38」、
+//           右に緑の「ホイミ」（カードの中で「ホイミ」と書くのはここ1か所だけ＝利用者の指示 11/2）
+//   下の段：「次は ○○」（今日の組で、まだ［できた］を押していない最初の項目）と、
+//           体・息と五感・頭と心・職場向けの4色の丸（今日その組で1回でもできたら塗る）と「今日 ○回」
+// HP・経験値を出さない設定では、レベル・HP・次のレベル・丸・回数を出さず、「次は…」と右の「ホイミ」だけ
+const HOIMI_DOT_KINDS = ["body", "sense", "mind", "work"];   // 下の段の丸（指示書どおり4色。レベルで増えた組は丸を持たない）
 function hoimiLine() {
   if (hoimiOff()) return "";
   try {
-    return '<button class="hoimi hfold" type="button" id="hoimi-open">'
-      + '<span class="hlabel">▸ ホイミ</span>'
-      + (hpOff() ? "<span>1〜2分のひと休み</span>" : hpGauge())
-      + '<span class="hn">今日 ' + hoimiCountToday() + "回</span></button>";
+    const st = hoimiToday();
+    const done = hoimiDoneIds();
+    const nextId = st.ids.filter(function (id) { return done.indexOf(id) < 0; })[0];
+    const next = '<span class="hcnx">' + (nextId ? "次は　<b>" + esc(hoimiName(nextId)) + "</b>" : "今日の組はすべてできました") + "</span>";
+    const go = '<span class="hcgo">ホイミ</span>';
+    if (hpOff()) {
+      return '<button class="hoimi hcard plain" type="button" id="hoimi-open"><span class="hctop">' + next + go + "</span></button>";
+    }
+    const s = hpState();
+    const kinds = {};
+    done.forEach(function (id) { kinds[hoimiKind(id)] = true; });
+    const dots = HOIMI_DOT_KINDS.map(function (k) {
+      return '<i class="hcdot' + (kinds[k] ? " on k-" + k : "") + '" style="--kc:var(--k-' + k + ')" title="'
+        + HOIMI_KIND_LABEL[k] + (kinds[k] ? "（今日できた）" : "") + '"></i>';
+    }).join("");
+    return '<button class="hoimi hcard" type="button" id="hoimi-open">'
+      + '<span class="hctop">'
+      + '<span class="hclv"><small>Lv</small><b>' + s.lv + "</b></span>"
+      + '<span class="hcmid hpc ' + hpTone(s.hp) + '">'
+      + '<span class="hchp">HP ' + s.hp + " / " + HP_RULE.max + "</span>"
+      + '<span class="hcbar"><i style="width:' + Math.round(s.hp / HP_RULE.max * 100) + '%"></i></span>'
+      + '<span class="hcnext">' + (s.need ? "次のレベルまで あと " + (s.need - s.into) : "いちばん上のレベルです") + "</span></span>"
+      + go + "</span>"
+      + '<span class="hcbot">' + next
+      + '<span class="hcdots">' + dots + "<b>今日" + hoimiCountToday() + "回</b></span></span>"
+      + "</button>";
   } catch (e) { return ""; }
 }
 
@@ -3428,6 +3592,9 @@ function hpPaint() {
   try {
     const html = hpGauge();
     [].slice.call(document.querySelectorAll(".hpg")).forEach(function (el) { el.outerHTML = html; });
+    // 朝刊・新着画面のホイミのカード（v1.50.0）は、カードごと描き直す
+    const card = hoimiLine();
+    [].slice.call(document.querySelectorAll(".hcard")).forEach(function (el) { if (card) el.outerHTML = card; });
   } catch (e) { /* 書き換えられなくても、次に描き直したときに直る */ }
 }
 
@@ -3471,7 +3638,7 @@ function hpShow(msg) {
     } else {
       toast(msg);
     }
-    [].slice.call(document.querySelectorAll(".hpg")).forEach(function (el) { el.classList.add("lvup"); });
+    [].slice.call(document.querySelectorAll(".hpg, .hcmid")).forEach(function (el) { el.classList.add("lvup"); });
   } catch (e) { /* 知らせられなくても続ける */ }
 }
 
@@ -3917,8 +4084,8 @@ function renderFreshView(data) {
   const blocks = freshBlocks();
   const total = blocks.reduce(function (n, b) { return n + b.items.length; }, 0);
 
-  const parts = ["<header><h1>⚡ 今日の新着</h1>"
-    + '<div class="meta-head">' + headUpdated(data.generated_at)
+  const parts = ["<header>" + headTop("⚡ 今日の新着", data.generated_at)
+    + '<div class="meta-head">'
     + '<button class="newcount on" type="button" id="show-fresh">← 書庫へ</button>'
     + '<span class="unread">' + total + "件</span>"
     + (total ? '<button class="tool-btn tidy-all" type="button" id="tidy-all-fresh">✓ 全部片づけ</button>' : "")
@@ -4105,9 +4272,10 @@ function render(data) {
     videoNew += (x.group.items || []).filter(isFresh).length;
   });
 
-  parts.push("<header><h1>📰 マイニュース</h1>"
-    + '<div class="meta-head">' + headUpdated(data.generated_at) + "</div>"
+  // 見出しの行に日付と更新時刻をまとめ、天気と株価は別々のカードにした（CODE_TASK_14 ①②③）
+  parts.push("<header>" + headTop("マイニュース", data.generated_at)
     + weatherLine(data.weather)
+    + stockStrip(data.stocks)
     + toolbar(data.sources) + "</header>");
   // 朝刊（きょうの新着）を一番上に。その下が書庫
   parts.push(morningEdition());
