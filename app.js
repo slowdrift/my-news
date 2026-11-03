@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.53.0";
+const APP_VERSION = "v1.54.0";
 const CHANGELOG = [
+  ["v1.54.0", "2026-11-03", "何もしなくても昼間は HP が減るようにした（9時から毎時0分に10、1日50まで＝何もしなければ13時に50）。ホイミで回復できる。経験値は変えていない"],
   ["v1.53.0", "2026-11-03", "スマホの戻るボタンで、ホイミ・読んだ記事・お気に入り・新着・発掘の画面から開く前の画面へ戻れるようにした。設定の記録の控えに前回の書き出し日を出すようにした。天気の絵を、文の最初に出てくる主な天気で選ぶようにした（「所により雨」で ☔ にならない）"],
   ["v1.52.0", "2026-11-03", "上部を低くした。天気の時間帯ごとの降水確率を縦の棒から「朝 20%」の横長の札1行に、株価のカードの見出しを「株価」「29銘柄中 ▲12 ▼17」に、ホイミのカードの「次は ○○」の段を外して丸と今日の回数を HP の行の右に移した"],
   ["v1.51.0", "2026-11-03", "ホイミの一覧で、使わない項目に印を付けられるようにした（行を押すと［できた］と［使わない］が出る）。印を付けた項目は今日の組にも次の組にも出ず、一覧のいちばん下の欄から戻せる。印の数だけ、その組の控え（20個）から項目が出てきて、使える数が保たれる。これまでの［できた］の記録は消さない"],
@@ -3561,6 +3562,13 @@ const HP_RULE = {
   readMin: 1,       // 戻るまでの1分ごとに、開いたときの分に足して減る
   readMax: 10,      // 開いたときの分と合わせた、1本あたりの上限（開いたまま別のアプリにいた時間を数えすぎないため）
   readAwayMax: 30,  // これ以上（分）離れていたら読んでいたとはみなさず、開いたときの分だけにする
+  // 何もしなくても昼間は少しずつ減らし、ホイミを促す（v1.54.0。利用者の依頼 2026-11-03「8時から17時までの間は
+  // 1時間ごとに10減る」）。timeFrom 時から1時間たつごとに（毎時0分）time 減る。1日 timeMax まで
+  // （−90 だと試算で午後が毎日下限に張りつき、色の意味がなくなるので50まで＝利用者の決定）
+  timeFrom: 8,      // この時刻から数え始める（最初に減るのは1時間後の9時）
+  timeTo: 17,       // この時刻を最後に減らさない
+  time: 10,         // 1時間ごとに減る
+  timeMax: 50,      // 時間で減る分の1日の上限（何もしなければ13時で止まる）
   hoimi: 15,        // ホイミの［できた］で増える
   mid: 50,          // これ以下で橙
   low: 25,          // これ以下で赤
@@ -3664,8 +3672,24 @@ function hpAwayEnd() {
   } catch (e) { /* 測れなくても、開いたときの分は減っている */ }
 }
 
-// 今日の HP。今日の「開いた」（−3）・長く読んだ分・開かずに既読（−1、1日30まで）と
-// ［できた］（＋15）を時刻順に当て、上下の端で止める
+// 今日、時間で減る分を [時刻, 減る数] の並びで返す（v1.54.0）。now の時刻までに来た分だけ
+function hpTimeMarks(now) {
+  const out = [];
+  const base = new Date(now);
+  let total = 0;
+  for (let h = HP_RULE.timeFrom + 1; h <= HP_RULE.timeTo; h++) {
+    const t = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, 0, 0).getTime();
+    if (t > now) break;
+    const d = Math.min(HP_RULE.time, HP_RULE.timeMax - total);
+    if (d <= 0) break;
+    total += d;
+    out.push([t, -d]);
+  }
+  return out;
+}
+
+// 今日の HP。今日の「開いた」（−3）・長く読んだ分・開かずに既読（−1、1日30まで）・
+// 時間の分（9時から毎時−10、1日50まで）と［できた］（＋15）を時刻順に当て、上下の端で止める
 function hpToday(now) {
   const day = dayKey(now);
   const ev = [];
@@ -3680,6 +3704,8 @@ function hpToday(now) {
     if (x && dayKey(r[0]) === day) ev.push([r[0], -x]);
   });
   loadHoimiLog().forEach(function (r) { if (dayKey(r[0]) === day) ev.push([r[0], HP_RULE.hoimi]); });
+  // 時間で減る分（v1.54.0）。今の時刻までに来た毎時0分だけ
+  hpTimeMarks(now).forEach(function (m) { ev.push(m); });
   ev.sort(function (a, b) { return a[0] - b[0]; });
   let hp = HP_RULE.max, cleared = 0;
   ev.forEach(function (e) {
@@ -5605,6 +5631,16 @@ try {
       window.scrollTo(0, 0);
     }
   });
+  // 開いたままでも、毎時0分に時間の分で HP が減ったら数字を書き換える（v1.54.0）。
+  // 1分ごとに数え直し、変わったときだけ書き換える（スマホが裏に回している間は止まるが、表に戻れば上で書き直す）
+  if (typeof setInterval === "function") {
+    let hpLast = hpToday(Date.now());
+    setInterval(function () {
+      if (document.visibilityState === "hidden") return;
+      const hp = hpToday(Date.now());
+      if (hp !== hpLast) { hpLast = hp; hpPaint(); }
+    }, 60000);
+  }
   // ※「最後に開いた時刻」の記録は上（NEW_BASE の算出直後）で済ませている。
   //   ここで更新すると、再読み込みのたびに基準が動いて NEW が消えてしまう。
   // 記録を読み込んで開き直した直後だけ、知らせを出す
