@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.51.0";
+const APP_VERSION = "v1.52.0";
 const CHANGELOG = [
+  ["v1.52.0", "2026-11-03", "上部を低くした。天気の時間帯ごとの降水確率を縦の棒から「朝 20%」の横長の札1行に、株価のカードの見出しを「株価」「29銘柄中 ▲12 ▼17」に、ホイミのカードの「次は ○○」の段を外して丸と今日の回数を HP の行の右に移した"],
   ["v1.51.0", "2026-11-03", "ホイミの一覧で、使わない項目に印を付けられるようにした（行を押すと［できた］と［使わない］が出る）。印を付けた項目は今日の組にも次の組にも出ず、一覧のいちばん下の欄から戻せる。印の数だけ、その組の控え（20個）から項目が出てきて、使える数が保たれる。これまでの［できた］の記録は消さない"],
   ["v1.50.0", "2026-11-02", "上部を見直した。見出しの行に日付と更新時刻、天気は傘の一言・昨日や平年との差・時間帯の降水確率・明日の1行のカードに、株価は上げ下げの数・保有の今日の損益・利回り4%をまたいだ銘柄・大きく動いた銘柄のカードに、ホイミの行はレベル・HP・次の項目・今日できた組が見えるカードにした"],
   ["v1.49.0", "2026-10-31", "HP が片づけたときと長く読んだときにも減るようにした（開かずに既読にすると1本で1、1日30まで。記事から戻るまで1分ごとに1、開いたときの3と合わせて1本で10まで。30分以上たって戻ったら3だけ）。経験値は変えていない"],
@@ -1065,6 +1066,8 @@ function weatherLine(w) {
     if (chips) h += '<div class="wxchips">' + chips + "</div>";
 
     // 2段目：今の時間帯とこれからの時間帯（今日の分。前の日のデータなら残っている区切りを全部）
+    // v1.52.0 で縦の棒（名前・棒・％の3段）をやめ、「朝 20%」の横長の札1行にした（利用者の依頼「もう少し低く」）。
+    // 割合は札の下の端の細い帯の長さで見せる（文字の下を塗ると、濃い色の上で文字が読みにくくなるため）
     const slots = POP_SLOTS.filter(function (s) {
       return popOf(d, s[0]) != null && (!isToday || Number(s[0]) + 6 > nowH);
     });
@@ -1072,9 +1075,8 @@ function weatherLine(w) {
       h += '<div class="wxpops">' + slots.map(function (s) {
         const p = popOf(d, s[0]);
         return '<span class="wxp' + (p >= UMBRELLA_YES ? " strong" : "") + '">'
-          + "<small>" + s[1] + "</small>"
-          + '<span class="wxbar"><i style="height:' + Math.max(4, p) + '%"></i></span>'
-          + "<b>" + p + "%</b></span>";
+          + "<small>" + s[1] + "</small><b>" + p + "%</b>"
+          + '<i class="wxfill" style="width:' + p + '%"></i></span>';
       }).join("") + "</div>";
     }
 
@@ -1179,8 +1181,9 @@ function stockStrip(list) {
   // 値段の日付は、いちばん新しい取引日（銘柄ごとの at。v1.50.0 より前のデータには無いので、そのときは出さない）
   const at = list.map(function (s) { return s.at || ""; }).sort().pop();
   const today = holdingToday();
-  let h = '<span class="wsh"><b>株</b>' + (at ? "<span>" + shortDate(at) + " 終値</span>" : "")
-    + "<span>ウォッチ" + list.length + '　<b class="up">▲' + up + '</b>　<b class="down">▼' + down + "</b></span>"
+  // 「株価」「29銘柄中 ▲12 ▼17」（v1.52.0 で「株」「ウォッチ29」から言い換えた。利用者の依頼）
+  let h = '<span class="wsh"><b>株価</b>' + (at ? "<span>" + shortDate(at) + " 終値</span>" : "")
+    + "<span>" + list.length + '銘柄中　<b class="up">▲' + up + '</b>　<b class="down">▼' + down + "</b></span>"
     + (today != null ? '<span class="wsme">保有 <b class="' + signCls(today) + '">' + fmtYen(today, true) + "</b></span>" : "")
     + "</span>";
   h += stripMoves(list).map(function (m) {
@@ -3466,9 +3469,10 @@ function hoimiCard(inView) {
 // v1.50.0 で点線の枠・灰色の文字の1行をやめ、薄い緑のカードにした（CODE_TASK_14 ④）。カード全体が1つのボタン：
 //   上の段：左にレベルの丸い札（金色）、真ん中に「HP 46 / 100」と太めのゲージと「次のレベルまで あと 38」、
 //           右に緑の「ホイミ」（カードの中で「ホイミ」と書くのはここ1か所だけ＝利用者の指示 11/2）
-//   下の段：「次は ○○」（今日の組で、まだ［できた］を押していない最初の項目）と、
-//           体・息と五感・頭と心・職場向けの4色の丸（今日その組で1回でもできたら塗る）と「今日 ○回」
-// HP・経験値を出さない設定では、レベル・HP・次のレベル・丸・回数を出さず、「次は…」と右の「ホイミ」だけ
+//   HP の数字の右：体・息と五感・頭と心・職場向けの4色の丸（今日その組で1回でもできたら塗る）と「今日 ○回」
+//   （v1.51.0 まで下の段にあった「次は ○○」は、利用者の判断「今の情報だと不要かも」で外した）
+// HP・経験値を出さない設定では、レベル・HP・次のレベル・丸・回数を出さず、「次は ○○」（今日の組で、まだ
+// ［できた］を押していない最初の項目）と右の「ホイミ」だけ（これを外すとカードの中身が無くなるので残した）
 const HOIMI_DOT_KINDS = ["body", "sense", "mind", "work"];   // 下の段の丸（指示書どおり4色。レベルで増えた組は丸を持たない）
 function hoimiLine() {
   if (hoimiOff()) return "";
@@ -3488,16 +3492,16 @@ function hoimiLine() {
       return '<i class="hcdot' + (kinds[k] ? " on k-" + k : "") + '" style="--kc:var(--k-' + k + ')" title="'
         + HOIMI_KIND_LABEL[k] + (kinds[k] ? "（今日できた）" : "") + '"></i>';
     }).join("");
+    // v1.52.0 で下の段（「次は ○○」）をなくし、丸と「今日 ○回」を HP の数字の行の右へ移した（カードを低くするため）
     return '<button class="hoimi hcard" type="button" id="hoimi-open">'
       + '<span class="hctop">'
       + '<span class="hclv"><small>Lv</small><b>' + s.lv + "</b></span>"
       + '<span class="hcmid hpc ' + hpTone(s.hp) + '">'
-      + '<span class="hchp">HP ' + s.hp + " / " + HP_RULE.max + "</span>"
+      + '<span class="hcrow"><span class="hchp">HP ' + s.hp + " / " + HP_RULE.max + "</span>"
+      + '<span class="hcdots">' + dots + "<b>今日" + hoimiCountToday() + "回</b></span></span>"
       + '<span class="hcbar"><i style="width:' + Math.round(s.hp / HP_RULE.max * 100) + '%"></i></span>'
       + '<span class="hcnext">' + (s.need ? "次のレベルまで あと " + (s.need - s.into) : "いちばん上のレベルです") + "</span></span>"
       + go + "</span>"
-      + '<span class="hcbot">' + next
-      + '<span class="hcdots">' + dots + "<b>今日" + hoimiCountToday() + "回</b></span></span>"
       + "</button>";
   } catch (e) { return ""; }
 }

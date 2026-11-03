@@ -373,17 +373,18 @@
   }
   .wc.ok { background: var(--stag-lo-bg); color: var(--stag-lo-ink); font-weight: 700; }
   .wc.rain { background: var(--rain-bg); color: var(--rain-ink); font-weight: 700; }
-  /* 時間帯の降水確率。棒の高さが % で、50%以上は濃い色 */
+  /* 時間帯の降水確率（v1.52.0 で縦の棒から横長の札1行に）。下の端の帯の長さが %、50%以上は濃い色。
+     文字は帯の上に重ねないので、コントラストは札の地（--chip-bg）の上のまま */
   .wxpops { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-  .wxp { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--chip-ink); font-size: calc(12px * var(--fs)); }
-  .wxp b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .wxp.strong b { color: var(--down); }
-  .wxbar {
-    display: flex; align-items: flex-end; width: 100%; height: 26px; border-radius: 6px;
-    background: var(--chip-bg); overflow: hidden;
+  .wxp {
+    position: relative; display: flex; align-items: baseline; justify-content: center; gap: 5px;
+    padding: 4px 4px 7px; border-radius: 8px; background: var(--chip-bg); overflow: hidden;
+    color: var(--chip-ink); font-size: calc(12px * var(--fs)); white-space: nowrap;
   }
-  .wxbar i { display: block; width: 100%; background: var(--pop); }
-  .wxp.strong .wxbar i { background: var(--down); }
+  .wxp b { color: var(--ink); font-size: calc(13px * var(--fs)); font-variant-numeric: tabular-nums; }
+  .wxp.strong b { color: var(--down); }
+  .wxfill { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--pop); }
+  .wxp.strong .wxfill { background: var(--down); }
   .wxtmr {
     display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding-top: 8px;
     border-top: 1px dashed var(--line); font-size: calc(14px * var(--fs));
@@ -866,14 +867,12 @@
     border-radius: 999px; background: var(--hc-go-bg); color: var(--hc-go-ink);
     font-size: calc(14px * var(--fs)); font-weight: 700;
   }
-  .hcard .hcbot {
-    display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; width: 100%;
-    padding-top: 8px; border-top: 1px solid var(--hc-line); color: var(--hc-ink2);
-  }
+  /* HP の数字と、右の丸・「今日 ○回」の行（v1.52.0 で下の段をなくしてここへ。幅が足りなければ折り返す） */
+  .hcard .hcrow { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; }
   .hcard .hcnx { min-width: 0; }
   .hcard .hcnx b { color: var(--ink); }
   .hcard.plain .hcnx { color: var(--hc-ink2); }
-  .hcard .hcdots { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; white-space: nowrap; }
+  .hcard .hcdots { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; white-space: nowrap; color: var(--hc-ink2); font-size: calc(12px * var(--fs)); }
   .hcard .hcdots b { margin-left: 4px; color: var(--ink); }
   /* 今日その組で1回でもできたら塗る、まだなら枠だけ（組の色は --kc） */
   .hcard .hcdot { display: inline-block; width: 10px; height: 10px; border-radius: 5px; border: 2px solid var(--kc); }
