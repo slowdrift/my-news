@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.52.0";
+const APP_VERSION = "v1.53.0";
 const CHANGELOG = [
+  ["v1.53.0", "2026-11-03", "スマホの戻るボタンで、ホイミ・読んだ記事・お気に入り・新着・発掘の画面から開く前の画面へ戻れるようにした。設定の記録の控えに前回の書き出し日を出すようにした。天気の絵を、文の最初に出てくる主な天気で選ぶようにした（「所により雨」で ☔ にならない）"],
   ["v1.52.0", "2026-11-03", "上部を低くした。天気の時間帯ごとの降水確率を縦の棒から「朝 20%」の横長の札1行に、株価のカードの見出しを「株価」「29銘柄中 ▲12 ▼17」に、ホイミのカードの「次は ○○」の段を外して丸と今日の回数を HP の行の右に移した"],
   ["v1.51.0", "2026-11-03", "ホイミの一覧で、使わない項目に印を付けられるようにした（行を押すと［できた］と［使わない］が出る）。印を付けた項目は今日の組にも次の組にも出ず、一覧のいちばん下の欄から戻せる。印の数だけ、その組の控え（20個）から項目が出てきて、使える数が保たれる。これまでの［できた］の記録は消さない"],
   ["v1.50.0", "2026-11-02", "上部を見直した。見出しの行に日付と更新時刻、天気は傘の一言・昨日や平年との差・時間帯の降水確率・明日の1行のカードに、株価は上げ下げの数・保有の今日の損益・利回り4%をまたいだ銘柄・大きく動いた銘柄のカードに、ホイミの行はレベル・HP・次の項目・今日できた組が見えるカードにした"],
@@ -1834,6 +1835,17 @@ function renderReadView(data) {
 const BACKUP_PREFIX = "mynews_";
 const BACKUP_FORMAT = 1;                       // ファイルの形の版。形を変えたら上げる
 const BEFORE_IMPORT_KEY = "mynews_beforeimport";  // sessionStorage：読み込む直前の控え
+// 最後に［⬇ 書き出す］を押した時刻（v1.53.0、CODE_TASK_16 ③）。設定に「前回の書き出し」として出すだけ
+const BACKUP_AT_KEY = "mynews_backup_at";
+
+// 「前回の書き出し：11/3（5日前）」。記録が無い端末では、まだ無いと書く
+function backupAtText() {
+  const at = Number(lsGet(BACKUP_AT_KEY, "0")) || 0;
+  if (!at) return "前回の書き出し：この端末ではまだ記録がありません";
+  const d = new Date(at), n = calDays(at, Date.now());
+  return "前回の書き出し：" + (d.getMonth() + 1) + "/" + d.getDate()
+    + "（" + (n <= 0 ? "今日" : n === 1 ? "昨日" : n + "日前") + "）";
+}
 const BACKUP_FILE_MAX = 20 * 1024 * 1024;      // これより大きいファイルは読まない（別物とみなす）
 let IMPORT_PREVIEW = null;   // 読み込もうとしているファイルの中身（確定前）
 
@@ -2053,9 +2065,18 @@ function backupFileName() {
 
 // ファイルとして保存させる（Android の Chrome では「ダウンロード」フォルダに入る）
 function downloadBackup(withHoldings) {
-  const text = JSON.stringify(buildBackup(withHoldings));
-  const blob = new Blob([text], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
+  // 押した時刻を先に覚える（ファイルにも入るので、読み込んだ端末でも「そのファイルの時点」が分かる）。
+  // ファイルが本当に保存されたかはアプリからは分からないので、押した時刻にしている
+  const prevAt = lsGet(BACKUP_AT_KEY, "");
+  lsSet(BACKUP_AT_KEY, String(Date.now()));
+  let text, url;
+  try {
+    text = JSON.stringify(buildBackup(withHoldings));
+    url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  } catch (e) {
+    lsSet(BACKUP_AT_KEY, prevAt);   // ファイルを作れなかったら、前回の書き出し日は元のまま
+    throw e;
+  }
   const a = document.createElement("a");
   a.href = url;
   a.download = backupFileName();
@@ -2156,7 +2177,8 @@ function backupRow() {
   const since = READLOG.length ? READLOG[0][0] : 0;
   let h = '<div class="srow backup"><span>記録の控え（機種変更・分析用）'
     + "<small>既読 約" + c.read + "件・お気に入り " + c.fav + "件・読み方の記録 " + c.log + "件"
-    + (since ? "（" + dayLabel(since) + "から）" : "") + "</small></span>"
+    + (since ? "（" + dayLabel(since) + "から）" : "") + "</small>"
+    + "<small>" + esc(backupAtText()) + "</small></span>"
     + '<button class="tool-btn" type="button" id="backup-export">⬇ 書き出す</button>'
     + '<button class="tool-btn" type="button" id="backup-import">⬆ 読み込む</button>'
     // 毎回外れた状態から始める（分析のために渡すファイルへ、うっかり金額を入れないため）
@@ -4597,6 +4619,60 @@ function markGroupRead(items) {
   });
 }
 
+// ---- スマホの戻るボタン（v1.53.0、CODE_TASK_16 ②）--------------------------
+// ホイミ・読んだ記事・お気に入り・新着・発掘の画面に入るとき、ブラウザの履歴に印を1つ置く。
+// 戻るボタンを押すと印が外れて popstate が起きるので、そこで今の画面を閉じる（開く前の画面へ戻る）。
+// 画面どうしを切り替えたとき（新着→発掘など）は印を増やさず置き換える（戻る1回で朝刊へ）。
+// ホイミだけは上に重ねて開くので印を増やす（新着画面から開けば、戻ると新着画面）。
+// 印が無いとき（お気に入りを開いたまま読み込み直した等）は今までどおり、戻るとアプリの外へ出る。
+function subScreen() {
+  return SHOW_READ ? "read" : SHOW_FAV ? "fav" : SHOW_FRESH ? "fresh" : SHOW_FOUND ? "found" : "";
+}
+
+// 画面に入った直後に呼ぶ。was … 切り替える前に開いていた画面（subScreen() の値）
+function navEnter(was) {
+  try {
+    if (was) history.replaceState({ mynewsSub: true }, "");
+    else history.pushState({ mynewsSub: true }, "");
+  } catch (e) { /* 履歴を使えない開き方でも、画面の上のボタンで戻れる */ }
+}
+
+// 画面の上の［← 戻る］などで閉じるとき。印があれば戻るボタンと同じ道（popstate）を通し、
+// 無ければその場で閉じる（履歴に印が残ると、次の戻るボタンが空振りするため）
+function navLeave() {
+  if (history.state && history.state.mynewsSub) { history.back(); return; }
+  navCloseTop();
+}
+
+// 今いちばん上に見えている画面を閉じる（render() の振り分けと同じ順）。閉じた画面が無ければ false
+function navCloseTop() {
+  if (SHOW_HOIMI) {
+    SHOW_HOIMI = false;
+    HOIMI_PICKED = "";
+    rerender();
+    window.scrollTo(0, HOIMI_BACK_Y);   // 開く前に見ていた位置へ
+    return true;
+  }
+  if (SHOW_READ) { SHOW_READ = false; rerender(); window.scrollTo(0, 0); return true; }
+  if (SHOW_FAV) { SHOW_FAV = false; lsSet(SHOWFAV_KEY, "0"); rerender(); window.scrollTo(0, 0); return true; }
+  if (SHOW_FRESH) { SHOW_FRESH = false; rerender(); return true; }
+  if (SHOW_FOUND) { SHOW_FOUND = false; rerender(); window.scrollTo(0, 0); return true; }
+  return false;
+}
+
+// ブラウザが戻るときに自分でスクロール位置を戻す働きを止める。止めないと、ホイミから戻ったときに
+// アプリが合わせた「開く前の位置」を、印を置いた瞬間の位置（一番上）で上書きされる（アプリの中のブラウザで確認）。
+// 読み込み直したときの位置は、もとからアプリが自分で戻している（ssGet().y）
+try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch (e) { /* 何もしない */ }
+
+window.addEventListener("popstate", function () {
+  // 閉じる画面が無いのに印が残っていた（別の操作で画面を閉じた・読み込み直した）ときは、
+  // もう1つ戻って、戻るボタン1回でアプリの外へ出られるようにする
+  if (!navCloseTop()) {
+    try { history.back(); } catch (e) { /* 何もしない */ }
+  }
+});
+
 // ---- 操作 ---------------------------------------------------------------
 
 APP.addEventListener("click", function (ev) {
@@ -4799,14 +4875,12 @@ APP.addEventListener("click", function (ev) {
     HOIMI_PICKED = "";
     rerender();
     window.scrollTo(0, 0);
+    navEnter("");   // ほかの画面の上に重ねて開くので、いつも印を増やす
     return;
   }
-  // ホイミの画面から戻る（開く前に見ていた位置へ）
+  // ホイミの画面から戻る（開く前に見ていた位置へ。戻るボタンと同じ道を通す）
   if (ev.target.closest("#hoimi-back")) {
-    SHOW_HOIMI = false;
-    HOIMI_PICKED = "";
-    rerender();
-    window.scrollTo(0, HOIMI_BACK_Y);
+    navLeave();
     return;
   }
   // ホイミの一覧：行を押すと、その行の中に［できた］を出す（もう一度押すと閉じる。開くのは1行だけ）。
@@ -4961,17 +5035,17 @@ APP.addEventListener("click", function (ev) {
   }
   // お気に入り画面から戻る
   if (ev.target.closest("#fav-back")) {
-    SHOW_FAV = false;
-    lsSet(SHOWFAV_KEY, "0");
-    rerender();
-    window.scrollTo(0, 0);
+    navLeave();
     return;
   }
-  // 「きょうの新着だけ」の切り替え
+  // 「きょうの新着だけ」の切り替え（閉じるときは戻るボタンと同じ道を通す）
   if (ev.target.closest("#show-fresh")) {
-    SHOW_FRESH = !SHOW_FRESH;
-    if (SHOW_FRESH) SHOW_FOUND = false;
+    if (SHOW_FRESH) { navLeave(); return; }
+    const was = subScreen();
+    SHOW_FRESH = true;
+    SHOW_FOUND = false;
     rerender();
+    navEnter(was);
     return;
   }
   const foundSpan = ev.target.closest("[data-found-span]");
@@ -4981,14 +5055,15 @@ APP.addEventListener("click", function (ev) {
     return;
   }
   if (ev.target.closest("#show-found")) {
-    SHOW_FOUND = !SHOW_FOUND;
-    if (SHOW_FOUND) {
-      SHOW_FRESH = false; SHOW_FAV = false;
-      // 開いたときはいつも1週間分（v1.42.0 までは、きょうの分があれば「きょう」。CODE_TASK_08 ②）
-      FOUND_TODAY = false;
-    }
+    if (SHOW_FOUND) { navLeave(); return; }
+    const was = subScreen();
+    SHOW_FOUND = true;
+    SHOW_FRESH = false; SHOW_FAV = false;
+    // 開いたときはいつも1週間分（v1.42.0 までは、きょうの分があれば「きょう」。CODE_TASK_08 ②）
+    FOUND_TODAY = false;
     rerender();
     window.scrollTo(0, 0);
+    navEnter(was);
     return;
   }
   // ウォッチ銘柄の高値・安値の期間（1・3・5・10年）。全銘柄いっしょに替わる。端末には覚えさせない
@@ -5073,15 +5148,15 @@ APP.addEventListener("click", function (ev) {
   }
   // 読んだ記事の一覧
   if (ev.target.closest("#show-read")) {
+    const was = subScreen();
     SHOW_READ = true; SEARCH_OPEN = false; SEARCH = ""; SHOW_FAV = false;
     rerender();
     window.scrollTo(0, 0);
+    navEnter(was);
     return;
   }
   if (ev.target.closest("#read-back")) {
-    SHOW_READ = false;
-    rerender();
-    window.scrollTo(0, 0);
+    navLeave();
     return;
   }
   // テーマの並べ替え
@@ -5171,6 +5246,7 @@ APP.addEventListener("click", function (ev) {
     try {
       const opt = document.getElementById("backup-hold");
       const size = downloadBackup(!!(opt && opt.checked));
+      rerender();   // 「前回の書き出し」をすぐ今日にする
       toast("書き出しました（" + Math.max(1, Math.round(size / 1024)) + "KB"
         + (opt && opt.checked ? "・保有株を含む" : "") + "）");
     } catch (e) {
@@ -5218,11 +5294,14 @@ APP.addEventListener("click", function (ev) {
   }
   // 「お気に入りだけ表示」の切り替え
   if (ev.target.closest("#toggle-fav")) {
-    SHOW_FAV = !SHOW_FAV;
-    if (SHOW_FAV) SHOW_FRESH = false;
-    lsSet(SHOWFAV_KEY, SHOW_FAV ? "1" : "0");
+    if (SHOW_FAV) { navLeave(); return; }   // 閉じるときは戻るボタンと同じ道を通す
+    const was = subScreen();
+    SHOW_FAV = true;
+    SHOW_FRESH = false;
+    lsSet(SHOWFAV_KEY, "1");
     rerender();
     window.scrollTo(0, 0);
+    navEnter(was);
     return;
   }
   // 「既読も表示」の切り替え

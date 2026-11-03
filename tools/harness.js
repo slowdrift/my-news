@@ -16,6 +16,7 @@
 //                   __click(選択子, dataset) … ボタンを押す（例: __click(".more-btn", {older: "本田圭佑"})）
 //                   __undo()             … 最後に出た知らせの「元に戻す」を押す
 //                   __loadError          … 読み込み時のエラー（無ければ null）
+//                   __back()             … スマホの戻るボタンを押す（__HIST.stack が履歴、__HIST.out がアプリの外へ出た回数）
 //                   ほかに app.js の関数（isNew, isFresh, searchHits …）もそのまま呼べる。
 //
 // 例（公開版を30日使った人が朝に開いた状態で、カードの枚数を数える）:
@@ -104,6 +105,24 @@ const ctx = {
   navigator: { userAgent: "Android" },
 };
 ctx.window = ctx;
+// スマホの戻るボタンの代わり（v1.53.0）。履歴を配列で持ち、__back() で1つ戻して popstate を起こす。
+// HIST.out は「アプリの外へ出た」回数（印の無いところで戻った）
+const WIN_LISTENERS = {};
+ctx.addEventListener = function (type, fn) { (WIN_LISTENERS[type] = WIN_LISTENERS[type] || []).push(fn); };
+const HIST = { stack: [null], out: 0 };
+ctx.history = {
+  get state() { return HIST.stack[HIST.stack.length - 1]; },
+  pushState(s) { HIST.stack.push(s); },
+  replaceState(s) { HIST.stack[HIST.stack.length - 1] = s; },
+  // 本物の history.back() は後から popstate を起こすが、ここではその場で起こす
+  back() { ctx.__back(); },
+};
+ctx.__back = function () {
+  if (HIST.stack.length <= 1) { HIST.out += 1; return; }
+  HIST.stack.pop();
+  (WIN_LISTENERS.popstate || []).forEach(fn => fn({ state: ctx.history.state }));
+};
+ctx.__HIST = HIST;
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(dataPath, "utf8"), ctx);
 

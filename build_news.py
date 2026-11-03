@@ -1433,20 +1433,17 @@ def weather_icon(text: str) -> str:
     """天気の文章から絵文字を選ぶ。
 
     気象庁は時間帯別の天気を出していないので、アイコンは1日単位。
-    「くもり時々雨」のように複数入るため、影響の大きいものから順に見る。
+    文の最初に出てくる天気（その日の主な天気）で選ぶ（v1.53.0、CODE_TASK_16 ⑥）。
+    v1.52.0 までは「雨」が1字でもあれば☔にしていて、「くもり時々晴れ所により夜遅く雨」
+    （降水確率20%）でも☔と「傘はいらない」が並んでいた。「所により」より後ろは
+    狭い範囲の話なので見ない。雨の心配は、降水確率から決める傘の札が受け持つ。
     """
-    t = text or ""
-    if "雪" in t:
-        return "❄️"
-    if "雷" in t:
-        return "⛈"
-    if "雨" in t:
-        return "☔"
-    if "くもり" in t or "曇" in t:
-        return "☁️"
-    if "晴" in t:
-        return "☀️"
-    return "🌤"
+    t = (text or "").split("所により")[0]
+    icons = [("雪", "❄️"), ("雷", "⛈"), ("雨", "☔"), ("くもり", "☁️"), ("曇", "☁️"), ("晴", "☀️")]
+    found = [(t.find(w), icon) for w, icon in icons if w in t]
+    if not found:
+        return "🌤"
+    return min(found)[1]   # いちばん前に出てくる天気
 
 
 def fetch_weather(cfg):
