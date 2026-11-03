@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.50.0";
+const APP_VERSION = "v1.51.0";
 const CHANGELOG = [
+  ["v1.51.0", "2026-11-03", "ホイミの一覧で、使わない項目に印を付けられるようにした（行を押すと［できた］と［使わない］が出る）。印を付けた項目は今日の組にも次の組にも出ず、一覧のいちばん下の欄から戻せる。印の数だけ、その組の控え（20個）から項目が出てきて、使える数が保たれる。これまでの［できた］の記録は消さない"],
   ["v1.50.0", "2026-11-02", "上部を見直した。見出しの行に日付と更新時刻、天気は傘の一言・昨日や平年との差・時間帯の降水確率・明日の1行のカードに、株価は上げ下げの数・保有の今日の損益・利回り4%をまたいだ銘柄・大きく動いた銘柄のカードに、ホイミの行はレベル・HP・次の項目・今日できた組が見えるカードにした"],
   ["v1.49.0", "2026-10-31", "HP が片づけたときと長く読んだときにも減るようにした（開かずに既読にすると1本で1、1日30まで。記事から戻るまで1分ごとに1、開いたときの3と合わせて1本で10まで。30分以上たって戻ったら3だけ）。経験値は変えていない"],
   ["v1.48.0", "2026-10-31", "レベルが上がるとホイミのリストに項目が増えるようにした（Lv3 から3レベルごとに2つ、全部で17個。資料で確かめて選んだ）。増えた項目は5つ目として、場所や体調にあまりとらわれずに出す（4つ目の職場向けは今までどおり）。増えた日は5つ目に先に出して「新しく増えた」の札を付ける。「元に戻す」でレベルが下がったときは、増えた項目もいったん消え、もう一度上がるとまた知らせる"],
@@ -1704,6 +1705,7 @@ function toolbar(sources) {
       + "1〜2分でできるひと休みが3つ（体・息と五感・頭と心から1つずつ）と職場向けの1つ、"
       + "Lv3 からはレベルで増えた1つ、ふり返り、全部の一覧が並びます。"
       + "できそうなものの<b>できた</b>を押すと記録し、今日まだやっていないものから次の組が出ます（何回でもできます。" + UNDO_SEC + "秒は戻せます）。"
+      + "使わない項目は、一覧の行を押して<b>使わない</b>を押すと出なくなり、控えから別の項目が補われます（一覧のいちばん下から戻せます）。"
       + "<b>ほかの○つにする</b>で入れ替えられます。"
       + "一覧の項目は、押すと<b>できた</b>が出て、それを押すと記録します。"
       + "新着をすべて確認したときは、その下に出ます。"
@@ -2987,7 +2989,39 @@ const HOIMI_ITEMS = [
   ["l16", "目に入る文字を1語ずつ心で読む", "lvup", "掲示や本の題などを、ゆっくり"],
   ["l17", "場所と日付を確かめる", "lvup", "「ここは○○、今日は○月○日、季節は○」と心の中で言う"],
 ];
-const HOIMI_KEY = "mynews_hoimi";          // { day: "2026-10-29", ids: [今日出している3〜5つ（組の順）], skip: [今日替えた項目] }
+// 控え（v1.51.0、CODE_TASK_15）。使わない項目に印を付けると、その組の印の数だけ、ここから並び順に先頭から使える。
+// 利用者の要望（11/2）「使わないコーピングを整理したい。抜けたら補充して、安定するまでは100個にする」。
+// 形は HOIMI_ITEMS と同じ [番号, 名前, 組, 説明]。中身は Claude の案（指示書の20個）。
+// x17・x20 は指示書の案が今ある項目とほぼ同じだった（i04s「1分だけ目を閉じて座る」・w04「額・あご・肩の力を順に抜く」）ので、
+// 差し替えた（利用者の決定 2026-11-03。最初の差し替え案も i57s・h03 と重なっていたので選び直した）。
+// x14 も i21s「好きな歌を口ずさむ」と似ていたので、利用者の「べつのやつ」で差し替えた。
+// 足すときは、HOIMI_ITEMS と控えの名前を全部並べて重なりを確かめる（言葉の一部で探すと見落とす）。レベルで増える組は控えを持たない（レベルごとに増える仕組みと混ざるため）。
+// 100個より増やすのは、利用者が「安定した」と判断してから（そのときは HOIMI_ITEMS に足す）
+const HOIMI_SPARE = [
+  ["x01", "かかとの上げ下げを10回", "body", "つま先立ちになり、ゆっくり下ろす"],
+  ["x02", "足首を回す", "body", "座ったまま片足ずつ、5回ずつゆっくり"],
+  ["x03", "腕を前後に大きく振る", "body", "肩の力を抜いて、10回"],
+  ["x04", "首の後ろを温める", "body", "温かい手やタオルを首の後ろに当てる"],
+  ["x05", "顔をやさしくもむ", "body", "こめかみ・ほお・あごを、指先で円を描くように"],
+  ["x06", "外の緑を3つ探す", "sense", "木や草など、緑のものを見つける"],
+  ["x07", "手ざわりのよい物にふれる", "sense", "タオルや服の生地を、指先で感じる"],
+  ["x08", "明かりを少し落とす", "sense", "まぶしさを減らして、目を休める"],
+  ["x09", "ゆっくり5回まばたきする", "sense", "目を閉じている時間を長めにする"],
+  ["x10", "うがいをていねいに", "sense", "口の中がさっぱりする感じを味わう"],
+  ["x11", "好きなものを5つ挙げる", "mind", "食べ物・場所・音楽など、思いつくまま"],
+  ["x12", "最近笑ったことを思い出す", "mind", "場面をなるべく細かく"],
+  ["x13", "子どものころの楽しい思い出を1つ", "mind", "そのときの景色や音も思い出す"],
+  ["x14", "ことわざを3つ思い出す", "mind", "意味も一緒に思い浮かべる"],
+  ["x15", "なぞなぞを1問考える", "mind", "頭を別のことに向ける"],
+  ["x16", "立ち上がって椅子のまわりを1周", "work", "席を立つだけでも区切りになる"],
+  ["x17", "階段を1階分だけ上り下りする", "work", "エレベーターの代わりに、ゆっくり"],
+  ["x18", "手首を回してほぐす", "work", "キーボードやマウスで固まった手首を"],
+  ["x19", "少し遠回りして歩く", "work", "トイレや給湯室まで、いつもと違う道で"],
+  ["x20", "目を上下左右にゆっくり動かす", "work", "画面を見続けて固まった目をほぐす"],
+];
+// 「使わない」の印を付けた項目の番号（v1.51.0）。[番号, …]。印の数から控えを毎回数え直すので、控えの記録は持たない
+const HOIMI_DROP_KEY = "mynews_hoimi_drop";
+const HOIMI_KEY ="mynews_hoimi";          // { day: "2026-10-29", ids: [今日出している3〜5つ（組の順）], skip: [今日替えた項目] }
 // レベルが上がって増えた項目（v1.48.0）。{ ids: [増えた項目], day: 初めて見せた日（まだなら ""） }。
 // 初めて見せた日のうちは、5つ目にこの項目を先に出し「新しく増えた」の札を付ける
 const HOIMI_NEW_KEY = "mynews_hoimi_new";
@@ -3029,19 +3063,52 @@ function calDays(from, to) {
     - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
 }
 
+// 番号から項目を引く。控えも引く（控えを引っ込めたあとも、ふり返りで名前と組を数えられるように）
+function hoimiFind(id) {
+  const same = function (x) { return x[0] === id; };
+  return HOIMI_ITEMS.find(same) || HOIMI_SPARE.find(same) || null;
+}
+
 function hoimiName(id) {
-  const it = HOIMI_ITEMS.find(function (x) { return x[0] === id; });
+  const it = hoimiFind(id);
   return it ? it[1] : "";
 }
 
 function hoimiKind(id) {
-  const it = HOIMI_ITEMS.find(function (x) { return x[0] === id; });
+  const it = hoimiFind(id);
   return it ? it[2] : "";
 }
 
 function hoimiDesc(id) {
-  const it = HOIMI_ITEMS.find(function (x) { return x[0] === id; });
+  const it = hoimiFind(id);
   return it ? it[3] || "" : "";
+}
+
+function hoimiIsSpare(id) { return HOIMI_SPARE.some(function (x) { return x[0] === id; }); }
+
+// ---- 使わない印と控え（v1.51.0、CODE_TASK_15）--------------------------------
+// 印の記録（壊れていたり、知らない番号があったりしたら外す）
+function hoimiDropLoad() {
+  try {
+    const v = JSON.parse(lsGet(HOIMI_DROP_KEY, "[]") || "[]");
+    if (!Array.isArray(v)) return [];
+    return v.filter(function (id, i) { return typeof id === "string" && hoimiFind(id) && v.indexOf(id) === i; });
+  } catch (e) { return []; }
+}
+function hoimiDropSave(ids) { lsSet(HOIMI_DROP_KEY, JSON.stringify(ids)); }
+
+// その組で使える控え（印の数だけ、並び順に先頭から）。控えに付けた印も数えるので、出てきた控えに印を付けると次の控えが出る
+function hoimiSpareOut(kind, drops) {
+  drops = drops || hoimiDropLoad();
+  const n = drops.filter(function (id) { return hoimiKind(id) === kind; }).length;
+  return HOIMI_SPARE.filter(function (x) { return x[2] === kind; }).slice(0, n);
+}
+// 組ごとの控えの数字（設定に出す）：使った数・残り・補充できなかった数
+function hoimiSpareInfo(kind, drops) {
+  drops = drops || hoimiDropLoad();
+  const all = HOIMI_SPARE.filter(function (x) { return x[2] === kind; }).length;
+  const n = drops.filter(function (id) { return hoimiKind(id) === kind; }).length;
+  return { used: Math.min(n, all), left: Math.max(all - n, 0), short: Math.max(n - all, 0) };
 }
 
 function hoimiOff() { return lsGet(HOIMI_OFF_KEY, "0") === "1"; }
@@ -3071,17 +3138,67 @@ function hoimiUnlocked(lv) {
   return hoimiLvItems().filter(function (x) { return hoimiLvOf(x[0]) <= lv; }).map(function (x) { return x[0]; });
 }
 
-// 1つの組の項目。増える組は、今使える分だけ
+// 1つの組の項目。増える組は、今使える分だけ。
+// v1.51.0 から、使わない印の付いた項目を外し、その数だけ控えを後ろに足す（増える組は控えを持たない）。
+// 今日の組・次の組・ほかの○つにする・一覧は、すべてここを通るので、印の付いた項目はどこにも出ない
 function hoimiItemsOf(kind, open) {
-  const all = HOIMI_ITEMS.filter(function (x) { return x[2] === kind; });
-  if (kind !== HOIMI_LV) return all;
-  open = open || hoimiUnlocked();
-  return all.filter(function (x) { return open.indexOf(x[0]) >= 0; });
+  const drops = hoimiDropLoad();
+  let all = HOIMI_ITEMS.filter(function (x) { return x[2] === kind; });
+  if (kind === HOIMI_LV) {
+    open = open || hoimiUnlocked();
+    all = all.filter(function (x) { return open.indexOf(x[0]) >= 0; });
+  } else {
+    all = all.concat(hoimiSpareOut(kind, drops));
+  }
+  return all.filter(function (x) { return drops.indexOf(x[0]) < 0; });
 }
 
-// 今使える項目の数（83＋増えた数）。一覧の見出しと、ふり返りの「今月使った種類」の分母
+// 今使える項目の数（印を付けた分を除き、控えから出た分を含む）。一覧の見出しと、ふり返りの「今月使った種類」の分母
 function hoimiAvailCount(open) {
-  return HOIMI_ITEMS.filter(function (x) { return x[2] !== HOIMI_LV; }).length + (open || hoimiUnlocked()).length;
+  open = open || hoimiUnlocked();
+  return HOIMI_ALL_KINDS.reduce(function (s, k) { return s + hoimiItemsOf(k, open).length; }, 0);
+}
+
+// 印を付けられるか：その組に今使える項目がほかに無く、控えも出てこないときは付けられない
+// （組が空になると、今日の組が作れなくなるため。指示書に無い手当て）
+function hoimiCanDrop(id) {
+  const k = hoimiKind(id);
+  if (!k) return false;
+  const items = hoimiItemsOf(k);
+  if (!items.some(function (x) { return x[0] === id; })) return false;
+  return items.length > 1 || (k !== HOIMI_LV && hoimiSpareInfo(k).left > 0);
+}
+
+// 印を付ける。今日の組に出ていた項目なら、同じ組の別の項目にその場で入れ替える。
+// 戻す手順を返す（印と今日の組を、付ける前に戻す）。［できた］の記録・経験値は触らない
+function hoimiDrop(id) {
+  const st = hoimiToday();
+  const before = JSON.stringify(st);
+  const drops = hoimiDropLoad();
+  if (drops.indexOf(id) < 0) drops.push(id);
+  hoimiDropSave(drops);
+  const i = st.ids.indexOf(id);
+  if (i >= 0) {
+    const k = hoimiKind(id);
+    st.ids[i] = hoimiPick(st.day + "#drop" + drops.length + "#" + k, st.skip.concat(st.ids, hoimiDoneIds()), k);
+    lsSet(HOIMI_KEY, JSON.stringify(st));
+  }
+  return function () {
+    hoimiDropSave(hoimiDropLoad().filter(function (x) { return x !== id; }));
+    lsSet(HOIMI_KEY, before);
+  };
+}
+
+// 印を外す（一覧のいちばん下の「使わない」の欄の［戻す］）。控えも、最後に出たものから引っ込む。
+// 引っ込んだ控えが今日の組にあれば、hoimiToday が同じ組の別の項目に入れ替える
+function hoimiUndrop(id) {
+  const before = lsGet(HOIMI_KEY, "{}");
+  const drops = hoimiDropLoad();
+  hoimiDropSave(drops.filter(function (x) { return x !== id; }));
+  return function () {
+    hoimiDropSave(drops);
+    lsSet(HOIMI_KEY, before);
+  };
 }
 
 // 次に増えるレベルと数（全部そろっていれば null）
@@ -3171,6 +3288,7 @@ function hoimiPick(seed, skip, kind, open) {
   const last = {};
   loadHoimiLog().forEach(function (r) { last[r[1]] = Math.max(last[r[1]] || 0, r[0]); });
   const all = hoimiItemsOf(kind, open);
+  if (!all.length) return "";   // 組が空（印の記録を読み込んだときなど）。並びから外す
   let cands = all.filter(function (x) { return skip.indexOf(x[0]) < 0; });
   if (!cands.length) cands = all;
   const now = Date.now();
@@ -3207,12 +3325,23 @@ function hoimiToday() {
     lsSet(HOIMI_KEY, JSON.stringify(st));
     return st;
   }
+  // 今使える項目か（増える組はレベル、v1.51.0 からは使わない印と控えも見る）
+  const can = {};
+  HOIMI_ALL_KINDS.forEach(function (k) { hoimiItemsOf(k, open).forEach(function (x) { can[x[0]] = true; }); });
+  const usable = function (id, k) { return hoimiKind(id) === k && !!can[id]; };
+  const skip = st.skip.concat(hoimiDoneIds());
+  // 前の3つのうち使えなくなった項目（印を付けた・引っ込んだ控え）は、その枠だけ同じ組の別の項目に替える
+  let fixed = false;
+  HOIMI_KINDS.forEach(function (k, i) {
+    if (usable(st.ids[i], k)) return;
+    st.ids[i] = hoimiPick(day + "#fix" + skip.length + "#" + k, skip.concat(st.ids), k, open);
+    fixed = true;
+  });
+  if (fixed) lsSet(HOIMI_KEY, JSON.stringify(st));
   // 4つ目・5つ目は、今の3つをそのままにして後ろだけ合わせる。4つ目の出す・出さないを切り替えたとき、
   // レベルが上がって5つ目が出せるようになったとき・増えた項目があるとき、元に戻してレベルが下がったとき
   const rest = kinds.slice(HOIMI_KINDS.length);
   const have = st.ids.slice(HOIMI_KINDS.length);
-  const usable = function (id, k) { return hoimiKind(id) === k && (k !== HOIMI_LV || open.indexOf(id) >= 0); };
-  const skip = st.skip.concat(hoimiDoneIds());
   // 「新しく増えた」項目は、［ほかの○つにする］で飛ばされていなければ5つ目に先に出す
   const fresh = hoimiFreshIds(open).filter(function (id) { return st.skip.indexOf(id) < 0; });
   const ids = rest.map(function (k) {
@@ -3682,7 +3811,7 @@ function hoimiStats(now) {
     s.months.push({ label: (m % 12 + 1) + "月", n: perMonth[m] || 0, now: m === thisMonth });
   }
   // よく使う5つ（この6か月）。同じ回数なら一覧の順
-  s.top = HOIMI_ITEMS.filter(function (x) { return freq[x[0]]; })
+  s.top = HOIMI_ITEMS.concat(HOIMI_SPARE).filter(function (x) { return freq[x[0]]; })   // 控えから出た項目も数える（v1.51.0）
     .map(function (x, i) { return { id: x[0], n: freq[x[0]], i: i }; })
     .sort(function (a, b) { return b.n - a.n || a.i - b.i; })
     .slice(0, 5);
@@ -3772,8 +3901,8 @@ function hoimiList(now) {
   const lv = hpState().lv;
   const unlocked = hoimiUnlocked(lv);
   let h = '<section class="hsec hlist"><h2>一覧（' + hoimiAvailCount(unlocked) + "）</h2>"
-    + '<div class="note">行を押すと［できた］が出ます。［できた］を押すと記録します（' + UNDO_SEC + "秒は元に戻せます）。"
-    + "右は最後にやった日です。</div>";
+    + '<div class="note">行を押すと［できた］と［使わない］が出ます。［できた］を押すと記録します（' + UNDO_SEC + "秒は元に戻せます）。"
+    + "［使わない］を押した項目は、今日の組にも次の組にも出なくなり、いちばん下の欄に移ります。右は最後にやった日です。</div>";
   HOIMI_ALL_KINDS.forEach(function (k) {
     // レベルで増えた組は、今使える分だけ並べる（まだのものは出さない）。0個のときは次に増えるレベルを書く
     const items = hoimiItemsOf(k, unlocked);
@@ -3783,15 +3912,37 @@ function hoimiList(now) {
       + items.map(function (x) {
         const a = hoimiAgo(last[x[0]], now);
         const open = HOIMI_PICKED === x[0];
+        // 開いた行には［使わない］（左・枠だけの灰色）と［できた］（右・緑）を16px離して並べる（v1.51.0。
+        // 前に誤タップの指摘があったため、見た目も位置も変える）。組の最後の1つには［使わない］を出さない
+        const drop = open && hoimiCanDrop(x[0])
+          ? '<button class="hbtn hdrop" type="button" data-hoimi-drop="' + esc(x[0]) + '">使わない</button>' : "";
         return '<div class="hitem' + (open ? " open" : "") + (cls ? " " + cls : "") + '">'
           + '<button class="hhead" type="button" data-hoimi-pick="' + esc(x[0]) + '" aria-expanded="' + open + '">'
           + hoimiNameHTML(x[0])
+          + (hoimiIsSpare(x[0]) ? '<small class="hspare">控えから</small>' : "")
           + '<span class="hago' + (a.cls ? " " + a.cls : "") + '">' + a.text + "</span></button>"
-          + (open ? '<div class="hact"><button class="hbtn go" type="button" data-hoimi-done="' + esc(x[0]) + '">できた</button></div>' : "")
+          + (open ? '<div class="hact">' + drop
+            + '<button class="hbtn go" type="button" data-hoimi-done="' + esc(x[0]) + '">できた</button></div>' : "")
           + "</div>";
       }).join("");
   });
-  return h + "</section>";
+  return h + hoimiDropList() + "</section>";
+}
+
+// 一覧のいちばん下：使わない印を付けた項目（畳んで始める。開閉は端末に覚えない）。［戻す］で印を外す
+let HOIMI_DROP_OPEN = false;
+function hoimiDropList() {
+  const drops = hoimiDropLoad();
+  if (!drops.length) return "";
+  let h = '<h3><button class="hdropfold" type="button" id="hoimi-drop-fold" aria-expanded="' + HOIMI_DROP_OPEN + '">'
+    + (HOIMI_DROP_OPEN ? "▾" : "▸") + " 使わない（" + drops.length + "）</button></h3>";
+  if (!HOIMI_DROP_OPEN) return h;
+  return h + '<div class="note">［戻す］を押すと、また出るようになります。これまでの［できた］の記録は残っています。</div>'
+    + drops.map(function (id) {
+      return '<div class="hitem dropped"><div class="hhead">' + hoimiNameHTML(id)
+        + '<small class="hspare">' + HOIMI_KIND_LABEL[hoimiKind(id)] + (hoimiIsSpare(id) ? "・控えから" : "") + "</small>"
+        + '<button class="hbtn" type="button" data-hoimi-undrop="' + esc(id) + '">戻す</button></div></div>';
+    }).join("");
 }
 
 // ホイミの画面（v1.46.0）。上＝今の3つ、中＝ふり返り、下＝一覧。
@@ -3828,7 +3979,26 @@ function hoimiRow() {
     + '<button class="tool-btn' + (off ? "" : " on") + '" type="button" id="toggle-hoimi">'
     + (off ? "出さない" : "出す") + "</button></div>"
     + toggleRow("ホイミの HP・経験値", "出さない間も経験値は数えています", "toggle-hp", !hpOff())
-    + toggleRow("ホイミの4つ目（職場向け）", "一覧の「職場向け」は出さないときも残ります", "toggle-hoimi-work", !hoimiWorkOff());
+    + toggleRow("ホイミの4つ目（職場向け）", "一覧の「職場向け」は出さないときも残ります", "toggle-hoimi-work", !hoimiWorkOff())
+    + hoimiSpareRow();
+}
+
+// 設定の段：使える数と、組ごとの控えの残り（v1.51.0、CODE_TASK_15）。
+// 補充できなかった組があれば「体の控えがなくなりました」と出す
+function hoimiSpareRow() {
+  try {
+    const drops = hoimiDropLoad();
+    const kinds = HOIMI_KINDS.concat([HOIMI_WORK]);   // 控えを持つ組
+    const info = kinds.map(function (k) { return { k: k, i: hoimiSpareInfo(k, drops) }; });
+    const fromSpare = info.reduce(function (s, x) { return s + x.i.used; }, 0)
+      - drops.filter(function (id) { return hoimiIsSpare(id); }).length;
+    const left = info.map(function (x) { return HOIMI_KIND_LABEL[x.k] + " " + x.i.left; }).join("・");
+    const out = info.filter(function (x) { return x.i.short > 0; }).map(function (x) {
+      return '<div class="note warn">' + HOIMI_KIND_LABEL[x.k] + "の控えがなくなりました（追加は Claude に頼んでください）</div>";
+    }).join("");
+    return '<div class="srow"><span>ホイミの使える数 ' + hoimiAvailCount()
+      + "<small>使わない " + drops.length + "・控えから " + fromSpare + "（控えの残り：" + left + "）</small></span></div>" + out;
+  } catch (e) { return ""; }
 }
 
 // 設定の「出す／出さない」の1段
@@ -4656,6 +4826,35 @@ APP.addEventListener("click", function (ev) {
     const undo = hoimiDone(id);
     pushUndo(hoimiMsg(), undo);
     HOIMI_PICKED = "";
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // ホイミの一覧：使わない（v1.51.0）→ 印を付け、今日の組に出ていれば同じ組の別の項目に替える。15秒は戻せる
+  const dropBtn = ev.target.closest("[data-hoimi-drop]");
+  if (dropBtn) {
+    const id = dropBtn.dataset.hoimiDrop;
+    if (!hoimiCanDrop(id)) return;
+    pushUndo("「" + hoimiName(id) + "」を使わない項目にしました", hoimiDrop(id));
+    HOIMI_PICKED = "";
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // ホイミの一覧のいちばん下：使わない（n）の開閉と、［戻す］
+  if (ev.target.closest("#hoimi-drop-fold")) {
+    HOIMI_DROP_OPEN = !HOIMI_DROP_OPEN;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  const undropBtn = ev.target.closest("[data-hoimi-undrop]");
+  if (undropBtn) {
+    const id = undropBtn.dataset.hoimiUndrop;
+    pushUndo("「" + hoimiName(id) + "」を戻しました", hoimiUndrop(id));
     const y = window.scrollY;
     rerender();
     window.scrollTo(0, y);

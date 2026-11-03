@@ -959,7 +959,18 @@
   .hitem .hname { font-weight: 400; }
   .hitem.open { background: var(--pick-bg); }
   .hitem.open .hname { font-weight: 700; }
-  .hitem .hact { display: flex; justify-content: flex-end; padding: 0 10px 8px; }
+  .hitem .hact { display: flex; justify-content: flex-end; gap: 16px; padding: 0 10px 8px; }
+  /* ［使わない］は枠だけの灰色で左、［できた］とは16px離す（v1.51.0。誤タップの指摘があったため見た目も位置も変える） */
+  .hitem .hact .hdrop { margin-right: auto; }
+  /* 控えから出た項目の小さな札・使わない欄の組の名前（文字は --sub。カードの上で 4.83・暗い 6.35） */
+  .hspare { flex: none; color: var(--sub); font-size: calc(11px * var(--fs)); white-space: nowrap; }
+  .hdropfold {
+    min-height: 44px; padding: 0; border: 0; background: transparent; cursor: pointer;
+    color: var(--sub); font: inherit; font-weight: 700;
+  }
+  .hitem.dropped .hhead { cursor: default; }
+  .hitem.dropped .hname { font-weight: 400; color: var(--sub); }
+  .note.warn { color: var(--zhi); font-weight: 700; }
   .hitem.work .hhead { border-left: 4px solid var(--work-ink); }
   .hitem.lv .hhead { border-left: 4px solid var(--lv-ink); }
   .hitem .hago { color: var(--sub); font-size: calc(12px * var(--fs)); white-space: nowrap; }
