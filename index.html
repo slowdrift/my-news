@@ -201,6 +201,10 @@
   .settings .srow.backup { flex-wrap: wrap; row-gap: 6px; }
   .settings .srow.backup span { flex-basis: 100%; }
   .settings .srow.backup .tool-btn { white-space: nowrap; }
+  /* 改善メモの2つのボタン（v1.56.0）。リンクをボタンの形にし、押しやすいよう高さ44px以上にする */
+  .settings .srow.memo .tool-btn {
+    display: inline-flex; align-items: center; min-height: 44px; text-decoration: none;
+  }
   /* 記録を読み込む前の確認（今の端末とファイルの件数を並べる） */
   .import-box td:nth-child(n+2) { text-align: right; white-space: nowrap; }
   .import-box b { color: var(--ink); }
