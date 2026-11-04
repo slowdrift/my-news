@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.54.0";
+const APP_VERSION = "v1.55.0";
 const CHANGELOG = [
+  ["v1.55.0", "2026-11-05", "ホイミに6つ足した（体に「喉仏をスライドする」「筋肉に意識を向ける」、頭と心に『すごい習慣大百科』の「運がいいと思い込む」など4つ）。足した項目は、初めて見る日のうちは今日の組に先に出て「✨ 新しく増えた」の札が付く"],
   ["v1.54.0", "2026-11-03", "何もしなくても昼間は HP が減るようにした（9時から毎時0分に10、1日50まで＝何もしなければ13時に50）。ホイミで回復できる。経験値は変えていない"],
   ["v1.53.0", "2026-11-03", "スマホの戻るボタンで、ホイミ・読んだ記事・お気に入り・新着・発掘の画面から開く前の画面へ戻れるようにした。設定の記録の控えに前回の書き出し日を出すようにした。天気の絵を、文の最初に出てくる主な天気で選ぶようにした（「所により雨」で ☔ にならない）"],
   ["v1.52.0", "2026-11-03", "上部を低くした。天気の時間帯ごとの降水確率を縦の棒から「朝 20%」の横長の札1行に、株価のカードの見出しを「株価」「29銘柄中 ▲12 ▼17」に、ホイミのカードの「次は ○○」の段を外して丸と今日の回数を HP の行の右に移した"],
@@ -2981,6 +2982,15 @@ const HOIMI_ITEMS = [
   ["h21", "家族に一言声をかける", "mind", "「お疲れさま」など短くてよい"],
   ["h22", "誰かに短いメッセージを送る", "mind", "気軽な一言を1通だけ"],
   ["h23", "好きな写真を1枚見る", "mind", "家族や旅の写真を1枚"],
+  // 利用者が自分で選んで足したもの（u〇〇。CODE_TASK_17、2026-11-05）。「安定するまで100個」の外として数える。
+  // u02〜u06 は堀田秀吾『科学的に証明された すごい習慣大百科』（SBクリエイティブ）の項目名のまま。
+  // 説明は本の目次の副題を短くしたもの（u05 の「動かさずに」と、u01 の説明は Claude の案）
+  ["u01", "喉仏をスライドする", "body", "喉仏に指を軽く当て、左右にやさしく動かす"],
+  ["u02", "運がいいと思い込む", "mind", "運がいいと思うから、運がよくなる"],
+  ["u03", "「サティスファイサー」になる", "mind", "選んだ結果に「最高の結果」を求めない"],
+  ["u04", "小さな新しいことをする", "mind", "「半歩先にある新しいこと」を1つ"],
+  ["u05", "筋肉に意識を向ける", "body", "動かさずに、筋肉に意識を集中させる"],
+  ["u06", "「イフ・ゼン・プランニング」をする", "mind", "もし「A」をしたら「B」をする、とあらかじめ決めておく"],
   // 職場向け（13。CODE_TASK_11 ⑥。言い回しは指示書のとおり。出典は README）
   ["w01", "首を横に倒して伸ばす", "work", "左右10秒ずつ。座ったままできる"],
   ["w02", "座ったまま上体をひねる", "work", "片手を反対のひざに置き、ゆっくり左右"],
@@ -3051,6 +3061,9 @@ const HOIMI_KEY ="mynews_hoimi";          // { day: "2026-10-29", ids: [今日�
 // レベルが上がって増えた項目（v1.48.0）。{ ids: [増えた項目], day: 初めて見せた日（まだなら ""） }。
 // 初めて見せた日のうちは、5つ目にこの項目を先に出し「新しく増えた」の札を付ける
 const HOIMI_NEW_KEY = "mynews_hoimi_new";
+// 利用者が足した項目（u〇〇）のうち、この端末で「新しく増えた」として覚え終えた番号（v1.55.0）。[番号, …]。
+// 版を上げて u〇〇 が増えたら、まだ覚えていない分だけを1回だけ「新しく増えた」にする
+const HOIMI_ADDED_KEY = "mynews_hoimi_added";
 const HOIMI_LOG_KEY = "mynews_hoimi_log";  // [[できた時刻(ms), 項目の番号], …]
 const HOIMI_OFF_KEY = "mynews_hoimi_off";  // "1" なら出さない（既定は出す）
 const HOIMI_WORK_OFF_KEY = "mynews_hoimi_work_off";   // "1" なら4つ目（職場向け）を出さない（既定は出す。v1.47.0）
@@ -3262,6 +3275,7 @@ function hoimiSetFresh(ids) {
 // ホイミの3〜5つを画面に出したとき：増えた項目をまだ見せていなければ、今日を「初めて見せた日」にする
 // （オ：レベルが上がったのが夜や、ホイミを開かなかった日でも見逃さないように。利用者の了承 2026-10-31）
 function hoimiSeen() {
+  hoimiAddedSync();
   const cur = hoimiFreshLoad();
   if (cur.ids.length && cur.day === "") {
     cur.day = dayKey(Date.now());
@@ -3269,13 +3283,30 @@ function hoimiSeen() {
   }
 }
 
-// 今「新しく増えた」として先に出す項目（初めて見せた日のうち・まだ使える・今日まだやっていない）
+// 利用者が足した項目（u〇〇）で、この端末がまだ覚えていないものを「新しく増えた」に足す（v1.55.0、CODE_TASK_17）
+function hoimiAddedSync() {
+  let done = [];
+  try { done = JSON.parse(lsGet(HOIMI_ADDED_KEY, "[]") || "[]"); } catch (e) { done = []; }
+  if (!Array.isArray(done)) done = [];
+  const add = HOIMI_ITEMS.filter(function (x) { return /^u\d/.test(x[0]) && done.indexOf(x[0]) < 0; })
+    .map(function (x) { return x[0]; });
+  if (!add.length) return;
+  hoimiSetFresh(add);
+  lsSet(HOIMI_ADDED_KEY, JSON.stringify(done.concat(add)));
+}
+
+// 今「新しく増えた」として先に出す項目（初めて見せた日のうち・まだ使える・今日まだやっていない）。
+// v1.55.0 から、レベルで増えた項目だけでなく、利用者が足した体・頭と心の項目も入る
 function hoimiFreshIds(open) {
   const cur = hoimiFreshLoad();
   if (!cur.ids.length || cur.day !== dayKey(Date.now())) return [];
   open = open || hoimiUnlocked();
   const done = hoimiDoneIds();
-  return cur.ids.filter(function (id) { return open.indexOf(id) >= 0 && done.indexOf(id) < 0; });
+  const can = function (id) {
+    const k = hoimiKind(id);
+    return !!k && hoimiItemsOf(k, open).some(function (x) { return x[0] === id; });   // 使わない印の付いた項目は出さない
+  };
+  return cur.ids.filter(function (id) { return can(id) && done.indexOf(id) < 0; });
 }
 
 // 今出す組。4つ目（職場向け）は設定で止められる。5つ目（レベルで増えた）は、増えた項目が1つ以上あれば出す
@@ -3305,12 +3336,11 @@ function hoimiSeed(str) {
 // 1つの組の中から1つ選ぶ。最後にやってから日が空いた項目ほど選ばれやすくする
 // （コーピングアプリの「ふと、これは？」と同じ考え方）。重み＝空いた日数＋1。
 // まだ一度もやっていない項目は、十分に久しぶりの項目と同じ扱い。きょう出した項目（skip）は避ける。
-// 5つ目（レベルで増えた）は、今使える分から選び、「新しく増えた」項目があればそれを先に出す（v1.48.0）
+// 5つ目（レベルで増えた）は、今使える分から選び、「新しく増えた」項目があればそれを先に出す（v1.48.0）。
+// v1.55.0 から、ほかの組でも「新しく増えた」項目（利用者が足した u〇〇）を先に出す
 function hoimiPick(seed, skip, kind, open) {
-  if (kind === HOIMI_LV) {
-    const fresh = hoimiFreshIds(open).filter(function (id) { return skip.indexOf(id) < 0; });
-    if (fresh.length) return fresh[0];
-  }
+  const fresh = hoimiFreshIds(open).filter(function (id) { return skip.indexOf(id) < 0 && hoimiKind(id) === kind; });
+  if (fresh.length) return fresh[0];
   const last = {};
   loadHoimiLog().forEach(function (r) { last[r[1]] = Math.max(last[r[1]] || 0, r[0]); });
   const all = hoimiItemsOf(kind, open);
@@ -3363,16 +3393,27 @@ function hoimiToday() {
     st.ids[i] = hoimiPick(day + "#fix" + skip.length + "#" + k, skip.concat(st.ids), k, open);
     fixed = true;
   });
+  // 「新しく増えた」項目は、［ほかの○つにする］で飛ばされていなければ、その組の枠に先に出す
+  // （5つ目は v1.48.0 から。前の3つの枠も、利用者が足した u〇〇 のために v1.55.0 から）
+  const fresh = hoimiFreshIds(open).filter(function (id) { return st.skip.indexOf(id) < 0; });
+  const freshOf = function (k) { return fresh.filter(function (id) { return hoimiKind(id) === k; }); };
+  // 今日やった項目の枠は置き換えない。［できた］の直後に hoimiNext がここを通るので、置き換えると
+  // 次の「新しく増えた」項目が「今出していた項目」として飛ばされてしまう（v1.55.0 の試しで見つけた）
+  const doneNow = hoimiDoneIds();
+  const swap = function (id, f) { return f.length && f.indexOf(id) < 0 && doneNow.indexOf(id) < 0; };
+  HOIMI_KINDS.forEach(function (k, i) {
+    const f = freshOf(k);
+    if (swap(st.ids[i], f)) { st.ids[i] = f[0]; fixed = true; }
+  });
   if (fixed) lsSet(HOIMI_KEY, JSON.stringify(st));
   // 4つ目・5つ目は、今の3つをそのままにして後ろだけ合わせる。4つ目の出す・出さないを切り替えたとき、
   // レベルが上がって5つ目が出せるようになったとき・増えた項目があるとき、元に戻してレベルが下がったとき
   const rest = kinds.slice(HOIMI_KINDS.length);
   const have = st.ids.slice(HOIMI_KINDS.length);
-  // 「新しく増えた」項目は、［ほかの○つにする］で飛ばされていなければ5つ目に先に出す
-  const fresh = hoimiFreshIds(open).filter(function (id) { return st.skip.indexOf(id) < 0; });
   const ids = rest.map(function (k) {
     const keep = have.filter(function (id) { return usable(id, k); })[0];
-    if (k === HOIMI_LV && fresh.length && fresh.indexOf(keep) < 0) return fresh[0];
+    const f = freshOf(k);
+    if (swap(keep, f)) return f[0];
     return keep || hoimiPick(day + "#" + skip.length + "#" + k, skip, k, open);
   });
   if (ids.join() !== have.join()) {
@@ -3472,6 +3513,7 @@ function hoimiCard(inView) {
         const tag = kind === HOIMI_WORK ? '<span class="wtag">職場向け</span>'
           : kind === HOIMI_LV ? '<span class="ltag">' + (fresh.indexOf(id) >= 0
             ? "✨ 新しく増えた（Lv " + hoimiLvOf(id) + "）" : "レベルで増えた") + "</span>"
+          : fresh.indexOf(id) >= 0 ? '<span class="ntag">✨ 新しく増えた</span>'   // 利用者が足した u〇〇（v1.55.0）
           : "";
         return '<div class="hrow' + cls + '">'
           + tag + hoimiNameHTML(id)

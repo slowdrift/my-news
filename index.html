@@ -828,6 +828,9 @@
     border-left: 4px solid var(--lv-ink); border-radius: 6px; background: var(--lv-bg);
   }
   .ltag { flex-basis: 100%; color: var(--lv-ink); font-size: calc(11px * var(--fs)); font-weight: 700; }
+  /* 利用者が足した項目の「新しく増えた」の札（v1.55.0）。色は一覧の「○日ぶり✨」と同じ */
+  .hoimi .hrow:has(.ntag) { flex-wrap: wrap; row-gap: 0; }
+  .ntag { flex-basis: 100%; color: var(--found-ink); font-size: calc(11px * var(--fs)); font-weight: 700; }
   /* ［ほかの3つにする］は［できた］の列から16px離し、枠だけの灰色にして見た目を変える */
   .hoimi .hbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
   .hbtn {
