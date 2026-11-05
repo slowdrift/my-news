@@ -467,6 +467,14 @@
   }
 
   /* 版と更新履歴 */
+  /* 朝刊のいちばん下の改善メモ（v1.57.0）。ボタンは設定の行と同じ形で、高さ44px以上 */
+  .memofoot {
+    margin-top: 24px; padding: 10px 12px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--line); color: var(--sub); font-size: calc(12px * var(--fs));
+  }
+  .memofoot .mlabel small { display: block; font-size: calc(10.5px * var(--fs)); opacity: .85; }
+  .memofoot .mbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .memofoot .tool-btn { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; white-space: nowrap; }
   footer.ver { margin-top: 30px; border-top: 1px solid var(--line); padding-top: 10px; }
   footer.ver summary {
     cursor: pointer; font-size: calc(11.5px * var(--fs)); color: var(--sub);

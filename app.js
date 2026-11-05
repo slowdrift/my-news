@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.56.0";
+const APP_VERSION = "v1.57.0";
 const CHANGELOG = [
+  ["v1.57.0", "2026-11-06", "改善メモの2つのボタンを、朝刊のいちばん下（ウォッチ銘柄の下）にも置いた。設定を開かずに書ける（設定の行も残す）"],
   ["v1.56.0", "2026-11-05", "設定に「改善メモ」を足した。［📝 改善メモを書く］で GitHub の書く画面がひな形付きで開き、［一覧を見る］で書きためたメモが見られる（公開されるので個人的なことは書かない）"],
   ["v1.55.0", "2026-11-05", "ホイミに6つ足した（体に「喉仏をスライドする」「筋肉に意識を向ける」、頭と心に『すごい習慣大百科』の「運がいいと思い込む」など4つ）。足した項目は、初めて見る日のうちは今日の組に先に出て「✨ 新しく増えた」の札が付く"],
   ["v1.54.0", "2026-11-03", "何もしなくても昼間は HP が減るようにした（9時から毎時0分に10、1日50まで＝何もしなければ13時に50）。ホイミで回復できる。経験値は変えていない"],
@@ -2175,7 +2176,6 @@ function beforeImport() {
   } catch (e) { return null; }
 }
 
-// 設定の中の1段。書き出し・読み込みのボタンと、読み込む前の確認を出す。
 // 改善メモ（v1.56.0、CODE_TASK_18）。思いついた改善をスマホからその場で GitHub の Issue に書いておき、
 // あとで Claude Code にまとめて片づけてもらう（置き場所は利用者が選んだ。Claude Code が直接読めるため）。
 // リポジトリは公開なので、書いた内容は誰でも読める（利用者は了承済み）。書くには GitHub へのログインが要る
@@ -2183,16 +2183,29 @@ const MEMO_REPO = "https://github.com/slowdrift/my-news/issues";
 const MEMO_LABEL = "改善メモ";
 const MEMO_BODY = "どの画面で：\n困っていること・やりたいこと：\n";   // 書く画面の本文に入れておくひな形（題名は空のまま）
 
-function memoRow() {
+const MEMO_NOTE = "GitHub に書きます。公開されるので、個人的なことは書かないでください";
+
+// 2つのボタン（書く・一覧を見る）。設定の行と、朝刊のいちばん下で同じものを使う
+function memoLinks() {
   const write = MEMO_REPO + "/new?labels=" + encodeURIComponent(MEMO_LABEL) + "&body=" + encodeURIComponent(MEMO_BODY);
   const list = MEMO_REPO + "?q=" + encodeURIComponent("is:open label:" + MEMO_LABEL);
-  return '<div class="srow backup memo"><span>改善メモ'
-    + "<small>GitHub に書きます。公開されるので、個人的なことは書かないでください</small></span>"
-    + '<a class="tool-btn" href="' + esc(write) + '" target="_blank" rel="noopener">📝 改善メモを書く</a>'
-    + '<a class="tool-btn" href="' + esc(list) + '" target="_blank" rel="noopener">一覧を見る</a>'
-    + "</div>";
+  return '<a class="tool-btn" href="' + esc(write) + '" target="_blank" rel="noopener">📝 改善メモを書く</a>'
+    + '<a class="tool-btn" href="' + esc(list) + '" target="_blank" rel="noopener">一覧を見る</a>';
 }
 
+function memoRow() {
+  return '<div class="srow backup memo"><span>改善メモ<small>' + esc(MEMO_NOTE) + "</small></span>"
+    + memoLinks() + "</div>";
+}
+
+// 朝刊のいちばん下、ウォッチ銘柄の欄と更新情報の間（v1.57.0、改善メモ #2）。
+// 利用者の要望「設定を開かずに、少ないタップで書けるように」。設定の行も残す（利用者の決定 2026-11-06）
+function memoFoot() {
+  return '<div class="memofoot"><div class="mlabel">改善メモ<small>' + esc(MEMO_NOTE) + "</small></div>"
+    + '<div class="mbtns">' + memoLinks() + "</div></div>";
+}
+
+// 設定の中の1段。書き出し・読み込みのボタンと、読み込む前の確認を出す。
 function backupRow() {
   const c = countStorage(snapshotStorage());
   const since = READLOG.length ? READLOG[0][0] : 0;
@@ -4628,6 +4641,7 @@ function render(data) {
   }
 
   parts.push(stockBlock(data.stocks));
+  parts.push(memoFoot());
   parts.push(versionBlock(data.generated_at));
 
   if (window.console && console.table) {
