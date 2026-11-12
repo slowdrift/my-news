@@ -926,6 +926,35 @@
   .hsec h3 { font-size: calc(12.5px * var(--fs)); color: var(--sub); margin: 16px 0 6px; }
   .hsec h3.work { color: var(--work-ink); }
   .hsec h3.lv { color: var(--lv-ink); }
+  /* ホイミの画面の「いいこと」（v1.59.0）。今の3つのすぐ下。畳んだ1行から始める。
+     色は今ある変数だけを使う（3つの配色で自動的に合う）。
+     名前は glog（.good は記事の👍のボタンが使っている） */
+  .glog { margin: 12px 0 4px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .glog .gfold {
+    display: block; width: 100%; min-height: 44px; padding: 0; border: 0; background: transparent;
+    color: var(--ink); font-family: inherit; font-size: calc(14px * var(--fs)); font-weight: 700; text-align: left; cursor: pointer;
+  }
+  .glog .gbody { padding-bottom: 10px; }
+  .glog textarea {
+    display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+    font-family: inherit; font-size: calc(14px * var(--fs)); line-height: 1.5; resize: vertical;
+  }
+  .glog .hbtns { display: flex; gap: 8px; margin-top: 8px; }
+  .glog .glist { list-style: none; margin: 14px 0 0; padding: 0; }
+  .glog .glist li {
+    display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: start;
+    padding: 10px 0; border-top: 1px solid var(--line);
+  }
+  .glog .gdate { grid-column: 1; color: var(--sub); font-size: calc(11.5px * var(--fs)); }
+  /* 書いたときの改行をそのまま見せる */
+  .glog .gtext { grid-column: 1; color: var(--ink); font-size: calc(14px * var(--fs)); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* ［消す］は枠だけの灰色（押し間違えても15秒は戻せる）。高さ44px */
+  .glog .gdel {
+    grid-column: 2; grid-row: 1 / span 2; min-height: 44px; min-width: 44px; padding: 0 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--sub);
+    font-family: inherit; font-size: calc(12px * var(--fs)); cursor: pointer;
+  }
   /* ふり返りの一番上：レベル・経験値・今月使った種類（v1.47.0） */
   .hsum { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
   .hlv { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 10px; }

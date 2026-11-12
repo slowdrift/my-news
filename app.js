@@ -10,8 +10,9 @@
 const APP = document.getElementById("app");
 
 // 画面最下部に出す版と更新履歴。改修のたびにここへ1行足す。
-const APP_VERSION = "v1.58.0";
+const APP_VERSION = "v1.59.0";
 const CHANGELOG = [
+  ["v1.59.0", "2026-11-13", "ホイミの画面に「いいこと」を足した。良かったことを書きためて、あとで読み返せる（スマホの中だけに残り、公開されない）。「いいことを読む」が出たら［読む］で開ける"],
   ["v1.58.0", "2026-11-09", "新しいカテゴリ「しま」を足した。小さな島の暮らし・民俗・方言の記事を、1日5本まで出す（観光・祭り・欠航の知らせは出さない）"],
   ["v1.57.0", "2026-11-06", "改善メモの2つのボタンを、朝刊のいちばん下（ウォッチ銘柄の下）にも置いた。設定を開かずに書ける（設定の行も残す）"],
   ["v1.56.0", "2026-11-05", "設定に「改善メモ」を足した。［📝 改善メモを書く］で GitHub の書く画面がひな形付きで開き、［一覧を見る］で書きためたメモが見られる（公開されるので個人的なことは書かない）"],
@@ -135,7 +136,11 @@ let HOIMI_BACK_Y = 0;
 // 一覧で［できた］を出している行の番号（v1.47.0）。押しただけでは記録せず、行の中に［できた］を出す。
 // スクロールのつもりで触れて記録されてしまうことがあったため（CODE_TASK_11 ①）
 let HOIMI_PICKED = "";
-let SHOW_READ = false;     // 読んだ記事の一覧を見ているか
+// ホイミの画面の「いいこと」の欄（v1.59.0）。開いているか・書きかけの文。どちらも端末には覚えさせない
+// （書きかけは、ほかのボタンで画面を描き直しても消えないように持っておく）
+let GOOD_OPEN = false;
+let GOOD_DRAFT = "";
+let SHOW_READ = false;    // 読んだ記事の一覧を見ているか
 // 「きょうの新着だけ」を見る画面。ボタンを増やさず、見出しの数字を入口にする。
 // 一時的な見方なので端末には覚えさせない（次に開いたときは通常表示に戻る）。
 let SHOW_FRESH = false;
@@ -3517,6 +3522,81 @@ function hoimiDone(id) {
   };
 }
 
+// 「いいこと」（v1.59.0、利用者の依頼 2026-11-12）。良かったことを数行まで書きためて、読み返す。
+// 元のコーピングアプリにあった仕組みで、ホイミの「いいことを読む」（i66）の読み返す元になる。
+// 書いた文はこの端末の中だけに置く（GitHub には送らない）。名前が mynews_ で始まるので書き出しの控えに入る。
+// 書いてもホイミの［できた］には数えない（HP・経験値は変わらない＝利用者の決定）
+// （GOOD_KEY は👍の記録の名前なので、こちらは GOODLOG_KEY）
+const GOODLOG_KEY = "mynews_goodlog";   // [[書いた時刻(ms), 文], …]
+const GOOD_READ_ID = "i66";          // ホイミの「いいことを読む」
+
+function loadGood() {
+  try {
+    const v = JSON.parse(lsGet(GOODLOG_KEY, "[]") || "[]");
+    return Array.isArray(v) ? v.filter(function (r) {
+      return Array.isArray(r) && typeof r[0] === "number" && typeof r[1] === "string";
+    }) : [];
+  } catch (e) { return []; }
+}
+
+function saveGood(list) { lsSet(GOODLOG_KEY, JSON.stringify(list)); }
+
+// 1件足す。戻す手順を返す（足した1件だけを消す）
+function goodAdd(text) {
+  const row = [Date.now(), text];
+  const list = loadGood();
+  list.push(row);
+  saveGood(list);
+  return function () {
+    saveGood(loadGood().filter(function (r) { return !(r[0] === row[0] && r[1] === row[1]); }));
+  };
+}
+
+// 1件消す（書いた時刻で探す）。戻す手順を返す（同じ場所に戻す）
+function goodDel(at) {
+  const list = loadGood();
+  const i = list.findIndex(function (r) { return r[0] === at; });
+  if (i < 0) return null;
+  const row = list[i];
+  list.splice(i, 1);
+  saveGood(list);
+  return function () {
+    const now = loadGood();
+    now.splice(Math.min(i, now.length), 0, row);
+    saveGood(now);
+  };
+}
+
+// 書いた日の見出し（例：11/13（金））。年が違えば年も付ける
+function goodDate(ms) {
+  const d = new Date(ms);
+  const wd = "日月火水木金土"[d.getDay()];
+  return (d.getFullYear() !== new Date().getFullYear() ? d.getFullYear() + "/" : "")
+    + (d.getMonth() + 1) + "/" + d.getDate() + "（" + wd + "）";
+}
+
+// ホイミの画面の「いいこと」の欄。畳んだ1行から始め（ふり返り・一覧を下へ押し出さないため）、
+// 開くと書く欄と、今まで書いたものを新しい順に全部出す
+function goodBlock() {
+  const list = loadGood();
+  const head = '<button class="gfold" type="button" id="good-fold" aria-expanded="' + GOOD_OPEN + '">'
+    + (GOOD_OPEN ? "▾" : "▸") + " いいこと（" + list.length + "件）</button>";
+  // 名前は glog（「good」は記事の👍のボタンが使っていて、押すと👍の処理に入ってしまうため）
+  if (!GOOD_OPEN) return '<section class="glog" id="glog">' + head + "</section>";
+  return '<section class="glog" id="glog">' + head
+    + '<div class="gbody">'
+    + '<div class="note">良かったことを書きためて、あとで読み返せます。この端末の中だけに残り、公開されません。</div>'
+    + '<textarea id="good-text" rows="3" placeholder="今日のいいこと">' + esc(GOOD_DRAFT) + "</textarea>"
+    + '<div class="hbtns"><button class="hbtn go" type="button" id="good-save">書きためる</button></div>'
+    + (list.length ? '<ul class="glist">' + list.slice().reverse().map(function (r) {
+      return '<li><div class="gdate">' + esc(goodDate(r[0])) + "</div>"
+        + '<div class="gtext">' + esc(r[1]) + "</div>"
+        + '<button class="gdel" type="button" data-good-del="' + r[0] + '">消す</button></li>';
+    }).join("") + "</ul>"
+      : '<div class="note">まだありません。</div>')
+    + "</div></section>";
+}
+
 // 名前と、その下の小さな説明（今の3つ・一覧で同じ形）
 function hoimiNameHTML(id) {
   const d = hoimiDesc(id);
@@ -3550,6 +3630,8 @@ function hoimiCard(inView) {
           : "";
         return '<div class="hrow' + cls + '">'
           + tag + hoimiNameHTML(id)
+          // 「いいことを読む」には、書きためた「いいこと」を開く［読む］を添える（v1.59.0）
+          + (id === GOOD_READ_ID ? '<button class="hbtn" type="button" data-good-open="1">読む</button>' : "")
           + '<button class="hbtn go" type="button" data-hoimi-done="' + esc(id) + '">できた</button></div>';
       }).join("")
       + '<div class="hbtns"><button class="hbtn" type="button" id="hoimi-next">↻ ほかの' + k + "つにする</button>"
@@ -4082,6 +4164,7 @@ function renderHoimiView(data) {
     + '<button class="newcount on" type="button" id="hoimi-back">← 戻る</button>'
     + (hpOff() ? '<span class="unread">1〜2分のひと休み</span>' : hpGauge()) + "</div></header>"
     + hoimiCard(true)
+    + goodBlock()   // 今の3つのすぐ下（v1.59.0）
     + hoimiReview(hoimiStats(now))
     + hoimiList(now);
 }
@@ -4980,6 +5063,53 @@ APP.addEventListener("click", function (ev) {
     navEnter("");   // ほかの画面の上に重ねて開くので、いつも印を増やす
     return;
   }
+  // 「いいこと」（v1.59.0）：欄の開閉
+  if (ev.target.closest("#good-fold")) {
+    GOOD_OPEN = !GOOD_OPEN;
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // 「いいことを読む」の［読む］→ 欄を開いてそこまで送る。ホイミの画面の外（新着0件の枠）なら画面へ移る
+  if (ev.target.closest("[data-good-open]")) {
+    GOOD_OPEN = true;
+    if (!SHOW_HOIMI) {
+      HOIMI_BACK_Y = window.scrollY || 0;
+      SHOW_HOIMI = true;
+      HOIMI_PICKED = "";
+      rerender();
+      navEnter("");
+    } else {
+      rerender();
+    }
+    const el = document.getElementById("glog");
+    if (el && el.scrollIntoView) el.scrollIntoView();
+    return;
+  }
+  // 「いいこと」：書きためる。空なら何もしない。15秒は戻せる
+  if (ev.target.closest("#good-save")) {
+    const box = document.getElementById("good-text");
+    const text = (box ? box.value : GOOD_DRAFT).trim();
+    if (!text) { toast("書いてから押してください"); return; }
+    pushUndo("いいことを書きためました", goodAdd(text));
+    GOOD_DRAFT = "";
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
+  // 「いいこと」：消す。15秒は戻せる（同じ場所に戻る）
+  const goodDelBtn = ev.target.closest("[data-good-del]");
+  if (goodDelBtn) {
+    const undo = goodDel(Number(goodDelBtn.dataset.goodDel));
+    if (!undo) return;
+    pushUndo("いいことを1件消しました", undo);
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo(0, y);
+    return;
+  }
   // ホイミの画面から戻る（開く前に見ていた位置へ。戻るボタンと同じ道を通す）
   if (ev.target.closest("#hoimi-back")) {
     navLeave();
@@ -5630,6 +5760,10 @@ APP.addEventListener("compositionend", function (ev) {
   if (!ev.target.matches("#search-input")) return;
   COMPOSING = false;
   scheduleSearch(ev.target.value, 0);   // 確定したらすぐ探す
+});
+// 「いいこと」の書きかけを持っておく（ほかのボタンで描き直しても消えないように。v1.59.0）
+APP.addEventListener("input", function (ev) {
+  if (ev.target.matches("#good-text")) GOOD_DRAFT = ev.target.value;
 });
 APP.addEventListener("input", function (ev) {
   if (!ev.target.matches("#search-input")) return;
